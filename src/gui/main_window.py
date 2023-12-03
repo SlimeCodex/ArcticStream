@@ -25,11 +25,15 @@ from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.styles import *
 
+from pathlib import Path
+import sys
+
+# Enable debug window at the bottom
 DEBUG_WINDOW = True
 
 class MainWindow(SSCWindowProperties):
 	def __init__(self):
-		super().__init__()
+		super().__init__(self)
 		self.bleHandler = BLEHandler()
 		self.bleHandler.connectionCompleted.connect(self.callback_connection_success)
 		self.bleHandler.deviceDisconnected.connect(self.callback_disconnected)
@@ -42,6 +46,7 @@ class MainWindow(SSCWindowProperties):
 		self.resize(800, 400)
 
 		self.setup_layout()
+		self.icon_path()
 
 	# GUI Functions ------------------------------------------------------------------------------------------
 
@@ -119,6 +124,15 @@ class MainWindow(SSCWindowProperties):
 		elif mode == "Disconnected":
 			self.setStyleSheet("MainWindow {border: 2px solid darkred;}")
 			self.setTitleStatus("Disconnected")
+
+	# Get the icon path
+	def icon_path(self):
+		if getattr(sys, 'frozen', False):
+			application_path = Path(sys._MEIPASS)
+		else:
+			application_path = Path(__file__).resolve().parent.parent
+		icons_dir = application_path / "resources" / "icons"
+		return icons_dir
 
 	def closeEvent(self, event):
 		if not self.connectionTab.is_closing:

@@ -32,11 +32,6 @@ import qasync
 import time
 import os
 
-# Get the icons directory
-script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parent
-icons_dir = base_dir / "resources" / "icons"
-
 class UpdaterWindow(QWidget):
 	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
 		super().__init__()
@@ -76,6 +71,7 @@ class UpdaterWindow(QWidget):
 		self.chunkSize = 500
 		self.start_time = 0
 		self.elapsed_str = "00:00:00"
+		self.icons_dir = self.mainWindow.icon_path()
 
 		self.setup_layout()
 	
@@ -98,7 +94,7 @@ class UpdaterWindow(QWidget):
 		self.folderButton = QPushButton(self)
 		self.folderButton.setFixedSize(25, 25)
 		self.folderButton.clicked.connect(self.setPath)
-		self.svgIcon = QIcon(f"{icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg")
+		self.svgIcon = QIcon(f"{self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg")
 		self.folderButton.setIcon(self.svgIcon)
 
 		# Main text area for accumulating text

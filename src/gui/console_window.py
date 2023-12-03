@@ -28,11 +28,6 @@ from pathlib import Path
 import asyncio
 import qasync
 
-# Get the icons directory
-script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parent
-icons_dir = base_dir / "resources" / "icons"
-
 class ConsoleWindow(QWidget):
 	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
 		super().__init__()
@@ -57,9 +52,9 @@ class ConsoleWindow(QWidget):
 		self.dataCounter = 0
 		self.isLocked = True
 		self.isPaused = False
-		
 		self.isLogging = False
 		self.logFilePath = None
+		self.icons_dir = self.mainWindow.icon_path()
 
 		self.setup_layout()
 
@@ -84,7 +79,7 @@ class ConsoleWindow(QWidget):
 		self.lockButton = QPushButton(self)
 		self.lockButton.setFixedSize(25, 25)
 		self.lockButton.clicked.connect(self.togglelLock)
-		self.svgIcon = QIcon(f"{icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg")
+		self.svgIcon = QIcon(f"{self.icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg")
 		self.lockButton.setIcon(self.svgIcon)
 
 		# Main text area for accumulating text
@@ -116,7 +111,7 @@ class ConsoleWindow(QWidget):
 		self.sendButton = QPushButton(self)
 		self.sendButton.setFixedSize(25, 25)
 		self.sendButton.clicked.connect(self.send_data)
-		self.svgIcon = QIcon(f"{icons_dir}/play_arrow_FILL0_wght400_GRAD0_opsz24.svg")
+		self.svgIcon = QIcon(f"{self.icons_dir}/play_arrow_FILL0_wght400_GRAD0_opsz24.svg")
 		self.sendButton.setIcon(self.svgIcon)
 
 		# Layout for input text box and send button
@@ -142,10 +137,10 @@ class ConsoleWindow(QWidget):
 	def togglelLock(self):
 		self.isLocked = not self.isLocked
 		if self.isLocked:
-			self.svgIcon = QIcon(f"{icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg")
+			self.svgIcon = QIcon(f"{self.icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg")
 			self.lockButton.setIcon(self.svgIcon)
 		else:
-			self.svgIcon = QIcon(f"{icons_dir}/lock_open_right_FILL0_wght400_GRAD0_opsz24.svg")
+			self.svgIcon = QIcon(f"{self.icons_dir}/lock_open_right_FILL0_wght400_GRAD0_opsz24.svg")
 			self.lockButton.setIcon(self.svgIcon)
 	
 	# Reset the tab counter

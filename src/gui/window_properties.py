@@ -21,18 +21,13 @@ from PyQt5.QtWidgets import QMainWindow, QLabel, QPushButton, QWidget, QHBoxLayo
 from PyQt5.QtGui import QPainter, QPolygon, QColor, QIcon
 
 from resources.styles import *
-from pathlib import Path
-
-# Get the icons directory
-script_dir = Path(__file__).resolve().parent
-base_dir = script_dir.parent
-icons_dir = base_dir / "resources" / "icons"
 
 class SSCWindowProperties(QMainWindow):
 	windowCloseEvent = pyqtSignal()
 	
-	def __init__(self):
+	def __init__(self, main_window):
 		super().__init__()
+		self.mainWindow = main_window
 		
 		# Set the window flags to allow resizing and moving
 		self.setWindowFlags(Qt.FramelessWindowHint)
@@ -45,6 +40,7 @@ class SSCWindowProperties(QMainWindow):
 		self._storedMinSize = None
 		self.isCompact = False
 		self.toggleFrontStatus = False
+		self.icons_dir = self.mainWindow.icon_path()
 
 	# Mouse events for moving and resizing the window
 	def mousePressEvent(self, event):
@@ -125,7 +121,7 @@ class SSCWindowProperties(QMainWindow):
 		self.toggleFrontButton.setStyleSheet(dark_theme_qpb_title)
 		self.toggleFrontButton.setFixedSize(25, 25)
 		self.toggleFrontButton.clicked.connect(self.toggleFront)
-		self.svgIcon = QIcon(f"{icons_dir}/toggle_off_FILL0_wght400_GRAD0_opsz24.svg")
+		self.svgIcon = QIcon(f"{self.icons_dir}/toggle_off_FILL0_wght400_GRAD0_opsz24.svg")
 		self.toggleFrontButton.setIcon(self.svgIcon)
 
 		# Fullscreen button
@@ -133,7 +129,7 @@ class SSCWindowProperties(QMainWindow):
 		self.fullscreenButton.setStyleSheet(dark_theme_qpb_title)
 		self.fullscreenButton.setFixedSize(25, 25)
 		self.fullscreenButton.clicked.connect(self.fullscreen)
-		self.svgIcon = QIcon(f"{icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
+		self.svgIcon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
 		self.fullscreenButton.setIcon(self.svgIcon)
 
 		# Minimize button
@@ -141,7 +137,7 @@ class SSCWindowProperties(QMainWindow):
 		self.minimizeButton.setStyleSheet(dark_theme_qpb_title)
 		self.minimizeButton.setFixedSize(25, 25)
 		self.minimizeButton.clicked.connect(self.toggleCompact)
-		self.svgIcon = QIcon(f"{icons_dir}/minimize_FILL0_wght400_GRAD0_opsz24.svg")
+		self.svgIcon = QIcon(f"{self.icons_dir}/minimize_FILL0_wght400_GRAD0_opsz24.svg")
 		self.minimizeButton.setIcon(self.svgIcon)
 
 		# Close button
@@ -149,7 +145,7 @@ class SSCWindowProperties(QMainWindow):
 		closeButton.setStyleSheet(close_button_style)
 		closeButton.setFixedSize(25, 25)
 		closeButton.clicked.connect(self.close_window)
-		self.svgIcon = QIcon(f"{icons_dir}/close_FILL0_wght400_GRAD0_opsz24.svg")
+		self.svgIcon = QIcon(f"{self.icons_dir}/close_FILL0_wght400_GRAD0_opsz24.svg")
 		closeButton.setIcon(self.svgIcon)
 
 		# Layout
@@ -180,13 +176,13 @@ class SSCWindowProperties(QMainWindow):
 	def toggleFront(self):
 		self.toggleFrontStatus = not self.toggleFrontStatus
 		if self.toggleFrontStatus:
-			self.svgIcon = QIcon(f"{icons_dir}/toggle_on_FILL0_wght400_GRAD0_opsz24.svg")
+			self.svgIcon = QIcon(f"{self.icons_dir}/toggle_on_FILL0_wght400_GRAD0_opsz24.svg")
 			self.toggleFrontButton.setIcon(self.svgIcon)
 
 			self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
 			self.show()
 		else:
-			self.svgIcon = QIcon(f"{icons_dir}/toggle_off_FILL0_wght400_GRAD0_opsz24.svg")
+			self.svgIcon = QIcon(f"{self.icons_dir}/toggle_off_FILL0_wght400_GRAD0_opsz24.svg")
 			self.toggleFrontButton.setIcon(self.svgIcon)
 			
 			self.setWindowFlags(Qt.FramelessWindowHint)
@@ -194,11 +190,11 @@ class SSCWindowProperties(QMainWindow):
 		
 	def fullscreen(self):
 		if self.isFullScreen():
-			self.svgIcon = QIcon(f"{icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
+			self.svgIcon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
 			self.fullscreenButton.setIcon(self.svgIcon)
 			self.showNormal()
 		else:
-			self.svgIcon = QIcon(f"{icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg")
+			self.svgIcon = QIcon(f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg")
 			self.fullscreenButton.setIcon(self.svgIcon)
 			self.showFullScreen()
 
