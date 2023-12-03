@@ -1,5 +1,5 @@
 # Desc: UUID patterns for the BLE service and characteristics
-# This file is part of ArcticTerminal Library.
+# This file is part of ArcticStream Library.
 
 import re
 

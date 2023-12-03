@@ -1,5 +1,5 @@
 # Desc: ConsoleIndex class for storing the console information
-# This file is part of ArcticTerminal Library.
+# This file is part of ArcticStream Library.
 
 class ConsoleIndex:
 	def __init__(self, service):

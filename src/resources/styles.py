@@ -1,5 +1,5 @@
 # Desc: Styles for the GUI
-# This file is part of ArcticTerminal Library.
+# This file is part of ArcticStream Library.
 
 dark_theme_app = """
 	QMainWindow {
