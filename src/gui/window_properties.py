@@ -48,11 +48,26 @@ class SSCWindowProperties(QMainWindow):
 		self._mousePressed = True
 		self._startPosition = event.globalPos()
 		self._windowRect = self.geometry()
-		self._resizeDirection = self.getResizeDirection(event.pos())
+
+		titleBarHeight = 30
+		resizeCornerSize = 10
+		rect = self.rect()
+		bottomRightRect = QRect(rect.right() - resizeCornerSize, rect.bottom() - resizeCornerSize, resizeCornerSize, resizeCornerSize)
+
+		if bottomRightRect.contains(event.pos()):
+			self._resizeDirection = Qt.BottomRightCorner
+		elif event.pos().y() <= titleBarHeight:
+			self._resizeDirection = "TitleBar"
+		else:
+			self._resizeDirection = None
+
+	def mouseReleaseEvent(self, event):
+		self._mousePressed = False
+		self._resizeDirection = None
 
 	def mouseMoveEvent(self, event):
 		if self._mousePressed and event.buttons() == Qt.LeftButton:
-			if self.isFullScreen():
+			if self._resizeDirection == "TitleBar" and self.isFullScreen():
 				self.fullscreen()
 
 				cursorOffsetX = self.width() // 2
@@ -67,16 +82,13 @@ class SSCWindowProperties(QMainWindow):
 				self._startPosition = event.globalPos() - QPoint(cursorOffsetX, cursorOffsetY)
 				self._windowRect = self.geometry()
 
-			elif self._resizeDirection:
+			elif self._resizeDirection == Qt.BottomRightCorner:
 				self.resizeWindow(event.globalPos())
-			else:
+			elif self._resizeDirection == "TitleBar":
 				self.moveWindow(event.globalPos() - self._startPosition + self._windowRect.topLeft())
+
 		else:
 			self.setCursorDirection(self.getResizeDirection(event.pos()))
-
-	def mouseReleaseEvent(self, event):
-		self._mousePressed = False
-		self._resizeDirection = None
 
 	def getResizeDirection(self, position):
 		rect = self.rect()
@@ -93,26 +105,28 @@ class SSCWindowProperties(QMainWindow):
 
 	# Resize and move the window
 	def resizeWindow(self, globalPos):
-		if self._resizeDirection == Qt.BottomRightCorner:
-			newWidth = max(self.minimumWidth(), globalPos.x() - self._windowRect.left())
-			newHeight = max(self.minimumHeight(), globalPos.y() - self._windowRect.top())
-			self.resize(newWidth, newHeight)
+		if not self.isFullScreen(): # Resize not allowed in fullscreen
+			if self._resizeDirection == Qt.BottomRightCorner:
+				newWidth = max(self.minimumWidth(), globalPos.x() - self._windowRect.left())
+				newHeight = max(self.minimumHeight(), globalPos.y() - self._windowRect.top())
+				self.resize(newWidth, newHeight)
 
 	def moveWindow(self, globalPos):
 		self.move(globalPos)
 
 	# Paint the triangle in the bottom right corner
 	def paintEvent(self, event):
-		painter = QPainter(self)
-		orangeColor = QColor(255, 165, 0)
-		painter.setBrush(orangeColor)
-		triangleSize = 10
-		triangle = QPolygon([
-			QPoint(self.width() - triangleSize, self.height()),
-			QPoint(self.width(), self.height()),
-			QPoint(self.width(), self.height() - triangleSize)
-		])
-		painter.drawPolygon(triangle)
+		if not self.isFullScreen(): # Paint not allowed in fullscreen
+			painter = QPainter(self)
+			orangeColor = QColor(255, 165, 0)
+			painter.setBrush(orangeColor)
+			triangleSize = 10
+			triangle = QPolygon([
+				QPoint(self.width() - triangleSize, self.height()),
+				QPoint(self.width(), self.height()),
+				QPoint(self.width(), self.height() - triangleSize)
+			])
+			painter.drawPolygon(triangle)
 
 	# Set the custom title bar
 	def setCustomTitle(self, title):
@@ -222,6 +236,9 @@ class SSCWindowProperties(QMainWindow):
 			self.showFullScreen()
 
 	def mouseDoubleClickEvent(self, event):
+		if event.pos().y() > self._windowBarHeight:
+			return
+		
 		if self.isFullScreen():
 			self.svgIcon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
 			self.fullscreenButton.setIcon(self.svgIcon)
