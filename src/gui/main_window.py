@@ -43,7 +43,7 @@ class MainWindow(SSCWindowProperties):
 		self.setCustomTitle("ArcticStream")
 		self.set_status_bar("Disconnected")
 		self.setContentsMargins(2, 2, 2, 2)
-		self.resize(800, 400)
+		self.resize(800, 410)
 
 		self.setup_layout()
 		self.icon_path()

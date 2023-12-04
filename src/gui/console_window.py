@@ -16,7 +16,7 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
-from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QTextEdit, QApplication, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog
 from PyQt5.QtGui import QTextCursor, QIcon
 

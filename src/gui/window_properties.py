@@ -16,7 +16,7 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
-from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal, QSize
+from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal
 from PyQt5.QtWidgets import QMainWindow, QLabel, QPushButton, QWidget, QHBoxLayout
 from PyQt5.QtGui import QPainter, QPolygon, QColor, QIcon
 
@@ -41,6 +41,7 @@ class SSCWindowProperties(QMainWindow):
 		self.isCompact = False
 		self.toggleFrontStatus = False
 		self.icons_dir = self.mainWindow.icon_path()
+		self._windowBarHeight = 30
 
 	# Mouse events for moving and resizing the window
 	def mousePressEvent(self, event):
@@ -50,8 +51,23 @@ class SSCWindowProperties(QMainWindow):
 		self._resizeDirection = self.getResizeDirection(event.pos())
 
 	def mouseMoveEvent(self, event):
-		if self._mousePressed:
-			if self._resizeDirection:
+		if self._mousePressed and event.buttons() == Qt.LeftButton:
+			if self.isFullScreen():
+				self.fullscreen()
+
+				cursorOffsetX = self.width() // 2
+				cursorOffsetY = self._windowBarHeight // 2
+
+				newX = event.globalPos().x() - cursorOffsetX - self.width() // 2
+				newY = event.globalPos().y() - cursorOffsetY * 2
+
+				newPosition = QPoint(newX, newY)
+				self.move(newPosition)
+
+				self._startPosition = event.globalPos() - QPoint(cursorOffsetX, cursorOffsetY)
+				self._windowRect = self.geometry()
+
+			elif self._resizeDirection:
 				self.resizeWindow(event.globalPos())
 			else:
 				self.moveWindow(event.globalPos() - self._startPosition + self._windowRect.topLeft())
@@ -101,33 +117,37 @@ class SSCWindowProperties(QMainWindow):
 	# Set the custom title bar
 	def setCustomTitle(self, title):
 		titleBar = QWidget(self)
-		titleBar.setFixedHeight(25)
+		titleBar.setFixedHeight(self._windowBarHeight)
 		titleBar.setStyleSheet("background-color: #333333;")
 
+		# Toggle front button
+		self.logoButton = QPushButton(self)
+		self.logoButton.setStyleSheet(dark_theme_qpb_title)
+		self.logoButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
+		self.svgIcon = QIcon(f"{self.icons_dir}/chevron_right_FILL0_wght400_GRAD0_opsz24.svg")
+		self.logoButton.setIcon(self.svgIcon)
+
 		titleLayout = QHBoxLayout()
-		titleLayout.setContentsMargins(10, 0, 0, 0)
+		titleLayout.setContentsMargins(0, 0, 0, 0)
 		titleLayout.setSpacing(0)
 
-		self.titleLabel = QLabel(title)
+		self.titleLabel = QLabel()
+		self.titleLabel.setStyleSheet("font-size: 13px;")
+		self.titleLabel.setText(title)
 		self.titleLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-
-		# Status text with colored background
-		self.statusButton = TriangleButton()  # Use TriangleButton instead of QPushButton
-		self.statusButton.setTriangleColor("#333333") # Hide both corners of the button
-		self.statusButton.setFixedSize(150, 25)
 
 		# Toggle front button
 		self.toggleFrontButton = QPushButton(self)
 		self.toggleFrontButton.setStyleSheet(dark_theme_qpb_title)
-		self.toggleFrontButton.setFixedSize(25, 25)
+		self.toggleFrontButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
 		self.toggleFrontButton.clicked.connect(self.toggleFront)
-		self.svgIcon = QIcon(f"{self.icons_dir}/toggle_off_FILL0_wght400_GRAD0_opsz24.svg")
+		self.svgIcon = QIcon(f"{self.icons_dir}/move_down_FILL0_wght400_GRAD0_opsz24.svg")
 		self.toggleFrontButton.setIcon(self.svgIcon)
 
 		# Fullscreen button
 		self.fullscreenButton = QPushButton(self)
 		self.fullscreenButton.setStyleSheet(dark_theme_qpb_title)
-		self.fullscreenButton.setFixedSize(25, 25)
+		self.fullscreenButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
 		self.fullscreenButton.clicked.connect(self.fullscreen)
 		self.svgIcon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
 		self.fullscreenButton.setIcon(self.svgIcon)
@@ -135,7 +155,7 @@ class SSCWindowProperties(QMainWindow):
 		# Minimize button
 		self.minimizeButton = QPushButton(self)
 		self.minimizeButton.setStyleSheet(dark_theme_qpb_title)
-		self.minimizeButton.setFixedSize(25, 25)
+		self.minimizeButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
 		self.minimizeButton.clicked.connect(self.toggleCompact)
 		self.svgIcon = QIcon(f"{self.icons_dir}/minimize_FILL0_wght400_GRAD0_opsz24.svg")
 		self.minimizeButton.setIcon(self.svgIcon)
@@ -143,21 +163,24 @@ class SSCWindowProperties(QMainWindow):
 		# Close button
 		closeButton = QPushButton(self)
 		closeButton.setStyleSheet(close_button_style)
-		closeButton.setFixedSize(25, 25)
+		closeButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
 		closeButton.clicked.connect(self.close_window)
 		self.svgIcon = QIcon(f"{self.icons_dir}/close_FILL0_wght400_GRAD0_opsz24.svg")
 		closeButton.setIcon(self.svgIcon)
 
+		# Status text with colored background
+		self.statusButton = TriangleButton()  # Use TriangleButton instead of QPushButton
+		self.statusButton.setTriangleColor("#333333") # Hide both corners of the button
+		self.statusButton.setFixedSize(150, self._windowBarHeight)
+
 		# Layout
-		titleLayout.addStretch()
-		titleLayout.addWidget(self.titleLabel, 1)
+		titleLayout.addWidget(self.logoButton)
+		titleLayout.addWidget(self.titleLabel, 0)
 		titleLayout.addWidget(self.toggleFrontButton)
 		titleLayout.addWidget(self.statusButton)
-		titleLayout.addSpacing(0)
 		titleLayout.addWidget(self.minimizeButton)
 		titleLayout.addWidget(self.fullscreenButton)
 		titleLayout.addWidget(closeButton)
-		titleLayout.addStretch()
 
 		titleBar.setLayout(titleLayout)
 		self.setMenuWidget(titleBar)
@@ -169,20 +192,20 @@ class SSCWindowProperties(QMainWindow):
 	def setTitleStatus(self, status):
 		self.statusButton.setText(status)
 		if status == "Connected":
-			self.statusButton.setStyleSheet("background-color: darkgreen; border-radius: 0px;")
+			self.statusButton.setStyleSheet("font-size: 13px; background-color: darkgreen; border-radius: 0px;")
 		elif status == "Disconnected":
-			self.statusButton.setStyleSheet("background-color: darkred; border-radius: 0px;")
+			self.statusButton.setStyleSheet("font-size: 13px; background-color: darkred; border-radius: 0px;")
 	
 	def toggleFront(self):
 		self.toggleFrontStatus = not self.toggleFrontStatus
 		if self.toggleFrontStatus:
-			self.svgIcon = QIcon(f"{self.icons_dir}/toggle_on_FILL0_wght400_GRAD0_opsz24.svg")
+			self.svgIcon = QIcon(f"{self.icons_dir}/move_up_FILL0_wght400_GRAD0_opsz24.svg")
 			self.toggleFrontButton.setIcon(self.svgIcon)
 
 			self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
 			self.show()
 		else:
-			self.svgIcon = QIcon(f"{self.icons_dir}/toggle_off_FILL0_wght400_GRAD0_opsz24.svg")
+			self.svgIcon = QIcon(f"{self.icons_dir}/move_down_FILL0_wght400_GRAD0_opsz24.svg")
 			self.toggleFrontButton.setIcon(self.svgIcon)
 			
 			self.setWindowFlags(Qt.FramelessWindowHint)
@@ -197,6 +220,17 @@ class SSCWindowProperties(QMainWindow):
 			self.svgIcon = QIcon(f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg")
 			self.fullscreenButton.setIcon(self.svgIcon)
 			self.showFullScreen()
+
+	def mouseDoubleClickEvent(self, event):
+		if self.isFullScreen():
+			self.svgIcon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
+			self.fullscreenButton.setIcon(self.svgIcon)
+			self.showNormal()
+		else:
+			self.svgIcon = QIcon(f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg")
+			self.fullscreenButton.setIcon(self.svgIcon)
+			self.showFullScreen()
+		event.accept()
 
 	def close_window(self):
 		self.windowCloseEvent.emit()

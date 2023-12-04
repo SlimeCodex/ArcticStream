@@ -25,7 +25,6 @@ from resources.indexer import ConsoleIndex
 from resources.styles import *
 
 from datetime import datetime
-from pathlib import Path
 import hashlib
 import asyncio
 import qasync
@@ -182,113 +181,159 @@ class UpdaterWindow(QWidget):
 	@qasync.asyncSlot()
 	async def start_ota(self):
 
+		if self.filePath is None:
+			print("No file selected.")
+			return
+
+		totalSize = self.get_file_size(self.filePath)
+		if totalSize == 0:
+			print("File is empty, aborting OTA update")
+			return
+		
+		if self.ota_running:
+			print("OTA update is already in progress.")
+			return
+		self.initialize_ota()  # Initializing OTA-specific variables and settings
+		
+		await self.send_file_size_to_device(totalSize)
+
+		if not await self.wait_for_device_ready():
+			return
+
+		await self.transfer_file(totalSize)
+
+	def initialize_ota(self):
 		self.start_time = datetime.now()
 		self.ota_running = True
-
-		self.ready_event.clear()
-		self.ack_event.clear()
-		self.error_event.clear()
-		self.success_event.clear()
-		self.stop_event.clear()
-
-		# Reset the progress bar style
+		self.clear_events()
 		self.progressBar.setStyleSheet(dark_theme_qpb_load_bar)
+		self.progressBar.setValue(0)
 
-		if self.filePath is not None:
-			totalSize = os.path.getsize(self.filePath)
-			
-			# Send the firmware size to the target device
-			await self.bleHandler.writeCharacteristic(self.consoleIndex.rx_characteristic.uuid, str(f"{totalSize}").encode())
+	def clear_events(self):
+		events = [self.ready_event, self.ack_event, self.error_event, 
+				self.success_event, self.stop_event]
+		for event in events:
+			event.clear()
 
-			# Wait for the target device to be ready, with a timeout
+	def get_file_size(self, filePath):
+		return os.path.getsize(filePath)
+
+	async def send_file_size_to_device(self, totalSize):
+		await self.bleHandler.writeCharacteristic(
+			self.consoleIndex.rx_characteristic.uuid, 
+			str(f"{totalSize}").encode()
+		)
+
+	async def wait_for_device_ready(self, max_retries=3):
+		retries = 0
+		while retries < max_retries:
 			try:
-				await asyncio.wait_for(self.ready_event.wait(), timeout=5)
+				await asyncio.wait_for(self.ready_event.wait(), timeout=0.5)
+				print("Device is ready.")
+				return True
 			except asyncio.TimeoutError:
-				print("Timeout waiting for device to be ready. OTA update aborted.")
+				print(f"Timeout waiting for device to be ready. Retrying {retries}/{max_retries}...")
+				retries += 1
+
+		print("Device not ready after maximum retries. OTA update aborted.")
+		self.ota_running = False
+		return False
+
+	async def transfer_file(self, totalSize):
+		try:
+			with open(self.filePath, 'rb') as file:
+				await self.file_transfer_loop(file, totalSize)
+		except IOError as e:
+			print(f"Error reading file: {e}")
+
+	async def file_transfer_loop(self, file, totalSize):
+		transferred = 0
+		while self.ota_running and transferred < totalSize:
+			# Check if a disconnect event occurred
+			if self.disconnect_event.is_set():
+				print("OTA update aborted due to disconnection.")
+				self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
 				self.ota_running = False
 				return
 
-			transferred = 0
-			MAX_RETRIES = 3
+			dataChunk = file.read(self.chunkSize)
+			if not await self.send_chunk_with_retries(dataChunk):
+				break
 
-			try:
-				with open(self.filePath, 'rb') as file:
-					print(f"Sending file: {self.filePath}")
+			transferred += len(dataChunk)
+			self.update_progress_bar(transferred, totalSize)
 
-					while self.ota_running:
+		if transferred >= totalSize:
+			self.update_info(f"OTA Complete. Transferred {transferred} bytes.")
+			self.ota_running = False
 
-						dataChunk = file.read(self.chunkSize)
-						if not dataChunk:
-							print("File is empty, aborting OTA update")
-							break
+	def update_progress_bar(self, transferred, totalSize):
+		progress = int((transferred / totalSize) * 100)
+		self.progressBar.setValue(progress)
+		elapsed_time = datetime.now() - self.start_time
+		self.elapsed_str = str(elapsed_time).split('.')[0]  # Convert to HH:MM:SS
+		kbytes_per_second = (transferred / elapsed_time.total_seconds()) / 1024
+		self.update_info(f"[{self.elapsed_str}] OTA Loading Progress: {progress}% ({transferred}/{totalSize} bytes, {kbytes_per_second:.2f} kb/s)")
 
-						retries = 0
-						while retries < MAX_RETRIES:
-							self.ack_event.clear()  # Reset the event for the next chunk
-							await self.bleHandler.writeCharacteristic(self.consoleIndex.rx_characteristic.uuid, dataChunk)
+	async def send_chunk_with_retries(self, dataChunk, max_retries=3):
+		retries = 0
+		while retries < max_retries:
+			if self.disconnect_event.is_set():
+				print("OTA update aborted due to disconnection.")
+				self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+				self.ota_running = False
+				return False
 
-							# Wrap coroutines in tasks
-							ack_task = asyncio.create_task(self.ack_event.wait())
-							stop_task = asyncio.create_task(self.stop_event.wait())
+			sent = await self.send_chunk_and_wait_for_ack(dataChunk)
+			if sent:
+				return True
+			retries += 1
 
-							try:
-								done, pending = await asyncio.wait(
-									[ack_task, stop_task], 
-									timeout=0.5,  # 500ms timeout
-									return_when=asyncio.FIRST_COMPLETED
-								)
+		print("Maximum retries reached, stopping OTA")
+		self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+		self.ota_running = False
+		return False
 
-								# Check if stop event was set
-								if self.stop_event.is_set():
-									if self.success_event.is_set(): # Check if success received
-										self.update_info(f"[{self.elapsed_str}] OTA Loading completed")
+	async def send_chunk_and_wait_for_ack(self, dataChunk):
+		self.ack_event.clear()
+		await self.bleHandler.writeCharacteristic(self.consoleIndex.rx_characteristic.uuid, dataChunk)
+		return await self.wait_for_ack_or_stop()
 
-									elif self.error_event.is_set(): # Check if error received
-										self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
-										self.update_info(f"[{self.elapsed_str}] OTA Error received")
+	async def wait_for_ack_or_stop(self):
+		ack_task = asyncio.create_task(self.ack_event.wait())
+		stop_task = asyncio.create_task(self.stop_event.wait())
 
-									elif self.disconnect_event.is_set():
-										self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
-										self.update_info(f"[{self.elapsed_str}] OTA Device disconnected")
+		done, pending = await asyncio.wait(
+			[ack_task, stop_task], 
+			timeout=0.5, 
+			return_when=asyncio.FIRST_COMPLETED
+		)
 
-									else:
-										self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
-										self.update_info(f"[{self.elapsed_str}] OTA Loading aborted")
-										
-									self.ota_running = False
-									break
+		if self.stop_event.is_set():
+			self.handle_stop_event()
+			return False
 
-								# Check if ACK was received
-								if self.ack_event.is_set():
-									self.ack_event.clear()
-									break  # Exit retry loop
+		if self.ack_event.is_set():
+			return True
 
-							except asyncio.TimeoutError:
-								print(f"ACK not received for chunk, retrying ({retries + 1}/{MAX_RETRIES})")
-								retries += 1
-
-						if self.ota_running == False:
-							break
-
-						if retries == MAX_RETRIES:
-							print("Maximum retries reached, stopping OTA")
-							self.ota_running = False
-							break
-
-						transferred += len(dataChunk)
-						progress = int((transferred / totalSize) * 100)
-						
-						self.progressBar.setValue(progress)
-						elapsed_time = datetime.now() - self.start_time
-						elapsed_time_seconds = elapsed_time.total_seconds()
-						kbytes_per_second = (transferred / elapsed_time_seconds) / 1024
-						self.elapsed_str = str(elapsed_time).split('.')[0]  # Convert to HH:MM:SS format
-						self.update_info(f"[{self.elapsed_str}] OTA Loading Progress: {progress}% ({transferred}/{totalSize} bytes, {kbytes_per_second:.2f} kb/s)")
-
-			except IOError as e:
-				print(f"Error reading file: {e}")
+		print(f"ACK not received for chunk, retrying")
+		return False
+	
+	def handle_stop_event(self):
+		if self.success_event.is_set():
+			self.update_info(f"[{self.elapsed_str}] OTA Loading completed")
+			self.progressBar.setStyleSheet(dark_theme_qpb_load_bar)
+		elif self.error_event.is_set():
+			self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.update_info(f"[{self.elapsed_str}] OTA Error received")
+		elif self.disconnect_event.is_set():
+			self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.update_info(f"[{self.elapsed_str}] OTA Device disconnected")
 		else:
-			print("No file selected.")
+			self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.update_info(f"[{self.elapsed_str}] OTA Loading aborted")
+
+		self.ota_running = False
 
 	@qasync.asyncSlot()
 	async def stop_ota(self):
