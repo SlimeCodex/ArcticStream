@@ -21,243 +21,255 @@ from PyQt5.QtWidgets import QMainWindow, QLabel, QPushButton, QWidget, QHBoxLayo
 from PyQt5.QtGui import QPainter, QPolygon, QColor, QIcon
 
 from resources.styles import *
+from helpers.pushbutton_helper import ToggleButton, SimpleButton
+
+CUSTOM_BAR_HEIGHT = 30
+RESIZE_CORNER_SIZE = 10
 
 class SSCWindowProperties(QMainWindow):
-	windowCloseEvent = pyqtSignal()
+	signal_window_close = pyqtSignal()
 	
 	def __init__(self, main_window):
 		super().__init__()
-		self.mainWindow = main_window
+		self.main_window = main_window
 		
-		# Set the window flags to allow resizing and moving
+		# Removes native title bar
 		self.setWindowFlags(Qt.FramelessWindowHint)
-		self._mousePressed = False
-		self._resizeDirection = None
-		self._margin = 10  # Margin for the resize area
-		self._startPosition = None
-		self._windowRect = None
-		self._storedSize = None
-		self._storedMinSize = None
-		self.isCompact = False
-		self.toggleFrontStatus = False
-		self.icons_dir = self.mainWindow.icon_path()
-		self._windowBarHeight = 30
 
-	# Mouse events for moving and resizing the window
-	def mousePressEvent(self, event):
-		self._mousePressed = True
-		self._startPosition = event.globalPos()
-		self._windowRect = self.geometry()
+		# Globals
+		self.icons_dir = self.main_window.icon_path()
+		self.mouse_pressed = False
+		self.resize_direction = None
+		self.start_position = None
+		self.window_rect = None
 
-		titleBarHeight = 30
-		resizeCornerSize = 10
+	# GUI Functions ------------------------------------------------------------------------------------------
+
+	# Set the custom title bar
+	def set_custom_title(self, title):
+
+		custom_bar_widget = QWidget(self)
+		custom_bar_widget.setFixedHeight(CUSTOM_BAR_HEIGHT)
+		custom_bar_widget.setStyleSheet("background-color: #333333;")
+
+		custom_bar_layout = QHBoxLayout()
+		custom_bar_layout.setContentsMargins(0, 0, 0, 0)
+		custom_bar_layout.setSpacing(0)
+
+		# Simple logo button
+		self.logo_button = SimpleButton(self,
+			icon=f"{self.icons_dir}/chevron_right_FILL0_wght400_GRAD0_opsz24.svg",
+			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
+			style=dark_theme_qpb_title
+		)
+
+		# Title label
+		self.title_label = QLabel(title)
+		self.title_label.setStyleSheet("font-size: 13px;")
+		self.title_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+		# Toggle color mode button
+		self.color_mode_button = ToggleButton(self,
+			icons=(f"{self.icons_dir}/dark_mode_FILL0_wght400_GRAD0_opsz24.svg", f"{self.icons_dir}/light_mode_FILL0_wght400_GRAD0_opsz24.svg"),
+			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
+			style=dark_theme_qpb_title,
+			callback=self.toggle_color,
+			toggled=False
+		)
+
+		# Toggle hint button
+		self.top_hint_button = ToggleButton(self,
+			icons=(f"{self.icons_dir}/move_down_FILL0_wght400_GRAD0_opsz24.svg", f"{self.icons_dir}/move_up_FILL0_wght400_GRAD0_opsz24.svg"),
+			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
+			style=dark_theme_qpb_title,
+			callback=self.toggle_hint,
+			toggled=False
+		)
+
+		# Status text with colored background
+		self.con_status_button = TriangleButton()
+		self.con_status_button.setTriangleColor("#333333")
+		self.con_status_button.setFixedSize(150, CUSTOM_BAR_HEIGHT)
+
+		# Simple minimize button
+		self.minimize_button = SimpleButton(self,
+			icon=f"{self.icons_dir}/minimize_FILL0_wght400_GRAD0_opsz24.svg",
+			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
+			style=dark_theme_qpb_title,
+			callback=self.toggle_minimize
+		)
+
+		# Toggle fullscreen button
+		self.fullscreen_button = ToggleButton(self,
+			icons=(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg", f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg"),
+			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
+			style=dark_theme_qpb_title,
+			callback=self.fullscreen,
+			toggled=False
+		)
+
+		# Simple close button
+		self.close_button = SimpleButton(self,
+			icon=f"{self.icons_dir}/close_FILL0_wght400_GRAD0_opsz24.svg",
+			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
+			style=close_button_style,
+			callback=self.close_window
+		)
+
+		# Layout
+		custom_bar_layout.addWidget(self.logo_button)
+		custom_bar_layout.addWidget(self.title_label)
+		custom_bar_layout.addWidget(self.color_mode_button)
+		custom_bar_layout.addWidget(self.top_hint_button)
+		custom_bar_layout.addWidget(self.con_status_button)
+		custom_bar_layout.addWidget(self.minimize_button)
+		custom_bar_layout.addWidget(self.fullscreen_button)
+		custom_bar_layout.addWidget(self.close_button)
+		
+		custom_bar_widget.setLayout(custom_bar_layout)
+		self.setMenuWidget(custom_bar_widget)
+
+	# Window Functions ------------------------------------------------------------------------------------------
+
+	def get_resize_direction(self, position):
 		rect = self.rect()
-		bottomRightRect = QRect(rect.right() - resizeCornerSize, rect.bottom() - resizeCornerSize, resizeCornerSize, resizeCornerSize)
-
-		if bottomRightRect.contains(event.pos()):
-			self._resizeDirection = Qt.BottomRightCorner
-		elif event.pos().y() <= titleBarHeight:
-			self._resizeDirection = "TitleBar"
-		else:
-			self._resizeDirection = None
-
-	def mouseReleaseEvent(self, event):
-		self._mousePressed = False
-		self._resizeDirection = None
-
-	def mouseMoveEvent(self, event):
-		if self._mousePressed and event.buttons() == Qt.LeftButton:
-			if self._resizeDirection == "TitleBar" and self.isFullScreen():
-				self.fullscreen()
-
-				cursorOffsetX = self.width() // 2
-				cursorOffsetY = self._windowBarHeight // 2
-
-				newX = event.globalPos().x() - cursorOffsetX - self.width() // 2
-				newY = event.globalPos().y() - cursorOffsetY * 2
-
-				newPosition = QPoint(newX, newY)
-				self.move(newPosition)
-
-				self._startPosition = event.globalPos() - QPoint(cursorOffsetX, cursorOffsetY)
-				self._windowRect = self.geometry()
-
-			elif self._resizeDirection == Qt.BottomRightCorner:
-				self.resizeWindow(event.globalPos())
-			elif self._resizeDirection == "TitleBar":
-				self.moveWindow(event.globalPos() - self._startPosition + self._windowRect.topLeft())
-
-		else:
-			self.setCursorDirection(self.getResizeDirection(event.pos()))
-
-	def getResizeDirection(self, position):
-		rect = self.rect()
-		bottomRightRect = QRect(rect.right() - self._margin, rect.bottom() - self._margin, self._margin, self._margin)
-		if bottomRightRect.contains(position):
+		bottom_right_rect = QRect(rect.right() - RESIZE_CORNER_SIZE, rect.bottom() - RESIZE_CORNER_SIZE, RESIZE_CORNER_SIZE, RESIZE_CORNER_SIZE)
+		if bottom_right_rect.contains(position):
 			return Qt.BottomRightCorner
 		return None
 
-	def setCursorDirection(self, direction):
+	def set_cursor_direction(self, direction):
 		if direction == Qt.BottomRightCorner:
 			self.setCursor(Qt.SizeFDiagCursor)
 		else:
 			self.setCursor(Qt.ArrowCursor)
 
 	# Resize and move the window
-	def resizeWindow(self, globalPos):
+	def resize_window(self, globalPos):
 		if not self.isFullScreen(): # Resize not allowed in fullscreen
-			if self._resizeDirection == Qt.BottomRightCorner:
-				newWidth = max(self.minimumWidth(), globalPos.x() - self._windowRect.left())
-				newHeight = max(self.minimumHeight(), globalPos.y() - self._windowRect.top())
+			if self.resize_direction == Qt.BottomRightCorner:
+				newWidth = max(self.minimumWidth(), globalPos.x() - self.window_rect.left())
+				newHeight = max(self.minimumHeight(), globalPos.y() - self.window_rect.top())
 				self.resize(newWidth, newHeight)
 
-	def moveWindow(self, globalPos):
+	def move_window(self, globalPos):
 		self.move(globalPos)
 
-	# Paint the triangle in the bottom right corner
+	# Compact the window to just show the title bar
+	def toggle_minimize(self):
+		self.showMinimized()
+	
+	def set_title_status(self, status):
+		self.con_status_button.setText(status)
+		if status == "Connected":
+			self.con_status_button.setStyleSheet("font-size: 13px; background-color: darkgreen; border-radius: 0px;")
+		elif status == "Disconnected":
+			self.con_status_button.setStyleSheet("font-size: 13px; background-color: darkred; border-radius: 0px;")
+	
+	def toggle_color(self, status):
+		pass
+	
+	def toggle_hint(self, status):
+		if status:
+			self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+			self.show()
+		else:
+			self.setWindowFlags(Qt.FramelessWindowHint)
+			self.show()
+		
+	def fullscreen(self, status):
+		if self.isFullScreen():
+			self.showNormal()
+		else:
+			self.showFullScreen()
+
+	# Qt event ------------------------------------------------------------------------------------------
+
+	# Qt function
+	def mousePressEvent(self, event):
+		self.mouse_pressed = True
+		self.start_position = event.globalPos()
+		self.window_rect = self.geometry()
+
+		rect = self.rect()
+		bottom_right_rect = QRect(rect.right() - RESIZE_CORNER_SIZE, rect.bottom() - RESIZE_CORNER_SIZE, RESIZE_CORNER_SIZE, RESIZE_CORNER_SIZE)
+
+		if bottom_right_rect.contains(event.pos()):
+			self.resize_direction = Qt.BottomRightCorner
+		elif event.pos().y() <= CUSTOM_BAR_HEIGHT:
+			self.resize_direction = "custom_bar_widget"
+		else:
+			self.resize_direction = None
+
+	# Qt function
+	def mouseReleaseEvent(self, event):
+		self.mouse_pressed = False
+		self.resize_direction = None
+
+	# Qt function
+	def mouseMoveEvent(self, event):
+		if self.mouse_pressed and event.buttons() == Qt.LeftButton:
+			if self.resize_direction == "custom_bar_widget" and self.isFullScreen():
+				self.fullscreen(True)
+
+				cursor_offset_x = self.width() // 2
+				cursor_offset_y = CUSTOM_BAR_HEIGHT // 2
+
+				newX = event.globalPos().x() - cursor_offset_x - self.width() // 2
+				newY = event.globalPos().y() - cursor_offset_y * 2
+
+				new_position = QPoint(newX, newY)
+				self.move(new_position)
+
+				self.start_position = event.globalPos() - QPoint(cursor_offset_x, cursor_offset_y)
+				self.window_rect = self.geometry()
+
+			elif self.resize_direction == Qt.BottomRightCorner:
+				self.resize_window(event.globalPos())
+			elif self.resize_direction == "custom_bar_widget":
+				self.move_window(event.globalPos() - self.start_position + self.window_rect.topLeft())
+
+		else:
+			self.set_cursor_direction(self.get_resize_direction(event.pos()))
+
+	# Qt function
 	def paintEvent(self, event):
 		if not self.isFullScreen(): # Paint not allowed in fullscreen
 			painter = QPainter(self)
 			orangeColor = QColor(255, 165, 0)
 			painter.setBrush(orangeColor)
-			triangleSize = 10
 			triangle = QPolygon([
-				QPoint(self.width() - triangleSize, self.height()),
+				QPoint(self.width() - RESIZE_CORNER_SIZE, self.height()),
 				QPoint(self.width(), self.height()),
-				QPoint(self.width(), self.height() - triangleSize)
+				QPoint(self.width(), self.height() - RESIZE_CORNER_SIZE)
 			])
 			painter.drawPolygon(triangle)
 
-	# Set the custom title bar
-	def setCustomTitle(self, title):
-		titleBar = QWidget(self)
-		titleBar.setFixedHeight(self._windowBarHeight)
-		titleBar.setStyleSheet("background-color: #333333;")
-
-		# Toggle front button
-		self.logoButton = QPushButton(self)
-		self.logoButton.setStyleSheet(dark_theme_qpb_title)
-		self.logoButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
-		self.svgIcon = QIcon(f"{self.icons_dir}/chevron_right_FILL0_wght400_GRAD0_opsz24.svg")
-		self.logoButton.setIcon(self.svgIcon)
-
-		titleLayout = QHBoxLayout()
-		titleLayout.setContentsMargins(0, 0, 0, 0)
-		titleLayout.setSpacing(0)
-
-		self.titleLabel = QLabel()
-		self.titleLabel.setStyleSheet("font-size: 13px;")
-		self.titleLabel.setText(title)
-		self.titleLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-
-		# Toggle front button
-		self.toggleFrontButton = QPushButton(self)
-		self.toggleFrontButton.setStyleSheet(dark_theme_qpb_title)
-		self.toggleFrontButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
-		self.toggleFrontButton.clicked.connect(self.toggleFront)
-		self.svgIcon = QIcon(f"{self.icons_dir}/move_down_FILL0_wght400_GRAD0_opsz24.svg")
-		self.toggleFrontButton.setIcon(self.svgIcon)
-
-		# Fullscreen button
-		self.fullscreenButton = QPushButton(self)
-		self.fullscreenButton.setStyleSheet(dark_theme_qpb_title)
-		self.fullscreenButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
-		self.fullscreenButton.clicked.connect(self.fullscreen)
-		self.svgIcon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
-		self.fullscreenButton.setIcon(self.svgIcon)
-
-		# Minimize button
-		self.minimizeButton = QPushButton(self)
-		self.minimizeButton.setStyleSheet(dark_theme_qpb_title)
-		self.minimizeButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
-		self.minimizeButton.clicked.connect(self.toggleCompact)
-		self.svgIcon = QIcon(f"{self.icons_dir}/minimize_FILL0_wght400_GRAD0_opsz24.svg")
-		self.minimizeButton.setIcon(self.svgIcon)
-
-		# Close button
-		closeButton = QPushButton(self)
-		closeButton.setStyleSheet(close_button_style)
-		closeButton.setFixedSize(self._windowBarHeight, self._windowBarHeight)
-		closeButton.clicked.connect(self.close_window)
-		self.svgIcon = QIcon(f"{self.icons_dir}/close_FILL0_wght400_GRAD0_opsz24.svg")
-		closeButton.setIcon(self.svgIcon)
-
-		# Status text with colored background
-		self.statusButton = TriangleButton()  # Use TriangleButton instead of QPushButton
-		self.statusButton.setTriangleColor("#333333") # Hide both corners of the button
-		self.statusButton.setFixedSize(150, self._windowBarHeight)
-
-		# Layout
-		titleLayout.addWidget(self.logoButton)
-		titleLayout.addWidget(self.titleLabel, 0)
-		titleLayout.addWidget(self.toggleFrontButton)
-		titleLayout.addWidget(self.statusButton)
-		titleLayout.addWidget(self.minimizeButton)
-		titleLayout.addWidget(self.fullscreenButton)
-		titleLayout.addWidget(closeButton)
-
-		titleBar.setLayout(titleLayout)
-		self.setMenuWidget(titleBar)
-
-	# Compact the window to just show the title bar
-	def toggleCompact(self):
-		self.showMinimized()
-	
-	def setTitleStatus(self, status):
-		self.statusButton.setText(status)
-		if status == "Connected":
-			self.statusButton.setStyleSheet("font-size: 13px; background-color: darkgreen; border-radius: 0px;")
-		elif status == "Disconnected":
-			self.statusButton.setStyleSheet("font-size: 13px; background-color: darkred; border-radius: 0px;")
-	
-	def toggleFront(self):
-		self.toggleFrontStatus = not self.toggleFrontStatus
-		if self.toggleFrontStatus:
-			self.svgIcon = QIcon(f"{self.icons_dir}/move_up_FILL0_wght400_GRAD0_opsz24.svg")
-			self.toggleFrontButton.setIcon(self.svgIcon)
-
-			self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-			self.show()
-		else:
-			self.svgIcon = QIcon(f"{self.icons_dir}/move_down_FILL0_wght400_GRAD0_opsz24.svg")
-			self.toggleFrontButton.setIcon(self.svgIcon)
-			
-			self.setWindowFlags(Qt.FramelessWindowHint)
-			self.show()
-		
-	def fullscreen(self):
-		if self.isFullScreen():
-			self.svgIcon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
-			self.fullscreenButton.setIcon(self.svgIcon)
-			self.showNormal()
-		else:
-			self.svgIcon = QIcon(f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg")
-			self.fullscreenButton.setIcon(self.svgIcon)
-			self.showFullScreen()
-
+	# Qt function
 	def mouseDoubleClickEvent(self, event):
-		if event.pos().y() > self._windowBarHeight:
+		if event.pos().y() > CUSTOM_BAR_HEIGHT:
 			return
 		
 		if self.isFullScreen():
-			self.svgIcon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
-			self.fullscreenButton.setIcon(self.svgIcon)
+			self.svg_icon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
+			self.fullscreen_button.setIcon(self.svg_icon)
 			self.showNormal()
 		else:
-			self.svgIcon = QIcon(f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg")
-			self.fullscreenButton.setIcon(self.svgIcon)
+			self.svg_icon = QIcon(f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg")
+			self.fullscreen_button.setIcon(self.svg_icon)
 			self.showFullScreen()
 		event.accept()
 
 	def close_window(self):
-		self.windowCloseEvent.emit()
+		self.signal_window_close.emit()
 		self.close()
 
 	def closeEvent(self, event):
-		self.windowCloseEvent.emit()
+		self.signal_window_close.emit()
 		super().closeEvent(event)
 
-# Little -maybe not the best- trick to add a triangle to the connect/disconnect button
+
+# Little -maybe not the best- trick to adjust the shape of connect/disconnect label
 class TriangleButton(QPushButton):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)

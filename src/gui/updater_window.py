@@ -16,41 +16,42 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+import os
+import time
+import qasync
+import hashlib
+from datetime import datetime
+
+import asyncio
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QTextEdit, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QProgressBar
-from PyQt5.QtGui import QTextCursor, QIcon
+from PyQt5.QtGui import QTextCursor
 
 from bluetooth.ble_handler import BLEHandler
 from resources.indexer import ConsoleIndex
 from resources.styles import *
-
-from datetime import datetime
-import hashlib
-import asyncio
-import qasync
-import time
-import os
+from helpers.pushbutton_helper import SimpleButton
 
 class UpdaterWindow(QWidget):
 	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
 		super().__init__()
-		self.mainWindow = main_window # MainWindow Reference
-		self.bleHandler = ble_handler # BLE Reference
-		self.winTitle = title # Original title of the tab
-		self.consoleIndex = console_index # Console information
+		self.main_window = main_window # MainWindow Reference
+		self.ble_handler = ble_handler # BLE Reference
+		self.win_title = title # Original title of the tab
+		self.console_index = console_index # Console information
 
 		print("UpdaterWindow: Initializing ...")
-		print(f"ConsoleWindow: {self.consoleIndex.name}")
-		print(f"ConsoleWindow: {self.consoleIndex.service.uuid}")
-		print(f"ConsoleWindow: {self.consoleIndex.tx_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.consoleIndex.txs_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.consoleIndex.rx_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.consoleIndex.name_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.console_index.name}")
+		print(f"ConsoleWindow: {self.console_index.service.uuid}")
+		print(f"ConsoleWindow: {self.console_index.tx_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.console_index.txs_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.console_index.rx_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.console_index.name_characteristic.uuid}")
 		print("------------------------------------------")
 
 		# Async BLE Signals
-		self.bleHandler.notificationReceived.connect(self.callback_handle_notification)
-		self.bleHandler.deviceDisconnected.connect(self.callback_disconnected)
+		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
+		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
 
 		# Async Events from the device
 		self.ready_event = asyncio.Event()
@@ -65,12 +66,11 @@ class UpdaterWindow(QWidget):
 
 		# Globals
 		self.ota_running = False
-		self.dataCounter = 0
-		self.filePath = None
-		self.chunkSize = 500
+		self.firmware_path = None
+		self.mtu_size = 500
 		self.start_time = 0
 		self.elapsed_str = "00:00:00"
-		self.icons_dir = self.mainWindow.icon_path()
+		self.icons_dir = self.main_window.icon_path()
 
 		self.setup_layout()
 	
@@ -80,112 +80,117 @@ class UpdaterWindow(QWidget):
 	def setup_layout(self):
 
 		# Start and Stop buttons
-		self.startButton = QPushButton("Start", self)
-		self.startButton.clicked.connect(self.start_ota)
-		self.stopButton = QPushButton("Stop", self)
-		self.stopButton.clicked.connect(self.stop_ota)
-		self.clearButton = QPushButton("Clear", self)
-		self.clearButton.clicked.connect(self.clear_text)
-		self.copyButton = QPushButton("Reload", self)
-		self.copyButton.clicked.connect(self.reload_file)
+		start_button = QPushButton("Start", self)
+		start_button.clicked.connect(self.start_ota)
+		stop_button = QPushButton("Stop", self)
+		stop_button.clicked.connect(self.stop_ota)
+		clear_button = QPushButton("Clear", self)
+		clear_button.clicked.connect(self.clear_text)
+		reload_button = QPushButton("Reload", self)
+		reload_button.clicked.connect(self.reload_file)
 
-		# Folder button
-		self.folderButton = QPushButton(self)
-		self.folderButton.setFixedSize(25, 25)
-		self.folderButton.clicked.connect(self.setPath)
-		self.svgIcon = QIcon(f"{self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg")
-		self.folderButton.setIcon(self.svgIcon)
+		# Simple folder button
+		folder_button = SimpleButton(self,
+			icon=f"{self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
+			size=(25, 25),
+			style=dark_theme_qpb_title,
+			callback=self.setPath
+		)
 
 		# Main text area for accumulating text
-		self.qte_ota_printf = QTextEdit(self)
-		self.qte_ota_printf.setStyleSheet(dark_theme_qte_printf)
-		self.qte_ota_printf.setReadOnly(True)
+		self.text_edit_printf = QTextEdit(self)
+		self.text_edit_printf.setStyleSheet(dark_theme_qte_printf)
+		self.text_edit_printf.setReadOnly(True)
 		
 		# Placeholder text
-		self.placeholderLineEdit = QLineEdit("Drag your firmware here or select your firmware path", self)
-		self.placeholderLineEdit.setReadOnly(True)
-		self.placeholderLineEdit.setAlignment(Qt.AlignCenter)
-		self.placeholderLineEdit.setStyleSheet(dark_theme_qle_ota_placeholder)
-		self.placeholderLineEdit.setGeometry(self.qte_ota_printf.geometry())  # Adjust geometry to match qte_printf
-		self.placeholderLineEdit.setAttribute(Qt.WA_TransparentForMouseEvents)  # Make it non-interactive
-		self.updatePlaceholderVisibility(True)  # Initially visible
+		self.drag_placeholder = QLineEdit("Drag your firmware here or select your firmware path", self)
+		self.drag_placeholder.setReadOnly(True)
+		self.drag_placeholder.setAlignment(Qt.AlignCenter)
+		self.drag_placeholder.setStyleSheet(dark_theme_qle_ota_placeholder)
+		self.drag_placeholder.setGeometry(self.text_edit_printf.geometry())  # Adjust geometry to match qte_printf
+		self.drag_placeholder.setAttribute(Qt.WA_TransparentForMouseEvents)  # Make it non-interactive
+		self.show_drag_placeholder(True)  # Initially visible
 
 		# Single line text area for displaying info
-		self.qte_ota_singlef = QLineEdit(self)
-		self.qte_ota_singlef.setStyleSheet(dark_theme_qle_singlef)
-		self.qte_ota_singlef.setReadOnly(True)
+		self.line_edit_singlef = QLineEdit(self)
+		self.line_edit_singlef.setStyleSheet(dark_theme_qle_singlef)
+		self.line_edit_singlef.setReadOnly(True)
 
 		# Layout for Start and Stop buttons
-		buttonLayout = QHBoxLayout()
-		buttonLayout.addWidget(self.startButton)
-		buttonLayout.addWidget(self.stopButton)
-		buttonLayout.addWidget(self.clearButton)
-		buttonLayout.addWidget(self.copyButton)
-		buttonLayout.addWidget(self.folderButton)
+		buttons_layout = QHBoxLayout()
+		buttons_layout.addWidget(start_button)
+		buttons_layout.addWidget(stop_button)
+		buttons_layout.addWidget(clear_button)
+		buttons_layout.addWidget(reload_button)
+		buttons_layout.addWidget(folder_button)
 
 		# Create the progress bar
-		self.progressBar = QProgressBar(self)
-		self.progressBar.setStyleSheet(dark_theme_qpb_load_bar)
-		self.progressBar.setMaximum(100)
-		self.progressBar.setValue(0)
+		self.progress_bar = QProgressBar(self)
+		self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar)
+		self.progress_bar.setMaximum(100)
+		self.progress_bar.setValue(0)
 
 		# Update the main layout
-		mainLayout = QVBoxLayout()
-		mainLayout.addLayout(buttonLayout)
-		mainLayout.addWidget(self.qte_ota_printf)
-		mainLayout.addWidget(self.qte_ota_singlef)
-		mainLayout.addWidget(self.progressBar)
-		self.setLayout(mainLayout)
+		updater_win_layout = QVBoxLayout()
+		updater_win_layout.addLayout(buttons_layout)
+		updater_win_layout.addWidget(self.text_edit_printf)
+		updater_win_layout.addWidget(self.line_edit_singlef)
+		updater_win_layout.addWidget(self.progress_bar)
+		self.setLayout(updater_win_layout)
 
-		self.adjustPlaceholderGeometry()
+		self.adjust_drag_placeholder()
 
-	def adjustPlaceholderGeometry(self):
-		self.placeholderLineEdit.setGeometry(self.qte_ota_printf.geometry())
+	# Window Functions ------------------------------------------------------------------------------------------
+
+	def adjust_drag_placeholder(self):
+		self.drag_placeholder.setGeometry(self.text_edit_printf.geometry())
+
+	def show_drag_placeholder(self, visible):
+		self.drag_placeholder.setVisible(visible)
+
+	def highlight_drag_box(self, highlight):
+		if highlight:
+			self.text_edit_printf.setStyleSheet(dark_theme_qte_ota_highlight) # Pale background
+		else:
+			self.text_edit_printf.setStyleSheet(dark_theme_qte_printf) # Original style
+
+	# Qt Functions ------------------------------------------------------------------------------------------------
 
 	def resizeEvent(self, event):
-		self.adjustPlaceholderGeometry()
+		self.adjust_drag_placeholder()
 		super().resizeEvent(event)
-
-	def updatePlaceholderVisibility(self, visible):
-		self.placeholderLineEdit.setVisible(visible)
 		
 	def dragEnterEvent(self, event):
 		if event.mimeData().hasUrls():
 			event.acceptProposedAction()
-			self.highlightTextBox(True)
+			self.highlight_drag_box(True)
 
 	def dragLeaveEvent(self, event):
-		self.highlightTextBox(False)
+		self.highlight_drag_box(False)
 
 	def dropEvent(self, event):
-		self.highlightTextBox(False)
+		self.highlight_drag_box(False)
 		
 		urls = event.mimeData().urls()
 		if urls and len(urls) > 0:
 			filePath = str(urls[0].toLocalFile())
 			if filePath.endswith('.bin'):
-				self.filePath = filePath
-				self.update_info(f"Loaded file: {self.filePath}")
-				self.extractFileInfo(self.filePath)
+				self.firmware_path = filePath
+				self.update_info(f"Loaded file: {self.firmware_path}")
+				self.extract_file_info(self.firmware_path)
 			else:
 				self.update_info("Not a .bin file")
-
-	def highlightTextBox(self, highlight):
-		if highlight:
-			self.qte_ota_printf.setStyleSheet(dark_theme_qte_ota_highlight)  # Pale background
-		else:
-			self.qte_ota_printf.setStyleSheet(dark_theme_qte_printf)  # Original style
 
 	# Async BLE Functions ------------------------------------------------------------------------------------------
 	
 	@qasync.asyncSlot()
 	async def start_ota(self):
 
-		if self.filePath is None:
+		if self.firmware_path is None:
 			print("No file selected.")
 			return
 
-		totalSize = self.get_file_size(self.filePath)
+		totalSize = self.get_file_size(self.firmware_path)
 		if totalSize == 0:
 			print("File is empty, aborting OTA update")
 			return
@@ -206,8 +211,8 @@ class UpdaterWindow(QWidget):
 		self.start_time = datetime.now()
 		self.ota_running = True
 		self.clear_events()
-		self.progressBar.setStyleSheet(dark_theme_qpb_load_bar)
-		self.progressBar.setValue(0)
+		self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar)
+		self.progress_bar.setValue(0)
 
 	def clear_events(self):
 		events = [self.ready_event, self.ack_event, self.error_event, 
@@ -219,8 +224,8 @@ class UpdaterWindow(QWidget):
 		return os.path.getsize(filePath)
 
 	async def send_file_size_to_device(self, totalSize):
-		await self.bleHandler.writeCharacteristic(
-			self.consoleIndex.rx_characteristic.uuid, 
+		await self.ble_handler.writeCharacteristic(
+			self.console_index.rx_characteristic.uuid, 
 			str(f"{totalSize}").encode()
 		)
 
@@ -241,7 +246,7 @@ class UpdaterWindow(QWidget):
 
 	async def transfer_file(self, totalSize):
 		try:
-			with open(self.filePath, 'rb') as file:
+			with open(self.firmware_path, 'rb') as file:
 				await self.file_transfer_loop(file, totalSize)
 		except IOError as e:
 			print(f"Error reading file: {e}")
@@ -252,11 +257,11 @@ class UpdaterWindow(QWidget):
 			# Check if a disconnect event occurred
 			if self.disconnect_event.is_set():
 				print("OTA update aborted due to disconnection.")
-				self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+				self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
 				self.ota_running = False
 				return
 
-			dataChunk = file.read(self.chunkSize)
+			dataChunk = file.read(self.mtu_size)
 			if not await self.send_chunk_with_retries(dataChunk):
 				break
 
@@ -269,7 +274,7 @@ class UpdaterWindow(QWidget):
 
 	def update_progress_bar(self, transferred, totalSize):
 		progress = int((transferred / totalSize) * 100)
-		self.progressBar.setValue(progress)
+		self.progress_bar.setValue(progress)
 		elapsed_time = datetime.now() - self.start_time
 		self.elapsed_str = str(elapsed_time).split('.')[0]  # Convert to HH:MM:SS
 		kbytes_per_second = (transferred / elapsed_time.total_seconds()) / 1024
@@ -280,7 +285,7 @@ class UpdaterWindow(QWidget):
 		while retries < max_retries:
 			if self.disconnect_event.is_set():
 				print("OTA update aborted due to disconnection.")
-				self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+				self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
 				self.ota_running = False
 				return False
 
@@ -290,13 +295,13 @@ class UpdaterWindow(QWidget):
 			retries += 1
 
 		print("Maximum retries reached, stopping OTA")
-		self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+		self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
 		self.ota_running = False
 		return False
 
 	async def send_chunk_and_wait_for_ack(self, dataChunk):
 		self.ack_event.clear()
-		await self.bleHandler.writeCharacteristic(self.consoleIndex.rx_characteristic.uuid, dataChunk)
+		await self.ble_handler.writeCharacteristic(self.console_index.rx_characteristic.uuid, dataChunk)
 		return await self.wait_for_ack_or_stop()
 
 	async def wait_for_ack_or_stop(self):
@@ -322,15 +327,15 @@ class UpdaterWindow(QWidget):
 	def handle_stop_event(self):
 		if self.success_event.is_set():
 			self.update_info(f"[{self.elapsed_str}] OTA Loading completed")
-			self.progressBar.setStyleSheet(dark_theme_qpb_load_bar)
+			self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar)
 		elif self.error_event.is_set():
-			self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
 			self.update_info(f"[{self.elapsed_str}] OTA Error received")
 		elif self.disconnect_event.is_set():
-			self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
 			self.update_info(f"[{self.elapsed_str}] OTA Device disconnected")
 		else:
-			self.progressBar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
 			self.update_info(f"[{self.elapsed_str}] OTA Loading aborted")
 
 		self.ota_running = False
@@ -345,9 +350,9 @@ class UpdaterWindow(QWidget):
 	def callback_handle_notification(self, sender, data):
 
 		# Redirect the data to the printf text box
-		if sender == self.consoleIndex.tx_characteristic.uuid:
+		if sender == self.console_index.tx_characteristic.uuid:
 			pass # No device printf for OTA
-		elif sender == self.consoleIndex.txs_characteristic.uuid:
+		elif sender == self.console_index.txs_characteristic.uuid:
 			self.update_info(data) # singlef used for ACKs
 
 	def callback_disconnected(self, client):
@@ -359,11 +364,11 @@ class UpdaterWindow(QWidget):
 
 	# Update the main text box (printf)
 	def update_data(self, data):
-		self.updatePlaceholderVisibility(False)
-		self.qte_ota_printf.clear()
-		self.qte_ota_printf.moveCursor(QTextCursor.End)
-		self.qte_ota_printf.insertPlainText(data)
-		self.qte_ota_printf.moveCursor(QTextCursor.End)
+		self.show_drag_placeholder(False)
+		self.text_edit_printf.clear()
+		self.text_edit_printf.moveCursor(QTextCursor.End)
+		self.text_edit_printf.insertPlainText(data)
+		self.text_edit_printf.moveCursor(QTextCursor.End)
 
 	# Update the info text box (singlef)
 	def update_info(self, info):
@@ -388,12 +393,12 @@ class UpdaterWindow(QWidget):
 			self.stop_event.set()
 			#print("Device timeout")
 		else: # Info coming from the program
-			self.qte_ota_singlef.setText(info)
+			self.line_edit_singlef.setText(info)
 
 	# Reload the file
 	def reload_file(self):
-		if self.filePath:
-			self.extractFileInfo(self.filePath)
+		if self.firmware_path:
+			self.extract_file_info(self.firmware_path)
 		else:
 			self.update_info("No file loaded")
 
@@ -402,17 +407,17 @@ class UpdaterWindow(QWidget):
 		options = QFileDialog.Options()
 		filePath, _ = QFileDialog.getOpenFileName(self, "Select a .bin file", "", "Bin Files (*.bin)", options=options)
 		if filePath:
-			self.filePath = filePath
-			self.extractFileInfo(self.filePath)
+			self.firmware_path = filePath
+			self.extract_file_info(self.firmware_path)
 
 	# Extract file information and update the text box
-	def extractFileInfo(self, filePath):
+	def extract_file_info(self, filePath):
 		fileName = os.path.basename(filePath)
 		fileSize = os.path.getsize(filePath)
 		fileLocation = os.path.dirname(filePath)
 		lastModifiedTime = time.ctime(os.path.getmtime(filePath))
 		creationTime = time.ctime(os.path.getctime(filePath))
-		fileHash = self.calculateFileHash(filePath)
+		fileHash = self.calculate_hash(filePath)
 
 		# Update the information
 		otaInformation = (
@@ -430,14 +435,14 @@ class UpdaterWindow(QWidget):
 
 	# Reset the window to its initial state
 	def clear_text(self):
-		self.filePath = None
-		self.qte_ota_printf.clear()
-		self.qte_ota_singlef.clear()
-		self.updatePlaceholderVisibility(True)
-		self.progressBar.setValue(0)
+		self.firmware_path = None
+		self.text_edit_printf.clear()
+		self.line_edit_singlef.clear()
+		self.show_drag_placeholder(True)
+		self.progress_bar.setValue(0)
 
 	# Calculate the hash of a file
-	def calculateFileHash(self, filePath, hashType='md5'):
+	def calculate_hash(self, filePath, hashType='md5'):
 		hashFunc = getattr(hashlib, hashType)()
 		with open(filePath, 'rb') as file:
 			for chunk in iter(lambda: file.read(4096), b""):

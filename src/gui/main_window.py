@@ -16,94 +16,114 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+import sys
+from pathlib import Path
+
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QLineEdit
 
+from bluetooth.ble_handler import BLEHandler
 from gui.window_properties import SSCWindowProperties
 from gui.connection_window import ConnectionWindow
-from bluetooth.ble_handler import BLEHandler
 from gui.console_window import ConsoleWindow
-from gui.updater_window import UpdaterWindow
 from resources.styles import *
 
-from pathlib import Path
-import sys
-
-# Enable debug window at the bottom
+# Default window properties
+DEFAULT_TITLE = "ArcticStream"
+DEFAULT_SIZE = (800, 410)
 DEBUG_WINDOW = True
 
 class MainWindow(SSCWindowProperties):
 	def __init__(self):
 		super().__init__(self)
-		self.bleHandler = BLEHandler()
-		self.bleHandler.connectionCompleted.connect(self.callback_connection_success)
-		self.bleHandler.deviceDisconnected.connect(self.callback_disconnected)
+		self.ble_handler = BLEHandler()
+		self.ble_handler.connectionCompleted.connect(self.callback_connection_success)
+		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
 
 		# Window initialization
-		self.setWindowTitle("ArcticStream")
-		self.setCustomTitle("ArcticStream")
+		self.setWindowTitle(DEFAULT_TITLE)
+		self.set_custom_title(DEFAULT_TITLE)
+		self.resize(*DEFAULT_SIZE)
+
+		# Set the status label
 		self.set_status_bar("Disconnected")
 		self.setContentsMargins(2, 2, 2, 2)
-		self.resize(800, 410)
 
 		self.setup_layout()
-		self.icon_path()
 
 	# GUI Functions ------------------------------------------------------------------------------------------
 
 	def setup_layout(self):
-		self.tabWidget = QTabWidget(self)
-		self.tabWidget.currentChanged.connect(self.onTabChange)
+		self.tab_widget = QTabWidget(self)
+		self.tab_widget.currentChanged.connect(self.callback_tab_change)
 
 		# Single line text area for displaying debug info
-		self.qle_debugf = QLineEdit(self)
-		self.qle_debugf.setStyleSheet(dark_theme_qle_debugf)
-		self.qle_debugf.setReadOnly(True)
-		self.qle_debugf.setVisible(DEBUG_WINDOW)
-		self.qle_debugf.setText("> Debug info")
+		self.line_edit_debug = QLineEdit(self)
+		self.line_edit_debug.setStyleSheet(dark_theme_qle_debugf)
+		self.line_edit_debug.setReadOnly(True)
+		self.line_edit_debug.setVisible(DEBUG_WINDOW)
+		self.line_edit_debug.setText("> Debug info")
 
 		# Central widget to hold the layout
-		centralWidget = QWidget()
-		mainLayout = QVBoxLayout()
-		mainLayout.addWidget(self.tabWidget)
-		mainLayout.addWidget(self.qle_debugf)
-		centralWidget.setLayout(mainLayout)
-		self.setCentralWidget(centralWidget)
+		main_window_layout = QVBoxLayout()
+		main_window_layout.addWidget(self.tab_widget)
+		main_window_layout.addWidget(self.line_edit_debug)
+		
+		central_widget = QWidget()
+		central_widget.setLayout(main_window_layout)
+		self.setCentralWidget(central_widget)
 
 		# Connection tab
-		self.connectionTab = ConnectionWindow(self, self.bleHandler, "BLE")
-		self.connectionTab.closingCompleted.connect(self.finalizeClose)
+		self.connection_tab = ConnectionWindow(self, self.ble_handler, "BLE")
+		self.connection_tab.signal_closing_complete.connect(self.callback_finalize_close)
+
+	# Window Functions ---------------------------------------------------------------------------------------
 
 	# Update the debug info
 	def debug_info(self, text):
 		print(text)
-		self.qle_debugf.setText(f"> {text}")
+		self.line_edit_debug.setText(f"> {text}")
 
 	# Add a connection tab dynamically
 	def add_connection_tab(self, console_widget, title):
-		tabIndex = self.tabWidget.addTab(console_widget, title)
+		tabIndex = self.tab_widget.addTab(console_widget, title)
 		return tabIndex
 
 	# Add a console tab dynamically
 	def add_console_tab(self, console_widget, title):
-		tabIndex = self.tabWidget.addTab(console_widget, title)
+		tabIndex = self.tab_widget.addTab(console_widget, title)
 		return tabIndex
 
 	# Add a updater tab dynamically
 	def add_updater_tab(self, console_widget, title):
-		tabIndex = self.tabWidget.addTab(console_widget, title)
+		tabIndex = self.tab_widget.addTab(console_widget, title)
 		return tabIndex
 
-	# Reimplement the resizeEvent
-	def resizeEvent(self, event):
-		super(MainWindow, self).resizeEvent(event)
-
-	def updateTabTitle(self, console, title):
-		index = self.tabWidget.indexOf(console)
+	def update_tab_title(self, console, title):
+		index = self.tab_widget.indexOf(console)
 		if index != -1:
-			self.tabWidget.setTabText(index, title)
+			self.tab_widget.setTabText(index, title)
 
-	def onTabChange(self, index):
-		console = self.tabWidget.widget(index)
+	def set_status_bar(self, mode):
+		if mode == "Connected":
+			self.setStyleSheet("MainWindow {border: 2px solid darkgreen;}")
+			self.set_title_status("Connected")
+		elif mode == "Disconnected":
+			self.setStyleSheet("MainWindow {border: 2px solid darkred;}")
+			self.set_title_status("Disconnected")
+
+	# Get the icon path
+	def icon_path(self):
+		if getattr(sys, 'frozen', False):
+			application_path = Path(sys._MEIPASS)
+		else:
+			application_path = Path(__file__).resolve().parent.parent
+		icons_dir = application_path / "resources" / "icons"
+		return icons_dir
+
+	# Callbacks ----------------------------------------------------------------------------------------------
+
+	def callback_tab_change(self, index):
+		console = self.tab_widget.widget(index)
 		if isinstance(console, ConsoleWindow):
 			console.resetCounter()
 
@@ -116,30 +136,19 @@ class MainWindow(SSCWindowProperties):
 	# Callback device disconnected
 	def callback_disconnected(self, client):
 		self.set_status_bar("Disconnected")
+	
+	# Qt Events ----------------------------------------------------------------------------------------------
 
-	def set_status_bar(self, mode):
-		if mode == "Connected":
-			self.setStyleSheet("MainWindow {border: 2px solid darkgreen;}")
-			self.setTitleStatus("Connected")
-		elif mode == "Disconnected":
-			self.setStyleSheet("MainWindow {border: 2px solid darkred;}")
-			self.setTitleStatus("Disconnected")
-
-	# Get the icon path
-	def icon_path(self):
-		if getattr(sys, 'frozen', False):
-			application_path = Path(sys._MEIPASS)
-		else:
-			application_path = Path(__file__).resolve().parent.parent
-		icons_dir = application_path / "resources" / "icons"
-		return icons_dir
+	# Reimplement the resizeEvent
+	def resizeEvent(self, event):
+		super(MainWindow, self).resizeEvent(event)
 
 	def closeEvent(self, event):
-		if not self.connectionTab.is_closing:
-			self.windowCloseEvent.emit()  # Emit the signal to start closing tasks
+		if not self.connection_tab.is_closing:
+			self.signal_window_close.emit()  # Emit the signal to start closing tasks
 			event.ignore()  # Ignore the close event initially
 		else:
 			event.accept()  # Accept the close event if already closing
 
-	def finalizeClose(self):
+	def callback_finalize_close(self):
 		self.close()  # Now safe to close the MainWindow

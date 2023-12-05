@@ -16,43 +16,43 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+import asyncio
+import traceback
+
+import qasync
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget
 
+from bluetooth.ble_handler import BLEHandler
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
-from bluetooth.ble_handler import BLEHandler
 from resources.indexer import ConsoleIndex
 from resources.patterns import *
 from resources.styles import *
-
-import traceback
-import asyncio
-import qasync
 		
 class ConnectionWindow(QWidget):
-	closingCompleted = pyqtSignal()
+	signal_closing_complete = pyqtSignal()
 	
 	def __init__(self, main_window, ble_handler: BLEHandler, title):
 		self.connection_event = asyncio.Event()
 		self.reconnection_event = asyncio.Event()
 
 		super().__init__()
-		self.mainWindow = main_window # MainWindow Reference
-		self.bleHandler = ble_handler # BLE Reference
-		self.winTitle = title  # Original title of the tab
+		self.main_window = main_window # MainWindow Reference
+		self.ble_handler = ble_handler # BLE Reference
+		self.win_title = title  # Original title of the tab
 
 		# Add this tab to the main window
-		self.mainWindow.add_connection_tab(self, self.winTitle)
+		self.main_window.add_connection_tab(self, self.win_title)
 
-		# Connect the mainWindow's windowCloseEvent to a local slot
-		self.mainWindow.windowCloseEvent.connect(self.initiateCloseTasks)
+		# Connect the mainWindow's signal_window_close to a local slot
+		self.main_window.signal_window_close.connect(self.process_close_task)
 
 		# Async BLE Signals
-		self.bleHandler.devicesDiscovered.connect(self.callback_update_scan_list)
-		self.bleHandler.connectionCompleted.connect(self.callback_connection_complete)
-		self.bleHandler.deviceDisconnected.connect(self.callback_disconnected)
-		self.bleHandler.characteristicRead.connect(self.callback_handle_char_read)
+		self.ble_handler.devicesDiscovered.connect(self.callback_update_scan_list)
+		self.ble_handler.connectionCompleted.connect(self.callback_connection_complete)
+		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
+		self.ble_handler.characteristicRead.connect(self.callback_handle_char_read)
 
 		# Globals
 		self.console_services = {} # Console services reference (for service reuse)
@@ -66,50 +66,50 @@ class ConnectionWindow(QWidget):
 		
 	# Layout and Widgets
 	def setup_layout(self):
-		self.scanButton = QPushButton("Scan Bluetooth")
-		self.scanButton.clicked.connect(self.scanBluetooth)
+		scan_button = QPushButton("Scan Bluetooth")
+		scan_button.clicked.connect(self.ble_scan)
 
-		self.deviceList = QListWidget()
-		self.deviceList.setSelectionMode(QListWidget.SingleSelection)
-		self.deviceList.itemDoubleClicked.connect(self.connectDevice)
+		self.scan_device_list = QListWidget()
+		self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
+		self.scan_device_list.itemDoubleClicked.connect(self.ble_connect)
 
-		self.connectButton = QPushButton("Connect")
-		self.connectButton.clicked.connect(self.connectDevice)
+		connect_button = QPushButton("Connect")
+		connect_button.clicked.connect(self.ble_connect)
 
-		self.exitButton = QPushButton("Exit")
-		self.exitButton.clicked.connect(self.exitApplication)
+		exit_button = QPushButton("Exit")
+		exit_button.clicked.connect(self.exitApplication)
 
-		layout = QVBoxLayout()
-		layout.addWidget(self.scanButton)
-		layout.addWidget(self.deviceList)
-		layout.addWidget(self.connectButton)
-		layout.addWidget(self.exitButton)
-		self.setLayout(layout)
+		connection_layout = QVBoxLayout()
+		connection_layout.addWidget(scan_button)
+		connection_layout.addWidget(self.scan_device_list)
+		connection_layout.addWidget(connect_button)
+		connection_layout.addWidget(exit_button)
+		self.setLayout(connection_layout)
 
 	# Async BLE Functions ------------------------------------------------------------------------------------------
 
 	# BLE Scanning
 	@qasync.asyncSlot()
-	async def scanBluetooth(self):
-		self.mainWindow.debug_info("Scanning for devices ...")
-		await self.bleHandler.scanForDevices()
-		self.mainWindow.debug_info("Scanning complete")
+	async def ble_scan(self):
+		self.main_window.debug_info("Scanning for devices ...")
+		await self.ble_handler.scanForDevices()
+		self.main_window.debug_info("Scanning complete")
 
 	# BLE Connection
 	@qasync.asyncSlot()
-	async def connectDevice(self, reconnect=False):
-		selected_items = self.deviceList.selectedItems()
+	async def ble_connect(self, reconnect=False):
+		selected_items = self.scan_device_list.selectedItems()
 		if not selected_items:
-			self.mainWindow.debug_info("No device selected")
+			self.main_window.debug_info("No device selected")
 			return
 		
 		device_address = selected_items[0].text().split(" - ")[1]
 		self.last_device_address = device_address
 
 		if not reconnect:
-			self.mainWindow.debug_info(f"Connecting to {device_address} ...")
+			self.main_window.debug_info(f"Connecting to {device_address} ...")
 			
-		await self.bleHandler.connectToDevice(device_address)
+		await self.ble_handler.connectToDevice(device_address)
 
 	# BLE Setting up notifications and retrieving name characteristic
 	@qasync.asyncSlot()
@@ -117,53 +117,53 @@ class ConnectionWindow(QWidget):
 		for service_uuid, ble_service in self.console_services.items():
 			# Start notifications and read name characteristics asynchronously
 			if ble_service.tx_characteristic:
-				await self.bleHandler.startNotifications(ble_service.tx_characteristic)
+				await self.ble_handler.startNotifications(ble_service.tx_characteristic)
 			if ble_service.txs_characteristic:
-				await self.bleHandler.startNotifications(ble_service.txs_characteristic)
+				await self.ble_handler.startNotifications(ble_service.txs_characteristic)
 			if ble_service.name_characteristic:
-				await self.bleHandler.readCharacteristic(ble_service.name_characteristic)
+				await self.ble_handler.readCharacteristic(ble_service.name_characteristic)
 
 	# Reconnection
 	@qasync.asyncSlot()
-	async def attemptReconnection(self):
-		MAX_RETRIES = 5
-		reconnection_retries = 1
+	async def ble_reconnect(self):
+		max_recon_retries = 5
+		retries_counter = 1
 
-		while reconnection_retries <= MAX_RETRIES:
+		while retries_counter <= max_recon_retries:
 			self.connection_event.clear()
-			self.mainWindow.debug_info(f"Attempting reconnection to {self.last_device_address}. Retry: {reconnection_retries}/{MAX_RETRIES}")
-			await self.connectDevice(self.last_device_address, reconnect=True) # Will wait 5s before timeout
+			self.main_window.debug_info(f"Attempting reconnection to {self.last_device_address}. Retry: {retries_counter}/{max_recon_retries}")
+			await self.ble_connect(self.last_device_address, reconnect=True) # Will wait 5s before timeout
 			if self.connection_event.is_set():
 				# Reconnection successful
 				break
 			else:
-				reconnection_retries += 1
+				retries_counter += 1
 
-		if reconnection_retries > MAX_RETRIES:
-			self.mainWindow.debug_info(f"Reconnection to {self.last_device_address} failed")
+		if retries_counter > max_recon_retries:
+			self.main_window.debug_info(f"Reconnection to {self.last_device_address} failed")
 
 	# Stop BLE
 	@qasync.asyncSlot()
-	async def stopBluetooth(self):
-		self.mainWindow.debug_info("Disconnecting ...")
-		await self.bleHandler.disconnect()
+	async def ble_stop(self):
+		self.main_window.debug_info("Disconnecting ...")
+		await self.ble_handler.disconnect()
 
 	# Callbacks -----------------------------------------------------------------------------------------------
 
 	# Callback update device list
 	def callback_update_scan_list(self, devices):
-		self.deviceList.clear()
+		self.scan_device_list.clear()
 		for name, address in devices:
-			self.deviceList.addItem(f"{name} - {address}")
+			self.scan_device_list.addItem(f"{name} - {address}")
 
 	# Callback connection success
 	def callback_connection_complete(self, connected):
 		if connected:
 			self.connection_event.set()
 			
-			self.mainWindow.debug_info(f"Connected to {self.last_device_address}")
+			self.main_window.debug_info(f"Connected to {self.last_device_address}")
 
-			registered_services = self.bleHandler.getServices()
+			registered_services = self.ble_handler.getServices()
 			for service in registered_services:
 				service_uuid = str(service.uuid)
 
@@ -207,9 +207,9 @@ class ConnectionWindow(QWidget):
 			for service_uuid, ble_service in self.console_services.items():
 				if ble_service.name_characteristic and str(ble_service.name_characteristic.uuid) == uuid:
 					if (service_ota_pattern.match(service_uuid)):
-						self.newUpdaterWindow(name, uuid)
+						self.new_updater_window(name, uuid)
 					else:
-						self.newConsoleWindow(name, uuid)
+						self.new_console_window(name, uuid)
 					ble_service.name = name
 					break
 
@@ -219,11 +219,11 @@ class ConnectionWindow(QWidget):
 	
 	# Callback device disconnected
 	def callback_disconnected(self, client):
-		self.mainWindow.debug_info(f"Device {client.address} disconnected")
+		self.main_window.debug_info(f"Device {client.address} disconnected")
 
 		# Manual disconnect are not handled
 		if self.last_device_address:
-			self.attemptReconnection()
+			self.ble_reconnect()
 
 	# Window Functions ------------------------------------------------------------------------------------------
 
@@ -236,7 +236,7 @@ class ConnectionWindow(QWidget):
 		return None
 	
 	# Initialize a new console window
-	def newConsoleWindow(self, name, uuid):
+	def new_console_window(self, name, uuid):
 		ble_service = self.find_and_update_console_service(uuid, name)
 		if not ble_service:
 			print(f"No matching service found for UUID: {uuid}")
@@ -247,13 +247,13 @@ class ConnectionWindow(QWidget):
 			console = self.console_ref[uuid]
 		else:
 			# Console window is not open, create a new one
-			console = ConsoleWindow(self.mainWindow, self.bleHandler, name, ble_service)
+			console = ConsoleWindow(self.main_window, self.ble_handler, name, ble_service)
 			self.console_ref[uuid] = console
 
-			self.mainWindow.add_console_tab(console, name)
+			self.main_window.add_console_tab(console, name)
 
 	# Initialize a new updater window (OTA)
-	def newUpdaterWindow(self, name, uuid):
+	def new_updater_window(self, name, uuid):
 		ble_service = self.find_and_update_console_service(uuid, name)
 		if not ble_service:
 			print(f"No matching service found for UUID: {uuid}")
@@ -264,30 +264,30 @@ class ConnectionWindow(QWidget):
 			console = self.console_ref[uuid]
 		else:
 			# Console window is not open, create a new one
-			console = UpdaterWindow(self.mainWindow, self.bleHandler, name, ble_service)
+			console = UpdaterWindow(self.main_window, self.ble_handler, name, ble_service)
 			self.console_ref[uuid] = console
 
-			self.mainWindow.add_updater_tab(console, name)
+			self.main_window.add_updater_tab(console, name)
 
 	# Stop Functions ------------------------------------------------------------------------------------------
 
 	# Stop the remaining consoles
-	def stopConsoles(self):
+	def stop_consoles(self):
 		for uuid, console in self.console_ref.items():
 			console.close()
 	
 	# Stop the BLE Handler
 	@qasync.asyncSlot()
-	async def initiateCloseTasks(self):
+	async def process_close_task(self):
 		self.last_device_address = None # Clear the last device address
 		if not self.is_closing:
 			self.is_closing = True
-			await self.stopBluetooth()
-			self.stopConsoles()
-			self.closingCompleted.emit()  # Emit the signal after all tasks are completed
+			await self.ble_stop()
+			self.stop_consoles()
+			self.signal_closing_complete.emit()  # Emit the signal after all tasks are completed
 
 	# Exit triggered from "exit" button
 	def exitApplication(self):
 		self.last_device_address = None # Clear the last device address
 		if not self.is_closing:
-			asyncio.ensure_future(self.initiateCloseTasks())
+			asyncio.ensure_future(self.process_close_task())

@@ -16,45 +16,43 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+import qasync
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QTextEdit, QApplication, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog
-from PyQt5.QtGui import QTextCursor, QIcon
+from PyQt5.QtGui import QTextCursor
 
 from bluetooth.ble_handler import BLEHandler
 from resources.indexer import ConsoleIndex
 from resources.styles import *
-
-from pathlib import Path
-import asyncio
-import qasync
+from helpers.pushbutton_helper import ToggleButton, SimpleButton
 
 class ConsoleWindow(QWidget):
 	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
 		super().__init__()
-		self.mainWindow = main_window # MainWindow Reference
-		self.bleHandler = ble_handler # BLE Reference
-		self.winTitle = title # Original title of the tab
-		self.consoleIndex = console_index # Console information
+		self.main_window = main_window # MainWindow Reference
+		self.ble_handler = ble_handler # BLE Reference
+		self.win_title = title # Original title of the tab
+		self.console_index = console_index # Console information
 
 		print("ConsoleWindow: Initializing ...")
-		print(f"ConsoleWindow: {self.consoleIndex.name}")
-		print(f"ConsoleWindow: {self.consoleIndex.service.uuid}")
-		print(f"ConsoleWindow: {self.consoleIndex.tx_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.consoleIndex.txs_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.consoleIndex.rx_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.consoleIndex.name_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.console_index.name}")
+		print(f"ConsoleWindow: {self.console_index.service.uuid}")
+		print(f"ConsoleWindow: {self.console_index.tx_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.console_index.txs_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.console_index.rx_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.console_index.name_characteristic.uuid}")
 		print("------------------------------------------")
 
 		# Async BLE Signals
-		self.bleHandler.notificationReceived.connect(self.callback_handle_notification)
+		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
 
 		# Globals
-		self.dataCounter = 0
-		self.isLocked = True
-		self.isPaused = False
-		self.isLogging = False
-		self.logFilePath = None
-		self.icons_dir = self.mainWindow.icon_path()
+		self.icons_dir = self.main_window.icon_path()
+		self.data_counter = 0
+		self.scroll_locked = True
+		self.console_paused = False
+		self.logging_enabled = False
+		self.user_log_path = None
 
 		self.setup_layout()
 
@@ -64,107 +62,104 @@ class ConsoleWindow(QWidget):
 	def setup_layout(self):
 
 		# Start and Stop buttons
-		self.startButton = QPushButton("Start", self)
-		self.startButton.clicked.connect(self.start_console)
-		self.stopButton = QPushButton("Stop", self)
-		self.stopButton.clicked.connect(self.pause_console)
-		self.clearButton = QPushButton("Clear", self)
-		self.clearButton.clicked.connect(self.clear_text)
-		self.copyButton = QPushButton("Copy", self)
-		self.copyButton.clicked.connect(self.copy_text)
-		self.logButton = QPushButton("Log", self)
-		self.logButton.clicked.connect(self.log_text)
+		start_button = QPushButton("Start", self)
+		start_button.clicked.connect(self.start_console)
+		stop_button = QPushButton("Stop", self)
+		stop_button.clicked.connect(self.pause_console)
+		clear_button = QPushButton("Clear", self)
+		clear_button.clicked.connect(self.clear_text)
+		copy_button = QPushButton("Copy", self)
+		copy_button.clicked.connect(self.copy_text)
+		self.log_button = QPushButton("Log", self)
+		self.log_button.clicked.connect(self.log_text)
 
-		# Lock button
-		self.lockButton = QPushButton(self)
-		self.lockButton.setFixedSize(25, 25)
-		self.lockButton.clicked.connect(self.togglelLock)
-		self.svgIcon = QIcon(f"{self.icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg")
-		self.lockButton.setIcon(self.svgIcon)
+		# Toggle lock button
+		self.lock_button = ToggleButton(self,
+			icons=(f"{self.icons_dir}/lock_open_right_FILL0_wght400_GRAD0_opsz24", f"{self.icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg"),
+			size=(25, 25),
+			style=dark_theme_qpb_title,
+			callback=self.toggle_lock,
+			toggled=True
+		)
 
 		# Main text area for accumulating text
-		self.qte_printf = QTextEdit(self)
-		self.qte_printf.setMaximumSize
-		self.qte_printf.setStyleSheet(dark_theme_qte_printf)
-		self.qte_printf.setReadOnly(True)
+		self.text_edit_printf = QTextEdit(self)
+		self.text_edit_printf.installEventFilter(self)
+		self.text_edit_printf.setStyleSheet(dark_theme_qte_printf)
+		self.text_edit_printf.setReadOnly(True)
 
 		# Single line text area for displaying info
-		self.qte_singlef = QLineEdit(self)
-		self.qte_singlef.setStyleSheet(dark_theme_qle_singlef)
-		self.qte_singlef.setReadOnly(True)
+		self.line_edit_singlef = QLineEdit(self)
+		self.line_edit_singlef.setStyleSheet(dark_theme_qle_singlef)
+		self.line_edit_singlef.setReadOnly(True)
 
 		# Layout for Start and Stop buttons
-		buttonLayout = QHBoxLayout()
-		buttonLayout.addWidget(self.startButton)
-		buttonLayout.addWidget(self.stopButton)
-		buttonLayout.addWidget(self.clearButton)
-		buttonLayout.addWidget(self.copyButton)
-		buttonLayout.addWidget(self.logButton)
-		buttonLayout.addWidget(self.lockButton)
+		buttons_layout = QHBoxLayout()
+		buttons_layout.addWidget(start_button)
+		buttons_layout.addWidget(stop_button)
+		buttons_layout.addWidget(clear_button)
+		buttons_layout.addWidget(copy_button)
+		buttons_layout.addWidget(self.log_button)
+		buttons_layout.addWidget(self.lock_button)
 
 		# Input text box for sending data
-		self.qle_send = QLineEdit(self)
-		self.qle_send.setStyleSheet(dark_theme_qle_send_data)
-		self.qle_send.setPlaceholderText("Insert data to send ...")
+		self.line_edit_send = QLineEdit(self)
+		self.line_edit_send.setStyleSheet(dark_theme_qle_send_data)
+		self.line_edit_send.setPlaceholderText("Insert data to send ...")
 
-		# Send button for input text box
-		self.sendButton = QPushButton(self)
-		self.sendButton.setFixedSize(25, 25)
-		self.sendButton.clicked.connect(self.send_data)
-		self.svgIcon = QIcon(f"{self.icons_dir}/play_arrow_FILL0_wght400_GRAD0_opsz24.svg")
-		self.sendButton.setIcon(self.svgIcon)
+		# Simple send button
+		self.send_button = SimpleButton(self,
+			icon=f"{self.icons_dir}/play_arrow_FILL0_wght400_GRAD0_opsz24.svg",
+			size=(25, 25),
+			style=dark_theme_qpb_title,
+			callback=self.send_data
+		)
 
 		# Layout for input text box and send button
-		inputLayout = QHBoxLayout()
-		inputLayout.addWidget(self.qle_send)
-		inputLayout.addWidget(self.sendButton)
+		send_data_layout = QHBoxLayout()
+		send_data_layout.addWidget(self.line_edit_send)
+		send_data_layout.addWidget(self.send_button)
 
 		# Update the main layout
-		mainLayout = QVBoxLayout()
-		mainLayout.addLayout(buttonLayout)
-		mainLayout.addWidget(self.qte_printf)
-		mainLayout.addWidget(self.qte_singlef)
-		mainLayout.addLayout(inputLayout)
-		self.setLayout(mainLayout)
+		console_win_layout = QVBoxLayout()
+		console_win_layout.addLayout(buttons_layout)
+		console_win_layout.addWidget(self.text_edit_printf)
+		console_win_layout.addWidget(self.line_edit_singlef)
+		console_win_layout.addLayout(send_data_layout)
+		self.setLayout(console_win_layout)
 
 	def start_console(self):
-		self.isPaused = False
+		self.console_paused = False
 
 	def pause_console(self):
-		self.isPaused = True
+		self.console_paused = True
 
 	# Lock and unlock the scrollbar
-	def togglelLock(self):
-		self.isLocked = not self.isLocked
-		if self.isLocked:
-			self.svgIcon = QIcon(f"{self.icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg")
-			self.lockButton.setIcon(self.svgIcon)
-		else:
-			self.svgIcon = QIcon(f"{self.icons_dir}/lock_open_right_FILL0_wght400_GRAD0_opsz24.svg")
-			self.lockButton.setIcon(self.svgIcon)
+	def toggle_lock(self, status):
+		self.scroll_locked = status
 	
 	# Reset the tab counter
 	def resetCounter(self):
-		self.dataCounter = 0
-		self.updateTabTitle()
+		self.data_counter = 0
+		self.update_tab_title()
 	
 	# Update the tab title
-	def updateTabTitle(self):
-		newTitle = f"{self.winTitle} ({self.dataCounter})" if self.dataCounter > 0 else self.winTitle
-		self.mainWindow.updateTabTitle(self, newTitle)
+	def update_tab_title(self):
+		new_title = f"{self.win_title} ({self.data_counter})" if self.data_counter > 0 else self.win_title
+		self.main_window.update_tab_title(self, new_title)
 
 	def isTabInFocus(self):
-		currentWidget = self.mainWindow.tabWidget.currentWidget()
-		return currentWidget == self
+		current_widget = self.main_window.tab_widget.currentWidget()
+		return current_widget == self
 
 	# Async BLE Functions ------------------------------------------------------------------------------------------
 
 	@qasync.asyncSlot()
 	async def send_data(self):
-		data = self.qle_send.text()
+		data = self.line_edit_send.text()
 		if data:
-			await self.bleHandler.writeCharacteristic(self.consoleIndex.rx_characteristic.uuid, data.encode())
-			self.qle_send.clear()
+			await self.ble_handler.writeCharacteristic(self.console_index.rx_characteristic.uuid, data.encode())
+			self.line_edit_send.clear()
 
 	# Callbacks -----------------------------------------------------------------------------------------------
 
@@ -172,76 +167,84 @@ class ConsoleWindow(QWidget):
 	def callback_handle_notification(self, sender, data):
 
 		# Redirect the data to the printf text box
-		if sender == self.consoleIndex.tx_characteristic.uuid:
+		if sender == self.console_index.tx_characteristic.uuid:
 			self.update_data(data)
-		elif sender == self.consoleIndex.txs_characteristic.uuid:
+		elif sender == self.console_index.txs_characteristic.uuid:
 			self.update_info(data)
 
 	# Window Functions ------------------------------------------------------------------------------------------
 
-	# Update the main text box (printf)
-	def update_data(self, data):
-		if self.isPaused:
+	def update_data(self, data, line_limit=20):
+		if self.console_paused:
 			return
 
 		# Save the current position of the scrollbar
-		scrollbar = self.qte_printf.verticalScrollBar()
+		scrollbar = self.text_edit_printf.verticalScrollBar()
 		current_pos = scrollbar.value()
 
 		# Insert the new data
-		self.qte_printf.moveCursor(QTextCursor.End)
-		self.qte_printf.insertPlainText(data)
+		self.text_edit_printf.moveCursor(QTextCursor.End)
+		self.text_edit_printf.insertPlainText(data)
+
+		# Limit the number of lines
+		text = self.text_edit_printf.toPlainText()
+		lines = text.split('\n')
+		if len(lines) > line_limit:
+			lines = lines[-line_limit:]
+			self.text_edit_printf.setPlainText('\n'.join(lines))
 
 		# Scroll to the bottom if the lock button is pressed
-		if self.isLocked:
+		if self.scroll_locked:
 			scrollbar.setValue(scrollbar.maximum())
 		else:
 			scrollbar.setValue(current_pos)
 		
 		# Increment the tab counter
 		if not self.isTabInFocus():
-			self.dataCounter += 1
-			self.updateTabTitle()
+			self.data_counter += 1
+			self.update_tab_title()
 
 		# Log data to file if logging is enabled
-		if self.isLogging and self.logFilePath:
-			with open(self.logFilePath, 'a') as file:
+		if self.logging_enabled and self.user_log_path:
+			with open(self.user_log_path, 'a') as file:
 				file.write(data)
 
 	# Update the info text box (singlef)
 	def update_info(self, info):
-		self.qte_singlef.setText(info)
+		self.line_edit_singlef.setText(info)
 	
 	# Copy the text from the main text box
 	def copy_text(self):
 		clipboard = QApplication.clipboard()
-		clipboard.setText(self.qte_printf.toPlainText())
+		clipboard.setText(self.text_edit_printf.toPlainText())
 	
 	# Clear the text from the main text box
 	def clear_text(self):
-		self.qte_printf.clear()
-		self.qte_singlef.clear()
+		self.text_edit_printf.clear()
+		self.line_edit_singlef.clear()
 	
 	# Save the text from the main text box
 	def log_text(self):
-		if not self.isLogging:
+		if not self.logging_enabled:
 			if self.select_log_file():
-				self.isLogging = True
-				self.logButton.setStyleSheet("background-color: darkgreen")
+				self.logging_enabled = True
+				self.log_button.setStyleSheet("background-color: darkgreen")
 		else:
-			self.isLogging = False
-			self.logButton.setStyleSheet("")
+			self.logging_enabled = False
+			self.log_button.setStyleSheet("")
 
 	def select_log_file(self):
 		# Use the native file dialog
-		fileName, _ = QFileDialog.getSaveFileName(self, "Select Log File", self.winTitle, "Text Files (*.txt)")
+		fileName, _ = QFileDialog.getSaveFileName(self, "Select Log File", self.win_title, "Text Files (*.txt)")
 		if fileName:
-			self.logFilePath = fileName
+			self.user_log_path = fileName
 			return True
 		return False
+	
+	# Qt Functions ------------------------------------------------------------------------------------------
 
 	# Reimplement the keyPressEvent
 	def keyPressEvent(self, event):
 		if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
-			if self.qle_send.hasFocus():
+			if self.line_edit_send.hasFocus():
 				self.send_data()

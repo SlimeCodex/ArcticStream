@@ -16,16 +16,15 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+import sys
+import asyncio
+
+import qasync
 from PyQt5.QtWidgets import QApplication
 
 from gui.main_window import MainWindow
 from resources.styles import *
 
-import sys
-import asyncio
-import qasync
-
-# Main Function with event loop
 if __name__ == "__main__":
 	app = QApplication(sys.argv)
 	app.setStyleSheet(dark_theme_app + dark_theme_tab + dark_theme_scroll)
