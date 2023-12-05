@@ -25,12 +25,13 @@ from datetime import datetime
 import asyncio
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QTextEdit, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QProgressBar
-from PyQt5.QtGui import QTextCursor
+from PyQt5.QtGui import QTextCursor, QFont
 
 from bluetooth.ble_handler import BLEHandler
 from resources.indexer import ConsoleIndex
-from resources.styles import *
 from helpers.pushbutton_helper import SimpleButton
+from resources.theme_config import *
+import helpers.theme_helper as th
 
 class UpdaterWindow(QWidget):
 	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
@@ -52,6 +53,7 @@ class UpdaterWindow(QWidget):
 		# Async BLE Signals
 		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
 		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
+		self.main_window.themeChanged.connect(self.callback_update_theme)
 
 		# Async Events from the device
 		self.ready_event = asyncio.Event()
@@ -70,6 +72,7 @@ class UpdaterWindow(QWidget):
 		self.mtu_size = 500
 		self.start_time = 0
 		self.elapsed_str = "00:00:00"
+		self.ota_error_status = False
 		self.icons_dir = self.main_window.icon_path()
 
 		self.setup_layout()
@@ -90,30 +93,32 @@ class UpdaterWindow(QWidget):
 		reload_button.clicked.connect(self.reload_file)
 
 		# Simple folder button
-		folder_button = SimpleButton(self,
+		self.folder_button = SimpleButton(self,
 			icon=f"{self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
-			size=(25, 25),
-			style=dark_theme_qpb_title,
+			size=(DEFAULT_PUSH_BUTTON_HEIGHT, DEFAULT_PUSH_BUTTON_HEIGHT),
+			style=th.get_style("default_button_style"),
 			callback=self.setPath
 		)
 
 		# Main text area for accumulating text
 		self.text_edit_printf = QTextEdit(self)
-		self.text_edit_printf.setStyleSheet(dark_theme_qte_printf)
+		self.text_edit_printf.setFont(QFont("Inconsolata"))
 		self.text_edit_printf.setReadOnly(True)
 		
 		# Placeholder text
 		self.drag_placeholder = QLineEdit("Drag your firmware here or select your firmware path", self)
+		self.drag_placeholder.setFont(QFont("Inconsolata"))
+		self.drag_placeholder.setGeometry(self.text_edit_printf.geometry())
+		self.drag_placeholder.setStyleSheet(th.get_style("updater_placeholder_line_edit_style"))
 		self.drag_placeholder.setReadOnly(True)
 		self.drag_placeholder.setAlignment(Qt.AlignCenter)
-		self.drag_placeholder.setStyleSheet(dark_theme_qle_ota_placeholder)
-		self.drag_placeholder.setGeometry(self.text_edit_printf.geometry())  # Adjust geometry to match qte_printf
-		self.drag_placeholder.setAttribute(Qt.WA_TransparentForMouseEvents)  # Make it non-interactive
-		self.show_drag_placeholder(True)  # Initially visible
+		self.drag_placeholder.setAttribute(Qt.WA_TransparentForMouseEvents)
+		self.show_drag_placeholder(True)
 
 		# Single line text area for displaying info
 		self.line_edit_singlef = QLineEdit(self)
-		self.line_edit_singlef.setStyleSheet(dark_theme_qle_singlef)
+		self.line_edit_singlef.setFont(QFont("Inconsolata"))
+		self.line_edit_singlef.setFixedHeight(DEFAULT_LINE_EDIT_HEIGHT)
 		self.line_edit_singlef.setReadOnly(True)
 
 		# Layout for Start and Stop buttons
@@ -122,11 +127,12 @@ class UpdaterWindow(QWidget):
 		buttons_layout.addWidget(stop_button)
 		buttons_layout.addWidget(clear_button)
 		buttons_layout.addWidget(reload_button)
-		buttons_layout.addWidget(folder_button)
+		buttons_layout.addWidget(self.folder_button)
 
 		# Create the progress bar
 		self.progress_bar = QProgressBar(self)
-		self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar)
+		self.progress_bar.setFixedHeight(DEFAULT_LOADING_BAR_HEIGHT)
+		self.progress_bar.setStyleSheet(th.get_style("default_loading_bar_style"))
 		self.progress_bar.setMaximum(100)
 		self.progress_bar.setValue(0)
 
@@ -150,9 +156,23 @@ class UpdaterWindow(QWidget):
 
 	def highlight_drag_box(self, highlight):
 		if highlight:
-			self.text_edit_printf.setStyleSheet(dark_theme_qte_ota_highlight) # Pale background
+			self.text_edit_printf.setStyleSheet(th.get_style("updater_highligh_text_edit_style"))
 		else:
-			self.text_edit_printf.setStyleSheet(dark_theme_qte_printf) # Original style
+			self.text_edit_printf.setStyleSheet(th.get_style("default_text_edit_style"))
+	
+	def callback_update_theme(self, theme):
+		# Reload stylesheets (background for buttons)
+		self.folder_button.setStyleSheet(th.get_style("default_button_style"))
+		if (self.ota_error_status): # If in error state
+			self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
+		else:
+			self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_style"))
+
+		# Update special widgets by theme
+		if theme == "dark":
+			self.folder_button.changeIconColor("#ffffff")
+		elif theme == "light":
+			self.folder_button.changeIconColor("#000000")
 
 	# Qt Functions ------------------------------------------------------------------------------------------------
 
@@ -198,6 +218,7 @@ class UpdaterWindow(QWidget):
 		if self.ota_running:
 			print("OTA update is already in progress.")
 			return
+		
 		self.initialize_ota()  # Initializing OTA-specific variables and settings
 		
 		await self.send_file_size_to_device(totalSize)
@@ -210,8 +231,9 @@ class UpdaterWindow(QWidget):
 	def initialize_ota(self):
 		self.start_time = datetime.now()
 		self.ota_running = True
+		self.ota_error_status = False
 		self.clear_events()
-		self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar)
+		self.progress_bar.setStyleSheet(th.get_style("default_loading_bar_style"))
 		self.progress_bar.setValue(0)
 
 	def clear_events(self):
@@ -257,7 +279,8 @@ class UpdaterWindow(QWidget):
 			# Check if a disconnect event occurred
 			if self.disconnect_event.is_set():
 				print("OTA update aborted due to disconnection.")
-				self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+				self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
+				self.ota_error_status = True
 				self.ota_running = False
 				return
 
@@ -285,7 +308,8 @@ class UpdaterWindow(QWidget):
 		while retries < max_retries:
 			if self.disconnect_event.is_set():
 				print("OTA update aborted due to disconnection.")
-				self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+				self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
+				self.ota_error_status = True
 				self.ota_running = False
 				return False
 
@@ -295,7 +319,8 @@ class UpdaterWindow(QWidget):
 			retries += 1
 
 		print("Maximum retries reached, stopping OTA")
-		self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+		self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
+		self.ota_error_status = True
 		self.ota_running = False
 		return False
 
@@ -327,16 +352,19 @@ class UpdaterWindow(QWidget):
 	def handle_stop_event(self):
 		if self.success_event.is_set():
 			self.update_info(f"[{self.elapsed_str}] OTA Loading completed")
-			self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar)
+			self.progress_bar.setStyleSheet(th.get_style("default_loading_bar_style"))
 		elif self.error_event.is_set():
-			self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
 			self.update_info(f"[{self.elapsed_str}] OTA Error received")
+			self.ota_error_status = True
 		elif self.disconnect_event.is_set():
-			self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
 			self.update_info(f"[{self.elapsed_str}] OTA Device disconnected")
+			self.ota_error_status = True
 		else:
-			self.progress_bar.setStyleSheet(dark_theme_qpb_load_bar_fail)
+			self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
 			self.update_info(f"[{self.elapsed_str}] OTA Loading aborted")
+			self.ota_error_status = True
 
 		self.ota_running = False
 

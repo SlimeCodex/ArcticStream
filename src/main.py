@@ -23,14 +23,12 @@ import qasync
 from PyQt5.QtWidgets import QApplication
 
 from gui.main_window import MainWindow
-from resources.styles import *
 
 if __name__ == "__main__":
 	app = QApplication(sys.argv)
-	app.setStyleSheet(dark_theme_app + dark_theme_tab + dark_theme_scroll)
 	loop = qasync.QEventLoop(app)
 	asyncio.set_event_loop(loop)
-	mainWin = MainWindow()
+	mainWin = MainWindow(app)
 	mainWin.show()
 	with loop:
 		sys.exit(loop.run_forever())

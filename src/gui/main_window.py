@@ -19,21 +19,36 @@
 import sys
 from pathlib import Path
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QLineEdit
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QLineEdit
+from PyQt5.QtGui import QFontDatabase, QFont
 
 from bluetooth.ble_handler import BLEHandler
 from gui.window_properties import SSCWindowProperties
 from gui.connection_window import ConnectionWindow
 from gui.console_window import ConsoleWindow
-from resources.styles import *
+
+from resources.theme_config import *
+import helpers.theme_helper as th
 
 # Default window properties
 DEFAULT_TITLE = "ArcticStream"
 DEFAULT_SIZE = (800, 410)
-DEBUG_WINDOW = True
+
+# Default styles
+default_style_names = [
+	"default_app_style",
+	"default_button_style",
+	"default_line_edit_style",
+	"default_text_edit_style",
+	"default_tab_style",
+	"default_scroll_style"
+]
 
 class MainWindow(SSCWindowProperties):
-	def __init__(self):
+	themeChanged = pyqtSignal(str)
+
+	def __init__(self, app_main=None):
 		super().__init__(self)
 		self.ble_handler = BLEHandler()
 		self.ble_handler.connectionCompleted.connect(self.callback_connection_success)
@@ -44,9 +59,21 @@ class MainWindow(SSCWindowProperties):
 		self.set_custom_title(DEFAULT_TITLE)
 		self.resize(*DEFAULT_SIZE)
 
+		# Set the stylesheet
+		app_main.setStyleSheet(th.get_style(default_style_names))
+
+		# Load the font file (.ttf or .otf)
+		QFontDatabase.addApplicationFont(f"{self.font_path()}/Ubuntu-Regular.ttf")
+		QFontDatabase.addApplicationFont(f"{self.font_path()}/Inconsolata-Regular.ttf")
+		app_main.setFont(QFont("Ubuntu"))
+
 		# Set the status label
 		self.set_status_bar("Disconnected")
 		self.setContentsMargins(2, 2, 2, 2)
+
+		# Globals
+		self.theme_status = "dark"
+		self.debug_show = False
 
 		self.setup_layout()
 
@@ -58,9 +85,10 @@ class MainWindow(SSCWindowProperties):
 
 		# Single line text area for displaying debug info
 		self.line_edit_debug = QLineEdit(self)
-		self.line_edit_debug.setStyleSheet(dark_theme_qle_debugf)
+		self.line_edit_debug.setFixedHeight(DEBUG_LINE_EDIT_HEIGHT)
+		self.line_edit_debug.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
 		self.line_edit_debug.setReadOnly(True)
-		self.line_edit_debug.setVisible(DEBUG_WINDOW)
+		self.line_edit_debug.setVisible(False)
 		self.line_edit_debug.setText("> Debug info")
 
 		# Central widget to hold the layout
@@ -105,11 +133,13 @@ class MainWindow(SSCWindowProperties):
 
 	def set_status_bar(self, mode):
 		if mode == "Connected":
-			self.setStyleSheet("MainWindow {border: 2px solid darkgreen;}")
-			self.set_title_status("Connected")
+			self.setStyleSheet("MainWindow {border: 2px solid rgba(0, 100, 0, 128);}")
+			self.con_status_button.setStyleSheet("font-size: 13px; color: white; background-color: rgba(0, 100, 0, 128); border-radius: 0px;")
+			self.con_status_button.setText("Connected")
 		elif mode == "Disconnected":
-			self.setStyleSheet("MainWindow {border: 2px solid darkred;}")
-			self.set_title_status("Disconnected")
+			self.setStyleSheet("MainWindow {border: 2px solid rgba(139, 0, 0, 128);}")
+			self.con_status_button.setStyleSheet("font-size: 13px; color: white; background-color: rgba(139, 0, 0, 128); border-radius: 0px;")
+			self.con_status_button.setText("Disconnected")
 
 	# Get the icon path
 	def icon_path(self):
@@ -119,6 +149,15 @@ class MainWindow(SSCWindowProperties):
 			application_path = Path(__file__).resolve().parent.parent
 		icons_dir = application_path / "resources" / "icons"
 		return icons_dir
+
+	# Get the font path
+	def font_path(self):
+		if getattr(sys, 'frozen', False):
+			application_path = Path(sys._MEIPASS)
+		else:
+			application_path = Path(__file__).resolve().parent.parent
+		font_dir = application_path / "resources" / "fonts"
+		return font_dir
 
 	# Callbacks ----------------------------------------------------------------------------------------------
 
@@ -136,6 +175,29 @@ class MainWindow(SSCWindowProperties):
 	# Callback device disconnected
 	def callback_disconnected(self, client):
 		self.set_status_bar("Disconnected")
+
+	# Callback toggle theme
+	def toggle_color(self, status=False):
+		if self.theme_status == "dark":
+			self.theme_status = "light"
+		else:
+			self.theme_status = "dark"
+
+		th.toggle_theme() # Update global theme
+		QApplication.instance().setStyleSheet(th.get_style(default_style_names))
+		self.line_edit_debug.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
+
+		# Update children widgets
+		self.update_theme(self.theme_status) # SSC
+		self.themeChanged.emit(self.theme_status)
+	
+	def toggle_debug(self):
+		if self.debug_show:
+			self.debug_show = False
+			self.line_edit_debug.setVisible(False)
+		else:
+			self.debug_show = True
+			self.line_edit_debug.setVisible(True)
 	
 	# Qt Events ----------------------------------------------------------------------------------------------
 

@@ -22,13 +22,13 @@ import traceback
 import qasync
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget
+from PyQt5.QtGui import QFont
 
 from bluetooth.ble_handler import BLEHandler
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex
 from resources.patterns import *
-from resources.styles import *
 		
 class ConnectionWindow(QWidget):
 	signal_closing_complete = pyqtSignal()
@@ -70,6 +70,7 @@ class ConnectionWindow(QWidget):
 		scan_button.clicked.connect(self.ble_scan)
 
 		self.scan_device_list = QListWidget()
+		self.scan_device_list.setFont(QFont("Inconsolata"))
 		self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
 		self.scan_device_list.itemDoubleClicked.connect(self.ble_connect)
 

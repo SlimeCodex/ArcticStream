@@ -19,12 +19,13 @@
 import qasync
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QTextEdit, QApplication, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog
-from PyQt5.QtGui import QTextCursor
+from PyQt5.QtGui import QTextCursor, QFont
 
 from bluetooth.ble_handler import BLEHandler
 from resources.indexer import ConsoleIndex
-from resources.styles import *
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
+from resources.theme_config import *
+import helpers.theme_helper as th
 
 class ConsoleWindow(QWidget):
 	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
@@ -45,6 +46,7 @@ class ConsoleWindow(QWidget):
 
 		# Async BLE Signals
 		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
+		self.main_window.themeChanged.connect(self.callback_update_theme)
 
 		# Globals
 		self.icons_dir = self.main_window.icon_path()
@@ -75,25 +77,26 @@ class ConsoleWindow(QWidget):
 
 		# Toggle lock button
 		self.lock_button = ToggleButton(self,
-			icons=(f"{self.icons_dir}/lock_open_right_FILL0_wght400_GRAD0_opsz24", f"{self.icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg"),
-			size=(25, 25),
-			style=dark_theme_qpb_title,
+			icons=(f"{self.icons_dir}/lock_open_right_FILL0_wght400_GRAD0_opsz24.svg", f"{self.icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg"),
+			size=(DEFAULT_PUSH_BUTTON_HEIGHT, DEFAULT_PUSH_BUTTON_HEIGHT),
+			style=th.get_style("default_button_style"),
 			callback=self.toggle_lock,
 			toggled=True
 		)
 
 		# Main text area for accumulating text
 		self.text_edit_printf = QTextEdit(self)
+		self.text_edit_printf.setFont(QFont("Inconsolata"))
 		self.text_edit_printf.installEventFilter(self)
-		self.text_edit_printf.setStyleSheet(dark_theme_qte_printf)
 		self.text_edit_printf.setReadOnly(True)
 
 		# Single line text area for displaying info
 		self.line_edit_singlef = QLineEdit(self)
-		self.line_edit_singlef.setStyleSheet(dark_theme_qle_singlef)
+		self.line_edit_singlef.setFont(QFont("Inconsolata"))
+		self.line_edit_singlef.setFixedHeight(DEFAULT_LINE_EDIT_HEIGHT)
 		self.line_edit_singlef.setReadOnly(True)
 
-		# Layout for Start and Stop buttons
+		# Layout for buttons
 		buttons_layout = QHBoxLayout()
 		buttons_layout.addWidget(start_button)
 		buttons_layout.addWidget(stop_button)
@@ -104,14 +107,16 @@ class ConsoleWindow(QWidget):
 
 		# Input text box for sending data
 		self.line_edit_send = QLineEdit(self)
-		self.line_edit_send.setStyleSheet(dark_theme_qle_send_data)
+		self.line_edit_send.setFont(QFont("Inconsolata"))
+		self.line_edit_send.setFixedHeight(DEFAULT_LINE_EDIT_HEIGHT)
+		self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit_style"))
 		self.line_edit_send.setPlaceholderText("Insert data to send ...")
 
 		# Simple send button
 		self.send_button = SimpleButton(self,
 			icon=f"{self.icons_dir}/play_arrow_FILL0_wght400_GRAD0_opsz24.svg",
-			size=(25, 25),
-			style=dark_theme_qpb_title,
+			size=(DEFAULT_PUSH_BUTTON_HEIGHT, DEFAULT_PUSH_BUTTON_HEIGHT),
+			style=th.get_style("default_button_style"),
 			callback=self.send_data
 		)
 
@@ -174,7 +179,7 @@ class ConsoleWindow(QWidget):
 
 	# Window Functions ------------------------------------------------------------------------------------------
 
-	def update_data(self, data, line_limit=20):
+	def update_data(self, data, line_limit=1000):
 		if self.console_paused:
 			return
 
@@ -228,10 +233,10 @@ class ConsoleWindow(QWidget):
 		if not self.logging_enabled:
 			if self.select_log_file():
 				self.logging_enabled = True
-				self.log_button.setStyleSheet("background-color: darkgreen")
+				self.log_button.setStyleSheet("color: #ffffff; background-color: rgba(0, 100, 0, 128)")
 		else:
 			self.logging_enabled = False
-			self.log_button.setStyleSheet("")
+			self.log_button.setStyleSheet(th.get_style("default_button_style"))
 
 	def select_log_file(self):
 		# Use the native file dialog
@@ -240,6 +245,22 @@ class ConsoleWindow(QWidget):
 			self.user_log_path = fileName
 			return True
 		return False
+	
+	def callback_update_theme(self, theme):
+		# Reload stylesheets (background for buttons)
+		self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit_style"))
+		if not self.logging_enabled:
+			self.log_button.setStyleSheet(th.get_style("default_button_style"))
+		self.lock_button.setStyleSheet(th.get_style("default_button_style"))
+		self.send_button.setStyleSheet(th.get_style("default_button_style"))
+
+		# Update special widgets by theme
+		if theme == "dark":
+			self.lock_button.changeIconColor("#ffffff")
+			self.send_button.changeIconColor("#ffffff")
+		elif theme == "light":
+			self.lock_button.changeIconColor("#000000")
+			self.send_button.changeIconColor("#000000")
 	
 	# Qt Functions ------------------------------------------------------------------------------------------
 

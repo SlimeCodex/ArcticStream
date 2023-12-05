@@ -20,11 +20,9 @@ from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal
 from PyQt5.QtWidgets import QMainWindow, QLabel, QPushButton, QWidget, QHBoxLayout
 from PyQt5.QtGui import QPainter, QPolygon, QColor, QIcon
 
-from resources.styles import *
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
-
-CUSTOM_BAR_HEIGHT = 30
-RESIZE_CORNER_SIZE = 10
+from resources.theme_config import *
+import helpers.theme_helper as th
 
 class SSCWindowProperties(QMainWindow):
 	signal_window_close = pyqtSignal()
@@ -48,9 +46,9 @@ class SSCWindowProperties(QMainWindow):
 	# Set the custom title bar
 	def set_custom_title(self, title):
 
-		custom_bar_widget = QWidget(self)
-		custom_bar_widget.setFixedHeight(CUSTOM_BAR_HEIGHT)
-		custom_bar_widget.setStyleSheet("background-color: #333333;")
+		self.custom_bar_widget = QWidget(self)
+		self.custom_bar_widget.setFixedHeight(CUSTOM_BAR_HEIGHT)
+		self.custom_bar_widget.setStyleSheet(th.get_style("custom_bar_widget_style"))
 
 		custom_bar_layout = QHBoxLayout()
 		custom_bar_layout.setContentsMargins(0, 0, 0, 0)
@@ -60,19 +58,19 @@ class SSCWindowProperties(QMainWindow):
 		self.logo_button = SimpleButton(self,
 			icon=f"{self.icons_dir}/chevron_right_FILL0_wght400_GRAD0_opsz24.svg",
 			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
-			style=dark_theme_qpb_title
+			style=th.get_style("custom_bar_button_style"),
+			callback=self.toggle_debug
 		)
 
 		# Title label
 		self.title_label = QLabel(title)
-		self.title_label.setStyleSheet("font-size: 13px;")
 		self.title_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
 		# Toggle color mode button
 		self.color_mode_button = ToggleButton(self,
 			icons=(f"{self.icons_dir}/dark_mode_FILL0_wght400_GRAD0_opsz24.svg", f"{self.icons_dir}/light_mode_FILL0_wght400_GRAD0_opsz24.svg"),
 			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
-			style=dark_theme_qpb_title,
+			style=th.get_style("custom_bar_button_style"),
 			callback=self.toggle_color,
 			toggled=False
 		)
@@ -81,7 +79,7 @@ class SSCWindowProperties(QMainWindow):
 		self.top_hint_button = ToggleButton(self,
 			icons=(f"{self.icons_dir}/move_down_FILL0_wght400_GRAD0_opsz24.svg", f"{self.icons_dir}/move_up_FILL0_wght400_GRAD0_opsz24.svg"),
 			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
-			style=dark_theme_qpb_title,
+			style=th.get_style("custom_bar_button_style"),
 			callback=self.toggle_hint,
 			toggled=False
 		)
@@ -95,7 +93,7 @@ class SSCWindowProperties(QMainWindow):
 		self.minimize_button = SimpleButton(self,
 			icon=f"{self.icons_dir}/minimize_FILL0_wght400_GRAD0_opsz24.svg",
 			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
-			style=dark_theme_qpb_title,
+			style=th.get_style("custom_bar_button_style"),
 			callback=self.toggle_minimize
 		)
 
@@ -103,7 +101,7 @@ class SSCWindowProperties(QMainWindow):
 		self.fullscreen_button = ToggleButton(self,
 			icons=(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg", f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg"),
 			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
-			style=dark_theme_qpb_title,
+			style=th.get_style("custom_bar_button_style"),
 			callback=self.fullscreen,
 			toggled=False
 		)
@@ -112,7 +110,7 @@ class SSCWindowProperties(QMainWindow):
 		self.close_button = SimpleButton(self,
 			icon=f"{self.icons_dir}/close_FILL0_wght400_GRAD0_opsz24.svg",
 			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
-			style=close_button_style,
+			style=th.get_style("custom_bar_close_button_style"),
 			callback=self.close_window
 		)
 
@@ -126,8 +124,8 @@ class SSCWindowProperties(QMainWindow):
 		custom_bar_layout.addWidget(self.fullscreen_button)
 		custom_bar_layout.addWidget(self.close_button)
 		
-		custom_bar_widget.setLayout(custom_bar_layout)
-		self.setMenuWidget(custom_bar_widget)
+		self.custom_bar_widget.setLayout(custom_bar_layout)
+		self.setMenuWidget(self.custom_bar_widget)
 
 	# Window Functions ------------------------------------------------------------------------------------------
 
@@ -159,15 +157,11 @@ class SSCWindowProperties(QMainWindow):
 	def toggle_minimize(self):
 		self.showMinimized()
 	
-	def set_title_status(self, status):
-		self.con_status_button.setText(status)
-		if status == "Connected":
-			self.con_status_button.setStyleSheet("font-size: 13px; background-color: darkgreen; border-radius: 0px;")
-		elif status == "Disconnected":
-			self.con_status_button.setStyleSheet("font-size: 13px; background-color: darkred; border-radius: 0px;")
-	
 	def toggle_color(self, status):
-		pass
+		self.main_window.toggle_color(status)
+	
+	def toggle_debug(self):
+		self.main_window.toggle_debug()
 	
 	def toggle_hint(self, status):
 		if status:
@@ -183,6 +177,35 @@ class SSCWindowProperties(QMainWindow):
 		else:
 			self.showFullScreen()
 
+	def update_theme(self, theme):
+		# Reload stylesheets (background for buttons)
+		self.custom_bar_widget.setStyleSheet(th.get_style("custom_bar_widget_style"))
+		self.logo_button.setStyleSheet(th.get_style("custom_bar_button_style"))
+		self.title_label.setStyleSheet(th.get_style("custom_bar_button_style"))
+		self.color_mode_button.setStyleSheet(th.get_style("custom_bar_button_style"))
+		self.top_hint_button.setStyleSheet(th.get_style("custom_bar_button_style"))
+		self.minimize_button.setStyleSheet(th.get_style("custom_bar_button_style"))
+		self.fullscreen_button.setStyleSheet(th.get_style("custom_bar_button_style"))
+		self.close_button.setStyleSheet(th.get_style("custom_bar_close_button_style"))
+
+		# Update special widgets by theme
+		if theme == "dark":
+			self.logo_button.changeIconColor("#ffffff")
+			self.color_mode_button.changeIconColor("#ffffff")
+			self.top_hint_button.changeIconColor("#ffffff")
+			self.minimize_button.changeIconColor("#ffffff")
+			self.fullscreen_button.changeIconColor("#ffffff")
+			self.close_button.changeIconColor("#ffffff")
+			self.con_status_button.setTriangleColor("#333333") # Same as bar background
+		elif theme == "light":
+			self.logo_button.changeIconColor("#303030")
+			self.color_mode_button.changeIconColor("#303030")
+			self.top_hint_button.changeIconColor("#303030")
+			self.minimize_button.changeIconColor("#303030")
+			self.fullscreen_button.changeIconColor("#303030")
+			self.close_button.changeIconColor("#303030")
+			self.con_status_button.setTriangleColor("#e0e0e0") # Same as bar background
+		
 	# Qt event ------------------------------------------------------------------------------------------
 
 	# Qt function
