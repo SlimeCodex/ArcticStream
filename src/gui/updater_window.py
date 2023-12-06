@@ -163,10 +163,11 @@ class UpdaterWindow(QWidget):
 	def callback_update_theme(self, theme):
 		# Reload stylesheets (background for buttons)
 		self.folder_button.setStyleSheet(th.get_style("default_button_style"))
+
 		if (self.ota_error_status): # If in error state
 			self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
 		else:
-			self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_style"))
+			self.progress_bar.setStyleSheet(th.get_style("default_loading_bar_style"))
 
 		# Update special widgets by theme
 		if theme == "dark":

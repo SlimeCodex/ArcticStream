@@ -1,6 +1,29 @@
 # ArcticStream
 
-ArcticStream is a Python-based visualizer designed for integration with the [ArcticTerminal](https://github.com/SlimeCodex/ArcticTerminal) library for ESP32. It uses PyQt5 to create a GUI application that allows users to interact with BLE devices, update their firmware, and customize the window properties.
+[WIP]
+
+ArcticStream is a versatile, Python-based visualizer, seamlessly integrated with the [ArcticTerminal](https://github.com/SlimeCodex/ArcticTerminal) library for ESP32. At its core, ArcticStream is thread-safe, multi-console GUI application, crafted using PyQt5, that offers a comprehensive suite of functionalities for interacting with your ESP32 wirelessly through Bluetooth. Key features include:
+
+### Multi-Console Interface
+Offers the ability to manage multiple consoles for each connected device, enabling detailed and segmented monitoring and interaction within a single BLE device environment. Just initialize any terminals in your ESP32 with a few lines and done!
+
+### OTA Update Support
+Facilitates Over-The-Air (OTA) firmware updating capabilities through BLE, tailored for precise and efficient software deployment to devices.
+
+### Reconnection Management
+Efficiently addresses reconnections, maintaining steadfast communication links, particularly after device resets or interruptions.
+
+### Individual Upstream/Downstream for Each Console
+Each console in ArcticStream is equipped with its own input and output channels, allowing for isolated and specific interactions within the device's different functions or modules.
+
+### User-Friendly Design
+Balances simplicity and functionality, offering a lightweight, portable, and straightforward user interface.
+
+### Cross-Platform Functionality
+Designed to operate consistently across various operating systems, enhancing its utility in diverse computing environments.
+
+### Standalone Executable Application
+The project includes a standalone executable application for Windows OS. This means you don't necessarily need to install any dependencies or learn Python to use it. Simply run the executable file and the application will start. Please note that as of now, this standalone executable is only available for Windows OS. I am working on providing similar solutions for other operating systems.
 
 <div style="text-align: center;">
     <p style="display: inline-block;">
@@ -10,26 +33,22 @@ ArcticStream is a Python-based visualizer designed for integration with the [Arc
 </div>
 
 ## Development Status Warning
-
 ⚠️ **Important Notice: Project in Development** ⚠️
-
 Please be aware that this project is currently under active development. While efforts are made to ensure reliability and stability, potential failures and unexpected behaviors may occur, particularly under certain untested conditions.
 
 ### Current Testing Status
 - **Operating System**: Primarily tested on Windows 11 OS. It has also been successfully tested on Raspberry Pi 4 and MacBook Pro (Sonoma 14.1) by manually running the scripts (using Python). Compatibility with other operating systems or OS versions may not be fully verified and could potentially encounter issues.
 
 ### User Discretion Advised
-Users should exercise caution when using this application, keeping in mind its developmental status. Feedback, bug reports, and contributions to enhance stability and functionality are greatly appreciated.
+Users should exercise caution when using this application, keeping in mind its developmental status. Feedback, bug reports, and contributions to enhance stability and functionality are greatly appreciated. This project is my first step into collaborative development. I've never before contributed to an active, public project, and I'm excited to learn and grow through this experience.
 
 ### Future Updates
-Regular updates and improvements are planned as the project progresses. Stay tuned for more robust and stable versions in the future.
+Regular updates and improvements are planned as the project progresses.
 
 # Project Overview
-
-This project introduces a comprehensive BLE (Bluetooth Low Energy) application, primarily designed for the ESP32 platform. It's engineered with an eye towards future expansions, potentially encompassing other platforms like NRF, Raspberry Pi, and more. The application is rich in features, tailored for enhanced interaction with microcontroller units (MCUs).
+This project introduces a comprehensive BLE (Bluetooth Low Energy) application, primarily designed for the ESP32 platform. It's engineered with an eye towards future expansions, potentially encompassing other platforms like nRF, Raspberry Pi, and more.
 
 ## Key Features
-
 ### BLE Capabilities
 - **GATT Protocol**: Leverages the Generic Attribute Profile (GATT) for efficient BLE communication.
 - **OTA Updates**: Supports Over-The-Air (OTA) firmware updates via BLE, capable of achieving speeds up to 19kb/s under optimal conditions.
@@ -42,38 +61,32 @@ This project introduces a comprehensive BLE (Bluetooth Low Energy) application, 
 
 ### User Interface
 - **Theme Customization**: Offers both dark and light color themes, switchable with a single click.
-- **Console Features**: Each console includes Start, Stop, Clear, and Copy functions for the entire console buffer.
+- **Console Features**: Each console includes Start, Stop, Clear, Copy and logging functions.
 - **Log Types**: Supports Multiline and Single Line logs, ideal for status information or animations.
 - **Independent Text Input**: Each console features an independent text input box for sending data to the device, ensuring command isolation among consoles.
 
 ### OTA Specific Features
-- **Drag and Drop**: Simplifies the firmware update process with a drag-and-drop interface.
-- **Firmware Management**: Allows users to Start, Stop, Clear, and Reload selected local firmware, streamlining the development cycle.
+- **Firmware Management**: Allows users to Start, Stop, Clear, and Reload the selected local firmware, streamlining the development cycle.
+- **Drag and Drop**: Includes a little feature for drag-and-drop the file directly into the window.
 
 # Python Implementation
 
 ### Main Window
-
 Defined in `main_window.py`, the main window initializes with a default title and size, incorporates a custom stylesheet and fonts, and sets up a layout with a tab widget and a line edit for debug information. Key functionalities include handling BLE connections, dynamically adding tabs, updating tab titles, managing the status bar, and handling window resizing and closing events.
 
 ### Connection Window
-
 Located in `connection_window.py`, this window facilitates scanning and connecting to BLE devices. It features a list widget for displaying scanned devices and buttons for initiating scans, establishing connections, and exiting. Additional functions cover device discovery, managing connections, and characteristic reading.
 
 ### Console Window
-
 The console window, defined in `console_window.py`, acts as an interactive interface with a BLE device. It includes a text area for data display, a line edit for sending data, and buttons for various commands. It handles incoming BLE device notifications, updates tab titles, and processes Enter key presses in the data input field.
 
 ### OTA Updater
-
 `ota_updater.py` houses the OTA updater, providing a UI for firmware updates over BLE. It includes a display for update progress, a progress bar, and buttons for firmware selection, update initiation, and exit. The module manages update processes, device disconnection, and characteristic writing.
 
 ### Window Properties
-
 `window_properties.py` manages the customization of window properties. It features a custom title bar with various controls and functions for setting this bar, determining resize direction, adjusting cursor, resizing and moving the window, and handling diverse window events.
 
 ## Getting Started
-
 This section provides instructions on how to set up ArcticStream on your local machine for development and testing purposes.
 
 # Pre-Built Executable
@@ -104,17 +117,21 @@ pip install pyinstaller
 
 # Running the Application
 
-After installing the necessary dependencies, you can run the application by executing the main.py script located in the src folder:
+After installing the necessary dependencies, you can run the application by executing the `main.py` script located in the src directory:
 
 ```bash
 python main.py
 ```
 
+# TODOs
+* Crash report
+[WIP]
+
 This will start the application and open the main window.
 
 ## Contributing
 
-Contributions are welcome! For guidelines on how to contribute, please refer to the contributing guide (WIP).
+[WIP] Contributions are welcome! For guidelines on how to contribute, please refer to the contributing guide.
 
 ## License
 

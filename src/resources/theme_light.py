@@ -271,7 +271,6 @@ uploader_loading_bar_fail_style = """
 		border-radius: 4px;
 		
 		text-align: center;
-		font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
 	}
 	QProgressBar::chunk {
 		background-color: rgba(139, 0, 0, 128);

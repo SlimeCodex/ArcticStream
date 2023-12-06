@@ -14,10 +14,10 @@ rm -f ArcticStream_standalone.spec
 rm -f ArcticStream_console.spec
 
 # Build the standalone (no console) version
-pyinstaller --onefile --noconsole --name=ArcticStream_standalone --add-data "src/resources/icons:resources/icons" --hidden-import=winrt.windows.foundation.collections --icon=src/resources/icons/main_icon.ico --distpath build/standalone --workpath build/standalone src/main.py
+pyinstaller --onefile --noconsole --name=ArcticStream_standalone --add-data "src/resources/icons:resources/icons" --icon=src/resources/icons/main_icon.ico --distpath build/standalone --workpath build/standalone src/main.py
 
 # Build the console version
-pyinstaller --onefile --console --name=ArcticStream_console --add-data "src/resources/icons:resources/icons" --hidden-import=winrt.windows.foundation.collections --icon=src/resources/icons/main_icon.ico --distpath build/console --workpath build/console src/main.py
+pyinstaller --onefile --console --name=ArcticStream_console --add-data "src/resources/icons:resources/icons" --icon=src/resources/icons/main_icon.ico --distpath build/console --workpath build/console src/main.py
 
 # Move executables to the correct locations and clean up PyInstaller generated directories
 mv -f build/standalone/ArcticStream_standalone build/standalone/ArcticStream

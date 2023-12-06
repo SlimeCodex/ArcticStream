@@ -66,7 +66,7 @@ class MainWindow(SSCWindowProperties):
 		# Load the font file (.ttf or .otf)
 		QFontDatabase.addApplicationFont(f"{self.font_path()}/Ubuntu-Regular.ttf")
 		QFontDatabase.addApplicationFont(f"{self.font_path()}/Inconsolata-Regular.ttf")
-		app_main.setFont(QFont("Ubuntu"))
+		app_main.setFont(QFont("Ubuntu")) # TODO: FIX THIS!
 
 		# Set the status label
 		self.set_status_bar("Disconnected")
