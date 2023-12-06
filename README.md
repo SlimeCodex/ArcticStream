@@ -3,14 +3,14 @@
 ArcticStream is a Python-based visualizer designed for integration with the [ArcticTerminal](https://github.com/SlimeCodex/ArcticTerminal) library for ESP32. It uses PyQt5 to create a GUI application that allows users to interact with BLE devices, update their firmware, and customize the window properties.
 
 <div style="display: flex; justify-content: space-around; flex-wrap: nowrap;">
-    <div>
-        <img src=".img/dark.png" alt="Dark Theme" width="400"/>
-        <p style="text-align: center;">Dark Theme</p>
-    </div>
-    <div>
-        <img src=".img/light.png" alt="Light Theme" width="400"/>
-        <p style="text-align: center;">Light Theme</p>
-    </div>
+	<div>
+		<img src=".img/dark.png" alt="Dark Theme" width="300"/>
+		<p style="text-align: center;">Dark Theme</p>
+	</div>
+	<div>
+		<img src=".img/light.png" alt="Light Theme" width="300"/>
+		<p style="text-align: center;">Light Theme</p>
+	</div>
 </div>
 
 ## Development Status Warning
