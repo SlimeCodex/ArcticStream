@@ -1,7 +1,7 @@
 # Desc: ToggleButton class for toggling between two states
 # This file is part of ArcticStream Library.
 
-from PyQt5.QtCore import Qt, QByteArray
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QColor
 from PyQt5.QtSvg import QSvgRenderer
@@ -33,6 +33,10 @@ class ToggleButton(QPushButton):
 		self.setupButton()
 		if self.callback:
 			self.callback(self.toggled)
+
+	def manual_toggle(self):
+		self.toggled = not self.toggled
+		self.setupButton()
 
 	def renderSvgWithColor(self, icon_id, svg_path, color):
 		try:

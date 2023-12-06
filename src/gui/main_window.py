@@ -73,10 +73,13 @@ class MainWindow(SSCWindowProperties):
 		self.setContentsMargins(2, 2, 2, 2)
 
 		# Globals
-		self.theme_status = "dark"
 		self.debug_show = False
 
 		self.setup_layout()
+
+		 # Set the default theme
+		self.theme_status = "dark"
+		self.toggle_theme()
 
 	# GUI Functions ------------------------------------------------------------------------------------------
 
@@ -120,11 +123,13 @@ class MainWindow(SSCWindowProperties):
 	# Add a console tab dynamically
 	def add_console_tab(self, console_widget, title):
 		tabIndex = self.tab_widget.addTab(console_widget, title)
+		self.themeChanged.emit(self.theme_status) # Update theme for new tab
 		return tabIndex
 
 	# Add a updater tab dynamically
 	def add_updater_tab(self, console_widget, title):
 		tabIndex = self.tab_widget.addTab(console_widget, title)
+		self.themeChanged.emit(self.theme_status) # Update theme for new tab
 		return tabIndex
 
 	def update_tab_title(self, console, title):
@@ -178,7 +183,7 @@ class MainWindow(SSCWindowProperties):
 		self.set_status_bar("Disconnected")
 
 	# Callback toggle theme
-	def toggle_color(self, status=False):
+	def toggle_theme(self, status=False):
 		if self.theme_status == "dark":
 			self.theme_status = "light"
 		else:
@@ -189,7 +194,6 @@ class MainWindow(SSCWindowProperties):
 		self.line_edit_debug.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
 
 		# Update children widgets
-		self.update_theme(self.theme_status) # SSC
 		self.themeChanged.emit(self.theme_status)
 	
 	def toggle_debug(self):

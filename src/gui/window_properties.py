@@ -18,7 +18,7 @@
 
 from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal
 from PyQt5.QtWidgets import QMainWindow, QLabel, QPushButton, QWidget, QHBoxLayout
-from PyQt5.QtGui import QPainter, QPolygon, QColor, QIcon
+from PyQt5.QtGui import QPainter, QPolygon, QColor
 
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
 from resources.theme_config import *
@@ -30,6 +30,7 @@ class SSCWindowProperties(QMainWindow):
 	def __init__(self, main_window):
 		super().__init__()
 		self.main_window = main_window
+		self.main_window.themeChanged.connect(self.callback_update_theme)
 		
 		# Removes native title bar
 		self.setWindowFlags(Qt.FramelessWindowHint)
@@ -71,7 +72,7 @@ class SSCWindowProperties(QMainWindow):
 			icons=(f"{self.icons_dir}/dark_mode_FILL0_wght400_GRAD0_opsz24.svg", f"{self.icons_dir}/light_mode_FILL0_wght400_GRAD0_opsz24.svg"),
 			size=(CUSTOM_BAR_HEIGHT, CUSTOM_BAR_HEIGHT),
 			style=th.get_style("custom_bar_button_style"),
-			callback=self.toggle_color,
+			callback=self.toggle_theme,
 			toggled=False
 		)
 
@@ -157,12 +158,6 @@ class SSCWindowProperties(QMainWindow):
 	def toggle_minimize(self):
 		self.showMinimized()
 	
-	def toggle_color(self, status):
-		self.main_window.toggle_color(status)
-	
-	def toggle_debug(self):
-		self.main_window.toggle_debug()
-	
 	def toggle_hint(self, status):
 		if status:
 			self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -177,8 +172,9 @@ class SSCWindowProperties(QMainWindow):
 		else:
 			self.showFullScreen()
 
-	def update_theme(self, theme):
-		# Reload stylesheets (background for buttons)
+	def callback_update_theme(self, theme):
+		
+		# Reload stylesheets (background for SVG buttons)
 		self.custom_bar_widget.setStyleSheet(th.get_style("custom_bar_widget_style"))
 		self.logo_button.setStyleSheet(th.get_style("custom_bar_button_style"))
 		self.title_label.setStyleSheet(th.get_style("custom_bar_button_style"))
@@ -233,6 +229,7 @@ class SSCWindowProperties(QMainWindow):
 	def mouseMoveEvent(self, event):
 		if self.mouse_pressed and event.buttons() == Qt.LeftButton:
 			if self.resize_direction == "custom_bar_widget" and self.isFullScreen():
+				self.fullscreen_button.manual_toggle()
 				self.fullscreen(True)
 
 				cursor_offset_x = self.width() // 2
@@ -272,15 +269,8 @@ class SSCWindowProperties(QMainWindow):
 	def mouseDoubleClickEvent(self, event):
 		if event.pos().y() > CUSTOM_BAR_HEIGHT:
 			return
-		
-		if self.isFullScreen():
-			self.svg_icon = QIcon(f"{self.icons_dir}/expand_content_FILL0_wght400_GRAD0_opsz24.svg")
-			self.fullscreen_button.setIcon(self.svg_icon)
-			self.showNormal()
-		else:
-			self.svg_icon = QIcon(f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg")
-			self.fullscreen_button.setIcon(self.svg_icon)
-			self.showFullScreen()
+		self.fullscreen_button.manual_toggle()
+		self.fullscreen(True)
 		event.accept()
 
 	def close_window(self):
