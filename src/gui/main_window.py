@@ -21,7 +21,7 @@ from pathlib import Path
 
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QLineEdit
-from PyQt5.QtGui import QFontDatabase, QFont
+from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 
 from bluetooth.ble_handler import BLEHandler
 from gui.window_properties import SSCWindowProperties
@@ -61,6 +61,7 @@ class MainWindow(SSCWindowProperties):
 
 		# Set the stylesheet
 		app_main.setStyleSheet(th.get_style(default_style_names))
+		self.setWindowIcon(QIcon(f"{self.icon_path()}/main_icon.png"))
 
 		# Load the font file (.ttf or .otf)
 		QFontDatabase.addApplicationFont(f"{self.font_path()}/Ubuntu-Regular.ttf")
