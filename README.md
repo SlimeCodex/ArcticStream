@@ -16,7 +16,7 @@ ArcticStream is a Python-based visualizer designed for integration with the [Arc
 Please be aware that this project is currently under active development. While efforts are made to ensure reliability and stability, potential failures and unexpected behaviors may occur, particularly under certain untested conditions.
 
 ### Current Testing Status
-- **Operating System**: Primarily tested on Windows 11 OS. Compatibility with other operating systems has not been fully verified and may encounter issues.
+- **Operating System**: Primarily tested on Windows 11 OS. It has also been successfully tested on Raspberry Pi 4 and MacBook Pro (Sonoma 14.1) by manually running the scripts (using Python). Compatibility with other operating systems or OS versions may not be fully verified and could potentially encounter issues.
 
 ### User Discretion Advised
 Users should exercise caution when using this application, keeping in mind its developmental status. Feedback, bug reports, and contributions to enhance stability and functionality are greatly appreciated.
