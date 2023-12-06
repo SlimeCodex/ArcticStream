@@ -4,11 +4,11 @@ ArcticStream is a Python-based visualizer designed for integration with the [Arc
 
 <div style="display: flex; justify-content: space-around;">
     <div>
-        <img src=".img/dark.png" alt="Dark Theme" width="400"/>
+        <img src=".img/dark.png" alt="Dark Theme" width="300"/>
         <p style="text-align: center;">Dark Theme</p>
     </div>
     <div>
-        <img src=".img/light.png" alt="Light Theme" width="400"/>
+        <img src=".img/light.png" alt="Light Theme" width="300"/>
         <p style="text-align: center;">Light Theme</p>
     </div>
 </div>
