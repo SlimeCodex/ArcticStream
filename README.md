@@ -13,6 +13,21 @@ ArcticStream is a Python-based visualizer designed for integration with the [Arc
     </div>
 </div>
 
+## Development Status Warning
+
+⚠️ **Important Notice: Project in Development**
+
+Please be aware that this project is currently under active development. While efforts are made to ensure reliability and stability, potential failures and unexpected behaviors may occur, particularly under certain untested conditions.
+
+### Current Testing Status
+- **Operating System**: Primarily tested on Windows 11 OS. Compatibility with other operating systems has not been fully verified and may encounter issues.
+
+### User Discretion Advised
+Users should exercise caution when using this application, keeping in mind its developmental status. Feedback, bug reports, and contributions to enhance stability and functionality are greatly appreciated.
+
+### Future Updates
+Regular updates and improvements are planned as the project progresses. Stay tuned for more robust and stable versions in the future.
+
 # Project Overview
 
 This project introduces a comprehensive BLE (Bluetooth Low Energy) application, primarily designed for the ESP32 platform. It's engineered with an eye towards future expansions, potentially encompassing other platforms like NRF, Raspberry Pi, and more. The application is rich in features, tailored for enhanced interaction with microcontroller units (MCUs).
@@ -63,17 +78,19 @@ The console window, defined in `console_window.py`, acts as an interactive inter
 
 ## Getting Started
 
-## Dependencies
+This section provides instructions on how to set up ArcticStream on your local machine for development and testing purposes.
 
-Before running the application, ensure you have the following dependencies installed:
+# Pre-Built Executable
+For quick access to the application, a pre-built executable is available in the `build` folder. You can run this executable to start the application without having to install any dependencies or run any scripts.
 
-Python ofcourse:
+# Dependencies
+ArcticStream is built with Python and relies on several packages. Before running the application from source, ensure you have Python installed on your machine. If not, you can install it using pip:
 
 ```bash
 pip install python
 ```
 
-Mandatory dependencies:
+Once Python is installed, you will need to install the following mandatory dependencies:
 
 ```bash
 pip install pyqt5
@@ -81,19 +98,23 @@ pip install bleak
 pip install qasync
 ```
 
-For generating the executables, we use `pyinstaller`:
+These packages provide the necessary modules for the GUI, BLE handling, and asynchronous operations.
+
+If you plan on generating your own executables, you will also need to install `pyinstaller`:
 
 ```bash
 pip install pyinstaller
 ```
 
-## Running the Application
+# Running the Application
 
-To run the application, execute the following python script located in the `src` folder:
+After installing the necessary dependencies, you can run the application by executing the main.py script located in the src folder:
 
 ```bash
 python main.py
 ```
+
+This will start the application and open the main window.
 
 ## Contributing
 
@@ -101,3 +122,4 @@ Contributions are welcome! For guidelines on how to contribute, please refer to 
 
 ## License
 
+ArcticStream is licensed under the GNU General Public License v3.0. For more details, see the [LICENSE](LICENSE) file in this repository.
