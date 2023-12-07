@@ -21,7 +21,7 @@ import traceback
 
 import qasync
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget
+from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget, QHBoxLayout
 from PyQt5.QtGui import QFont
 
 from bluetooth.ble_handler import BLEHandler
@@ -66,24 +66,32 @@ class ConnectionWindow(QWidget):
 		
 	# Layout and Widgets
 	def setup_layout(self):
-		scan_button = QPushButton("Scan Bluetooth")
-		scan_button.clicked.connect(self.ble_scan)
+		connect_button = QPushButton("Connect")
+		connect_button.clicked.connect(self.ble_connect)
+
+		disconnect_button = QPushButton("Disconnect")
+		disconnect_button.clicked.connect(self.ble_clear_connection)
 
 		self.scan_device_list = QListWidget()
 		self.scan_device_list.setFont(QFont("Inconsolata"))
 		self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
 		self.scan_device_list.itemDoubleClicked.connect(self.ble_connect)
 
-		connect_button = QPushButton("Connect")
-		connect_button.clicked.connect(self.ble_connect)
+		scan_button = QPushButton("Scan Bluetooth")
+		scan_button.clicked.connect(self.ble_scan)
 
 		exit_button = QPushButton("Exit")
 		exit_button.clicked.connect(self.exitApplication)
 
+		# Layout for buttons
+		buttons_layout = QHBoxLayout()
+		buttons_layout.addWidget(connect_button)
+		buttons_layout.addWidget(disconnect_button)
+
 		connection_layout = QVBoxLayout()
-		connection_layout.addWidget(scan_button)
+		connection_layout.addLayout(buttons_layout)
 		connection_layout.addWidget(self.scan_device_list)
-		connection_layout.addWidget(connect_button)
+		connection_layout.addWidget(scan_button)
 		connection_layout.addWidget(exit_button)
 		self.setLayout(connection_layout)
 
@@ -148,6 +156,14 @@ class ConnectionWindow(QWidget):
 	async def ble_stop(self):
 		self.main_window.debug_info("Disconnecting ...")
 		await self.ble_handler.disconnect()
+	
+	# Clear connection
+	@qasync.asyncSlot()
+	async def ble_clear_connection(self):
+		self.main_window.debug_info("Clearing connection ...")
+		self.last_device_address = None
+		if not self.is_closing:
+			asyncio.ensure_future(self.process_close_task(close_window=False))
 
 	# Callbacks -----------------------------------------------------------------------------------------------
 
@@ -279,14 +295,15 @@ class ConnectionWindow(QWidget):
 	
 	# Stop the BLE Handler
 	@qasync.asyncSlot()
-	async def process_close_task(self):
+	async def process_close_task(self, close_window=True):
 		self.last_device_address = None # Clear the last device address
 		if not self.is_closing:
 			self.is_closing = True
 			await self.ble_stop()
 			self.stop_consoles()
-			self.signal_closing_complete.emit()  # Emit the signal after all tasks are completed
-
+			if close_window:
+				self.signal_closing_complete.emit()  # Emit the signal after all tasks are completed
+	
 	# Exit triggered from "exit" button
 	def exitApplication(self):
 		self.last_device_address = None # Clear the last device address
