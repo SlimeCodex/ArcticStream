@@ -1,8 +1,23 @@
-# ArcticStream
+# ArcticStream [WIP]
 
-[WIP]
+ArcticStream is a versatile, Python-based visualizer, seamlessly integrated with the [ArcticTerminal](https://github.com/SlimeCodex/ArcticTerminal) library for ESP32. At its core, ArcticStream is thread-safe, multi-console GUI application, crafted using PyQt5, that offers a comprehensive suite of functionalities for interacting with your ESP32 wirelessly through Bluetooth.
 
-ArcticStream is a versatile, Python-based visualizer, seamlessly integrated with the [ArcticTerminal](https://github.com/SlimeCodex/ArcticTerminal) library for ESP32. At its core, ArcticStream is thread-safe, multi-console GUI application, crafted using PyQt5, that offers a comprehensive suite of functionalities for interacting with your ESP32 wirelessly through Bluetooth. Key features include:
+<div style="text-align: center;">
+    <p style="display: inline-block;">
+		<img src=".img/dark.png" width="400" alt="Dark Theme"/>
+		<img src=".img/light.png" width="400" alt="Light Theme"/>
+    </p>
+</div>
+
+# Quick Start (Windows)
+
+For quick access to the application, a pre-built executable is available in the `build` folder. You can run this executable to start the application without having to install any dependencies or run any scripts.
+
+## For Linux or Mac Users
+
+If the `Quick Start` didn't worked for you or if using Linux or Mac, please refer to the [Getting Started](#getting-started) section for detailed instructions on how to set up and run the project.
+
+# Project Overview
 
 ### Multi-Console Interface
 Offers the ability to manage multiple consoles for each connected device, enabling detailed and segmented monitoring and interaction within a single BLE device environment. Just initialize any terminals in your ESP32 with a few lines and done!
@@ -24,13 +39,6 @@ Designed to operate consistently across various operating systems, enhancing its
 
 ### Standalone Executable Application
 The project includes a standalone executable application for Windows OS. This means you don't necessarily need to install any dependencies or learn Python to use it. Simply run the executable file and the application will start. Please note that as of now, this standalone executable is only available for Windows OS. I am working on providing similar solutions for other operating systems.
-
-<div style="text-align: center;">
-    <p style="display: inline-block;">
-		<img src=".img/dark.png" width="400" alt="Dark Theme"/>
-		<img src=".img/light.png" width="400" alt="Light Theme"/>
-    </p>
-</div>
 
 ## Development Status Warning
 ⚠️ **Important Notice: Project in Development** ⚠️
@@ -87,12 +95,9 @@ The console window, defined in `console_window.py`, acts as an interactive inter
 `window_properties.py` manages the customization of window properties. It features a custom title bar with various controls and functions for setting this bar, determining resize direction, adjusting cursor, resizing and moving the window, and handling diverse window events.
 
 ## Getting Started
-This section provides instructions on how to set up ArcticStream on your local machine for development and testing purposes.
+This section provides instructions on how to set up ArcticStream on your local machine.
 
-# Pre-Built Executable
-For quick access to the application, a pre-built executable is available in the `build` folder. You can run this executable to start the application without having to install any dependencies or run any scripts.
-
-# Dependencies
+# Dependencies for Python Execution
 ArcticStream is built with Python and relies on several packages. Before running the application from source, ensure you have Python installed on your machine. If not, you can install it using pip:
 
 ```bash
@@ -123,15 +128,13 @@ After installing the necessary dependencies, you can run the application by exec
 python main.py
 ```
 
-# TODOs
-* Crash report
-[WIP]
-
 This will start the application and open the main window.
 
-## Contributing
-
-[WIP] Contributions are welcome! For guidelines on how to contribute, please refer to the contributing guide.
+# TODOs
+* Make OTA process more robust against disconnections and errors.
+* Dynamic console creations
+* Crash report
+* [WIP]
 
 ## License
 
