@@ -163,6 +163,8 @@ class UpdaterWindow(QWidget):
 	def callback_update_theme(self, theme):
 		# Reload stylesheets (background for buttons)
 		self.folder_button.setStyleSheet(th.get_style("default_button_style"))
+		self.drag_placeholder.setStyleSheet(th.get_style("updater_placeholder_line_edit_style"))
+		self.text_edit_printf.setStyleSheet(th.get_style("default_text_edit_style"))
 
 		if (self.ota_error_status): # If in error state
 			self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail_style"))
