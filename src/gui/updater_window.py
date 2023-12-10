@@ -28,26 +28,24 @@ from PyQt5.QtWidgets import QLineEdit, QPushButton, QTextEdit, QVBoxLayout, QHBo
 from PyQt5.QtGui import QTextCursor, QFont
 
 from bluetooth.ble_handler import BLEHandler
-from resources.indexer import ConsoleIndex
+from resources.indexer import OTAIndex
 from helpers.pushbutton_helper import SimpleButton
 from resources.theme_config import *
 import helpers.theme_helper as th
 
 class UpdaterWindow(QWidget):
-	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
+	def __init__(self, main_window, ble_handler: BLEHandler, title, updater_index: OTAIndex):
 		super().__init__()
 		self.main_window = main_window # MainWindow Reference
 		self.ble_handler = ble_handler # BLE Reference
 		self.win_title = title # Original title of the tab
-		self.console_index = console_index # Console information
+		self.updater_index = updater_index # Console information
 
 		print("UpdaterWindow: Initializing ...")
-		print(f"ConsoleWindow: {self.console_index.name}")
-		print(f"ConsoleWindow: {self.console_index.service.uuid}")
-		print(f"ConsoleWindow: {self.console_index.tx_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.console_index.txs_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.console_index.rx_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.console_index.name_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.updater_index.name}")
+		print(f"ConsoleWindow: {self.updater_index.service.uuid}")
+		print(f"ConsoleWindow: {self.updater_index.tx_characteristic.uuid}")
+		print(f"ConsoleWindow: {self.updater_index.rx_characteristic.uuid}")
 		print("------------------------------------------")
 
 		# Async BLE Signals
@@ -196,9 +194,9 @@ class UpdaterWindow(QWidget):
 		
 		urls = event.mimeData().urls()
 		if urls and len(urls) > 0:
-			filePath = str(urls[0].toLocalFile())
-			if filePath.endswith('.bin'):
-				self.firmware_path = filePath
+			file_path = str(urls[0].toLocalFile())
+			if file_path.endswith('.bin'):
+				self.firmware_path = file_path
 				self.update_info(f"Loaded file: {self.firmware_path}")
 				self.extract_file_info(self.firmware_path)
 			else:
@@ -213,8 +211,9 @@ class UpdaterWindow(QWidget):
 			print("No file selected.")
 			return
 
-		totalSize = self.get_file_size(self.firmware_path)
-		if totalSize == 0:
+		file_hash = self.calculate_hash(self.firmware_path)
+		file_size = self.get_file_size(self.firmware_path)
+		if file_size == 0:
 			print("File is empty, aborting OTA update")
 			return
 		
@@ -224,12 +223,10 @@ class UpdaterWindow(QWidget):
 		
 		self.initialize_ota()  # Initializing OTA-specific variables and settings
 		
-		await self.send_file_size_to_device(totalSize)
-
-		if not await self.wait_for_device_ready():
+		if not await self.wait_for_device_ready(file_size, file_hash):
 			return
 
-		await self.transfer_file(totalSize)
+		await self.transfer_file(file_size)
 
 	def initialize_ota(self):
 		self.start_time = datetime.now()
@@ -245,19 +242,20 @@ class UpdaterWindow(QWidget):
 		for event in events:
 			event.clear()
 
-	def get_file_size(self, filePath):
-		return os.path.getsize(filePath)
+	def get_file_size(self, file_path):
+		return os.path.getsize(file_path)
 
-	async def send_file_size_to_device(self, totalSize):
+	async def send_file_info(self, total_size, file_hash):
 		await self.ble_handler.writeCharacteristic(
-			self.console_index.rx_characteristic.uuid, 
-			str(f"{totalSize}").encode()
+			self.updater_index.rx_characteristic.uuid,
+			str(f"ARCTIC_COMMAND_OTA_SETUP -s {total_size} -md5 {file_hash}").encode()
 		)
 
-	async def wait_for_device_ready(self, max_retries=3):
+	async def wait_for_device_ready(self, total_size, file_hash, max_retries=3):
 		retries = 0
 		while retries < max_retries:
 			try:
+				await self.send_file_info(total_size, file_hash)
 				await asyncio.wait_for(self.ready_event.wait(), timeout=0.5)
 				print("Device is ready.")
 				return True
@@ -269,16 +267,16 @@ class UpdaterWindow(QWidget):
 		self.ota_running = False
 		return False
 
-	async def transfer_file(self, totalSize):
+	async def transfer_file(self, total_size):
 		try:
 			with open(self.firmware_path, 'rb') as file:
-				await self.file_transfer_loop(file, totalSize)
+				await self.file_transfer_loop(file, total_size)
 		except IOError as e:
 			print(f"Error reading file: {e}")
 
-	async def file_transfer_loop(self, file, totalSize):
+	async def file_transfer_loop(self, file, total_size):
 		transferred = 0
-		while self.ota_running and transferred < totalSize:
+		while self.ota_running and transferred < total_size:
 			# Check if a disconnect event occurred
 			if self.disconnect_event.is_set():
 				print("OTA update aborted due to disconnection.")
@@ -292,19 +290,19 @@ class UpdaterWindow(QWidget):
 				break
 
 			transferred += len(dataChunk)
-			self.update_progress_bar(transferred, totalSize)
+			self.update_progress_bar(transferred, total_size)
 
-		if transferred >= totalSize:
+		if transferred >= total_size:
 			self.update_info(f"OTA Complete. Transferred {transferred} bytes.")
 			self.ota_running = False
 
-	def update_progress_bar(self, transferred, totalSize):
-		progress = int((transferred / totalSize) * 100)
+	def update_progress_bar(self, transferred, total_size):
+		progress = int((transferred / total_size) * 100)
 		self.progress_bar.setValue(progress)
 		elapsed_time = datetime.now() - self.start_time
 		self.elapsed_str = str(elapsed_time).split('.')[0]  # Convert to HH:MM:SS
 		kbytes_per_second = (transferred / elapsed_time.total_seconds()) / 1024
-		self.update_info(f"[{self.elapsed_str}] OTA Loading Progress: {progress}% ({transferred}/{totalSize} bytes, {kbytes_per_second:.2f} kb/s)")
+		self.update_info(f"[{self.elapsed_str}] OTA Loading Progress: {progress}% ({transferred}/{total_size} bytes, {kbytes_per_second:.2f} kb/s)")
 
 	async def send_chunk_with_retries(self, dataChunk, max_retries=3):
 		retries = 0
@@ -329,7 +327,8 @@ class UpdaterWindow(QWidget):
 
 	async def send_chunk_and_wait_for_ack(self, dataChunk):
 		self.ack_event.clear()
-		await self.ble_handler.writeCharacteristic(self.console_index.rx_characteristic.uuid, dataChunk)
+		print(f"Sending chunk of {len(dataChunk)} bytes")
+		await self.ble_handler.writeCharacteristic(self.updater_index.rx_characteristic.uuid, dataChunk)
 		return await self.wait_for_ack_or_stop()
 
 	async def wait_for_ack_or_stop(self):
@@ -381,10 +380,8 @@ class UpdaterWindow(QWidget):
 	def callback_handle_notification(self, sender, data):
 
 		# Redirect the data to the printf text box
-		if sender == self.console_index.tx_characteristic.uuid:
-			pass # No device printf for OTA
-		elif sender == self.console_index.txs_characteristic.uuid:
-			self.update_info(data) # singlef used for ACKs
+		if sender == self.updater_index.tx_characteristic.uuid:
+			self.update_info(data)
 
 	def callback_disconnected(self, client):
 		if self.ota_running:
@@ -407,22 +404,22 @@ class UpdaterWindow(QWidget):
 		# ACKs coming from the device
 		if "READY" in info:
 			self.ready_event.set()
-			#print("Device ready")
+			print("Device ready")
 		elif "ACK" in info:
 			self.ack_event.set()
-			#print("Device ack")
+			print("Device ack")
 		elif "ERROR" in info:
 			self.error_event.set()
 			self.stop_event.set()
-			#print("Device error")
+			print("Device error")
 		elif "DONE" in info:
 			self.success_event.set()
 			self.stop_event.set()
-			#print("Device done")
+			print("Device done")
 		elif "TIMEOUT" in info:
 			self.error_event.set()
 			self.stop_event.set()
-			#print("Device timeout")
+			print("Device timeout")
 		else: # Info coming from the program
 			self.line_edit_singlef.setText(info)
 
@@ -436,19 +433,19 @@ class UpdaterWindow(QWidget):
 	# Path folder button
 	def setPath(self):
 		options = QFileDialog.Options()
-		filePath, _ = QFileDialog.getOpenFileName(self, "Select a .bin file", "", "Bin Files (*.bin)", options=options)
-		if filePath:
-			self.firmware_path = filePath
+		file_path, _ = QFileDialog.getOpenFileName(self, "Select a .bin file", "", "Bin Files (*.bin)", options=options)
+		if file_path:
+			self.firmware_path = file_path
 			self.extract_file_info(self.firmware_path)
 
 	# Extract file information and update the text box
-	def extract_file_info(self, filePath):
-		fileName = os.path.basename(filePath)
-		fileSize = os.path.getsize(filePath)
-		fileLocation = os.path.dirname(filePath)
-		lastModifiedTime = time.ctime(os.path.getmtime(filePath))
-		creationTime = time.ctime(os.path.getctime(filePath))
-		fileHash = self.calculate_hash(filePath)
+	def extract_file_info(self, file_path):
+		fileName = os.path.basename(file_path)
+		fileSize = os.path.getsize(file_path)
+		fileLocation = os.path.dirname(file_path)
+		lastModifiedTime = time.ctime(os.path.getmtime(file_path))
+		creationTime = time.ctime(os.path.getctime(file_path))
+		fileHash = self.calculate_hash(file_path)
 
 		# Update the information
 		otaInformation = (
@@ -473,9 +470,9 @@ class UpdaterWindow(QWidget):
 		self.progress_bar.setValue(0)
 
 	# Calculate the hash of a file
-	def calculate_hash(self, filePath, hashType='md5'):
+	def calculate_hash(self, file_path, hashType='md5'):
 		hashFunc = getattr(hashlib, hashType)()
-		with open(filePath, 'rb') as file:
+		with open(file_path, 'rb') as file:
 			for chunk in iter(lambda: file.read(4096), b""):
 				hashFunc.update(chunk)
 		return hashFunc.hexdigest()

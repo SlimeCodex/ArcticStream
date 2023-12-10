@@ -27,7 +27,7 @@ from PyQt5.QtGui import QFont
 from bluetooth.ble_handler import BLEHandler
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
-from resources.indexer import ConsoleIndex
+from resources.indexer import ConsoleIndex, BackgroundIndex, OTAIndex
 from resources.patterns import *
 		
 class ConnectionWindow(QWidget):
@@ -55,7 +55,10 @@ class ConnectionWindow(QWidget):
 		self.ble_handler.characteristicRead.connect(self.callback_handle_char_read)
 
 		# Globals
+		self.background_service = None # Background service reference (for service reuse)
+		self.updater_service = None # Updater service reference (for service reuse)
 		self.console_services = {} # Console services reference (for service reuse)
+		self.updater_ref = None # Updater window reference (for window reuse)
 		self.console_ref = {} # Console windows reference (for window reuse)
 		self.last_device_address = None
 		self.is_closing = False
@@ -123,14 +126,25 @@ class ConnectionWindow(QWidget):
 	# BLE Setting up notifications and retrieving name characteristic
 	@qasync.asyncSlot()
 	async def setup_consoles(self):
+
+		# Load OTA window
+		if self.updater_service:
+			print("OTA service found")
+			if self.updater_service.tx_characteristic:
+				await self.ble_handler.startNotifications(self.updater_service.tx_characteristic)
+			self.new_updater_window("OTA", self.updater_service.service.uuid)
+
+		# Load consoles windows
 		for service_uuid, ble_service in self.console_services.items():
-			# Start notifications and read name characteristics asynchronously
+
+			# Start notifications
 			if ble_service.tx_characteristic:
 				await self.ble_handler.startNotifications(ble_service.tx_characteristic)
 			if ble_service.txs_characteristic:
 				await self.ble_handler.startNotifications(ble_service.txs_characteristic)
-			if ble_service.name_characteristic:
-				await self.ble_handler.readCharacteristic(ble_service.name_characteristic)
+
+			if (service_console_pattern.match(service_uuid)):
+				self.new_console_window(ble_service.name, service_uuid)
 
 	# Reconnection
 	@qasync.asyncSlot()
@@ -183,34 +197,68 @@ class ConnectionWindow(QWidget):
 			registered_services = self.ble_handler.getServices()
 			for service in registered_services:
 				service_uuid = str(service.uuid)
+				print(f"Service found: {service_uuid}")
 
-				# Ignore services that are not console services
-				if not service_console_pattern.match(service_uuid):
-					continue
+
+				# Register background services
+				if service_uuid == service_background_uuid:
+					print("Background service found")
+					indexer = BackgroundIndex(service)
+
+					# Loop through characteristics
+					for characteristic in service.characteristics:
+						char_uuid = str(characteristic.uuid)
+						if char_uuid == char_background_tx_uuid: #TX
+							indexer.tx_characteristic = characteristic
+						if char_uuid == char_background_rx_uuid: #TX
+							indexer.rx_characteristic = characteristic
+
+					# Register the indexer
+					self.background_service = indexer
+					
+				# Register OTA services
+				if service_uuid == service_ota_uuid:
+					print("OTA service found")
+					indexer = OTAIndex(service)
+					
+					# Loop through characteristics
+					for characteristic in service.characteristics:
+						char_uuid = str(characteristic.uuid)
+						if char_uuid == char_ota_tx_uuid: #TX
+							indexer.tx_characteristic = characteristic
+						if char_uuid == char_ota_rx_uuid: #TX
+							indexer.rx_characteristic = characteristic
+
+					# Register the indexer
+					indexer.name = "OTA"
+					self.updater_service = indexer
+
+				# Register console services
+				if service_console_pattern.match(service_uuid):
+					print("Console service found")
 				
-				# Check if the service is already registered and reuse it
-				if service_uuid in self.console_services:
-					ble_service = self.console_services[service_uuid]
-				else:
-					ble_service = ConsoleIndex(service)
-					self.console_services[service_uuid] = ble_service
+					# Check if the service is already registered and reuse it
+					if service_uuid in self.console_services:
+						indexer = self.console_services[service_uuid]
+					else:
+						indexer = ConsoleIndex(service)
 
-				# Update or register characteristics
-				for characteristic in service.characteristics:
-					char_uuid = str(characteristic.uuid)
+					# Loop through characteristics
+					for characteristic in service.characteristics:
+						char_uuid = str(characteristic.uuid)
 
-					# Check and update or set characteristics
-					if char_tx_pattern.match(char_uuid):
-						ble_service.tx_characteristic = characteristic
-					elif char_txs_pattern.match(char_uuid):
-						ble_service.txs_characteristic = characteristic
-					elif char_rx_pattern.match(char_uuid):
-						ble_service.rx_characteristic = characteristic
-					elif char_name_pattern.match(char_uuid):
-						ble_service.name_characteristic = characteristic
+						# Check and update or set characteristics
+						if char_tx_pattern.match(char_uuid):
+							indexer.tx_characteristic = characteristic
+						elif char_txs_pattern.match(char_uuid):
+							indexer.txs_characteristic = characteristic
+						elif char_rx_pattern.match(char_uuid):
+							indexer.rx_characteristic = characteristic
 
-					self.console_services[str(service.uuid)] = ble_service
-			
+					# Register the indexer
+					indexer.name = "<arctic>"
+					self.console_services[service_uuid] = indexer
+
 			# Setup notification and read name characteristic
 			self.setup_consoles()
 		else:
@@ -218,21 +266,7 @@ class ConnectionWindow(QWidget):
 	
 	# Callback handle name characteristic read
 	def callback_handle_char_read(self, uuid, value):
-		try:
-			# Register the name characteristic
-			name = value.decode("utf-8")
-			for service_uuid, ble_service in self.console_services.items():
-				if ble_service.name_characteristic and str(ble_service.name_characteristic.uuid) == uuid:
-					if (service_ota_pattern.match(service_uuid)):
-						self.new_updater_window(name, uuid)
-					else:
-						self.new_console_window(name, uuid)
-					ble_service.name = name
-					break
-
-		except Exception as e:
-			print(f"Error in handling console window with UUID {uuid}: {e}")
-			traceback.print_exc()
+		pass
 	
 	# Callback device disconnected
 	def callback_disconnected(self, client):
@@ -251,13 +285,25 @@ class ConnectionWindow(QWidget):
 				service.name = name
 				return service
 		return None
+
+	# Initialize a new updater window (OTA)
+	def new_updater_window(self, name, uuid):
+		print("New updater window")
+		ble_service = self.updater_service
+
+		# Check if the console window is already open
+		if uuid == self.updater_ref:
+			window = self.updater_ref
+		else:
+			# Console window is not open, create a new one
+			window = UpdaterWindow(self.main_window, self.ble_handler, name, ble_service)
+			self.updater_ref = window
+
+			self.main_window.add_updater_tab(window, name)
 	
 	# Initialize a new console window
 	def new_console_window(self, name, uuid):
-		ble_service = self.find_and_update_console_service(uuid, name)
-		if not ble_service:
-			print(f"No matching service found for UUID: {uuid}")
-			return
+		ble_service = self.console_services[uuid]
 
 		# Check if the console window is already open
 		if uuid in self.console_ref:
@@ -268,23 +314,6 @@ class ConnectionWindow(QWidget):
 			self.console_ref[uuid] = console
 
 			self.main_window.add_console_tab(console, name)
-
-	# Initialize a new updater window (OTA)
-	def new_updater_window(self, name, uuid):
-		ble_service = self.find_and_update_console_service(uuid, name)
-		if not ble_service:
-			print(f"No matching service found for UUID: {uuid}")
-			return
-		
-		# Check if the console window is already open
-		if uuid in self.console_ref:
-			console = self.console_ref[uuid]
-		else:
-			# Console window is not open, create a new one
-			console = UpdaterWindow(self.main_window, self.ble_handler, name, ble_service)
-			self.console_ref[uuid] = console
-
-			self.main_window.add_updater_tab(console, name)
 
 	# Stop Functions ------------------------------------------------------------------------------------------
 

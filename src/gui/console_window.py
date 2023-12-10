@@ -41,7 +41,6 @@ class ConsoleWindow(QWidget):
 		print(f"ConsoleWindow: {self.console_index.tx_characteristic.uuid}")
 		print(f"ConsoleWindow: {self.console_index.txs_characteristic.uuid}")
 		print(f"ConsoleWindow: {self.console_index.rx_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.console_index.name_characteristic.uuid}")
 		print("------------------------------------------")
 
 		# Async BLE Signals
