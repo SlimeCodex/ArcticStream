@@ -18,7 +18,7 @@
 
 import qasync
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QLineEdit, QPushButton, QTextEdit, QApplication, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog
+from PyQt5.QtWidgets import QLineEdit, QPushButton, QPlainTextEdit, QApplication, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog
 from PyQt5.QtGui import QTextCursor, QFont
 
 from bluetooth.ble_handler import BLEHandler
@@ -84,7 +84,7 @@ class ConsoleWindow(QWidget):
 		)
 
 		# Main text area for accumulating text
-		self.text_edit_printf = QTextEdit(self)
+		self.text_edit_printf = QPlainTextEdit(self)
 		self.text_edit_printf.setFont(QFont("Inconsolata"))
 		self.text_edit_printf.installEventFilter(self)
 		self.text_edit_printf.setReadOnly(True)

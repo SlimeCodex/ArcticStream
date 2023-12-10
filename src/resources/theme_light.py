@@ -129,7 +129,7 @@ debug_bar_line_edit_style = """
 # QTextEdit ----------------------------
 
 default_text_edit_style = """
-	QTextEdit {
+	QPlainTextEdit {
 		background-color: #f0f0f0;
 		color: #303030;
         font-size: 12px;
