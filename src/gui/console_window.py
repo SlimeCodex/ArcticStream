@@ -215,6 +215,12 @@ class ConsoleWindow(QWidget):
 
 	# Update the info text box (singlef)
 	def update_info(self, info):
+		if "ARCTIC_COMMAND_SHOW" in info:
+			self.main_window.visibility_tab(self, True)
+			return
+		if "ARCTIC_COMMAND_HIDE" in info:
+			self.main_window.visibility_tab(self, False)
+			return
 		self.line_edit_singlef.setText(info)
 	
 	# Copy the text from the main text box

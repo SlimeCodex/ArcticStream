@@ -136,6 +136,11 @@ class MainWindow(SSCWindowProperties):
 		index = self.tab_widget.indexOf(console)
 		if index != -1:
 			self.tab_widget.setTabText(index, title)
+	
+	def visibility_tab(self, console, status):
+		index = self.tab_widget.indexOf(console)
+		if index != -1:
+			self.tab_widget.setTabVisible(index, status)
 
 	def set_status_bar(self, mode):
 		if mode == "Connected":
