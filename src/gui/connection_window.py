@@ -44,8 +44,6 @@ class ConnectionWindow(QWidget):
 
 		# Add this tab to the main window
 		self.main_window.add_connection_tab(self, self.win_title)
-
-		# Connect the mainWindow's signal_window_close to a local slot
 		self.main_window.signal_window_close.connect(self.process_close_task)
 
 		# Async BLE Signals
@@ -53,6 +51,10 @@ class ConnectionWindow(QWidget):
 		self.ble_handler.connectionCompleted.connect(self.callback_connection_complete)
 		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
 		self.ble_handler.characteristicRead.connect(self.callback_handle_char_read)
+		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
+		
+		# Async Events from the device
+		self.get_name_event = asyncio.Event()
 
 		# Globals
 		self.background_service = None # Background service reference (for service reuse)
@@ -132,19 +134,25 @@ class ConnectionWindow(QWidget):
 			print("OTA service found")
 			if self.updater_service.tx_characteristic:
 				await self.ble_handler.startNotifications(self.updater_service.tx_characteristic)
-			self.new_updater_window("OTA", self.updater_service.service.uuid)
+			self.new_updater_window(self.updater_service.name, self.updater_service.service.uuid)
 
 		# Load consoles windows
-		for service_uuid, ble_service in self.console_services.items():
+		for service_uuid, indexer in self.console_services.items():
 
 			# Start notifications
-			if ble_service.tx_characteristic:
-				await self.ble_handler.startNotifications(ble_service.tx_characteristic)
-			if ble_service.txs_characteristic:
-				await self.ble_handler.startNotifications(ble_service.txs_characteristic)
-
-			if (service_console_pattern.match(service_uuid)):
-				self.new_console_window(ble_service.name, service_uuid)
+			if indexer.tx_characteristic:
+				await self.ble_handler.startNotifications(indexer.tx_characteristic)
+			if indexer.txs_characteristic:
+				await self.ble_handler.startNotifications(indexer.txs_characteristic)
+			
+			# Retreive console name from device
+			self.get_name_event.clear()
+			await self.ble_handler.writeCharacteristic( # Request name
+				indexer.rx_characteristic.uuid,
+				str(f"ARCTIC_COMMAND_GET_NAME").encode()
+			)
+			await self.get_name_event.wait() # Wait for the name to be retrieved
+			self.new_console_window(indexer.name, service_uuid)
 
 	# Reconnection
 	@qasync.asyncSlot()
@@ -191,76 +199,8 @@ class ConnectionWindow(QWidget):
 	def callback_connection_complete(self, connected):
 		if connected:
 			self.connection_event.set()
-			
 			self.main_window.debug_info(f"Connected to {self.last_device_address}")
-
-			registered_services = self.ble_handler.getServices()
-			for service in registered_services:
-				service_uuid = str(service.uuid)
-				print(f"Service found: {service_uuid}")
-
-
-				# Register background services
-				if service_uuid == service_background_uuid:
-					print("Background service found")
-					indexer = BackgroundIndex(service)
-
-					# Loop through characteristics
-					for characteristic in service.characteristics:
-						char_uuid = str(characteristic.uuid)
-						if char_uuid == char_background_tx_uuid: #TX
-							indexer.tx_characteristic = characteristic
-						if char_uuid == char_background_rx_uuid: #TX
-							indexer.rx_characteristic = characteristic
-
-					# Register the indexer
-					self.background_service = indexer
-					
-				# Register OTA services
-				if service_uuid == service_ota_uuid:
-					print("OTA service found")
-					indexer = OTAIndex(service)
-					
-					# Loop through characteristics
-					for characteristic in service.characteristics:
-						char_uuid = str(characteristic.uuid)
-						if char_uuid == char_ota_tx_uuid: #TX
-							indexer.tx_characteristic = characteristic
-						if char_uuid == char_ota_rx_uuid: #TX
-							indexer.rx_characteristic = characteristic
-
-					# Register the indexer
-					indexer.name = "OTA"
-					self.updater_service = indexer
-
-				# Register console services
-				if service_console_pattern.match(service_uuid):
-					print("Console service found")
-				
-					# Check if the service is already registered and reuse it
-					if service_uuid in self.console_services:
-						indexer = self.console_services[service_uuid]
-					else:
-						indexer = ConsoleIndex(service)
-
-					# Loop through characteristics
-					for characteristic in service.characteristics:
-						char_uuid = str(characteristic.uuid)
-
-						# Check and update or set characteristics
-						if char_tx_pattern.match(char_uuid):
-							indexer.tx_characteristic = characteristic
-						elif char_txs_pattern.match(char_uuid):
-							indexer.txs_characteristic = characteristic
-						elif char_rx_pattern.match(char_uuid):
-							indexer.rx_characteristic = characteristic
-
-					# Register the indexer
-					indexer.name = "<arctic>"
-					self.console_services[service_uuid] = indexer
-
-			# Setup notification and read name characteristic
-			self.setup_consoles()
+			self.register_services()
 		else:
 			self.connection_event.clear()
 	
@@ -275,42 +215,107 @@ class ConnectionWindow(QWidget):
 		# Manual disconnect are not handled
 		if self.last_device_address:
 			self.ble_reconnect()
-
+	
+	# Callback handle notification for retrieving console name
+	def callback_handle_notification(self, uuid, value):
+		for service_uuid, indexer in self.console_services.items():
+			if indexer.txs_characteristic.uuid == uuid:
+				self.console_services[service_uuid].name = value
+				self.get_name_event.set()
+		
 	# Window Functions ------------------------------------------------------------------------------------------
 
-	# Get ConsoleIndex instance from name characteristic UUID
-	def find_and_update_console_service(self, uuid, name):
-		for service in self.console_services.values():
-			if service.name_characteristic and str(service.name_characteristic.uuid) == uuid:
-				service.name = name
-				return service
-		return None
+	# Register services
+	def register_services(self):
+		registered_services = self.ble_handler.getServices() # Not async
+		for service in registered_services:
+			service_uuid = str(service.uuid)
+			print(f"Service found: {service_uuid}")
+
+			# Register background services
+			if service_uuid == service_background_uuid:
+				print("Background service found")
+				temp_indexer = BackgroundIndex(service)
+
+				# Loop through characteristics
+				for characteristic in service.characteristics:
+					char_uuid = str(characteristic.uuid)
+					if char_uuid == char_background_tx_uuid: #TX
+						temp_indexer.tx_characteristic = characteristic
+					if char_uuid == char_background_rx_uuid: #TX
+						temp_indexer.rx_characteristic = characteristic
+
+				# Register the temp_indexer
+				self.background_service = temp_indexer
+				
+			# Register OTA services
+			if service_uuid == service_ota_uuid:
+				print("OTA service found")
+				temp_indexer = OTAIndex(service)
+				
+				# Loop through characteristics
+				for characteristic in service.characteristics:
+					char_uuid = str(characteristic.uuid)
+					if char_uuid == char_ota_tx_uuid: #TX
+						temp_indexer.tx_characteristic = characteristic
+					if char_uuid == char_ota_rx_uuid: #TX
+						temp_indexer.rx_characteristic = characteristic
+
+				# Register the temp_indexer
+				temp_indexer.name = "OTA"
+				self.updater_service = temp_indexer
+
+			# Register console services
+			if service_console_pattern.match(service_uuid):
+				print("Console service found")
+			
+				# Check if the service is already registered and reuse it
+				if service_uuid in self.console_services:
+					temp_indexer = self.console_services[service_uuid]
+				else:
+					temp_indexer = ConsoleIndex(service)
+
+				# Loop through characteristics
+				for characteristic in service.characteristics:
+					char_uuid = str(characteristic.uuid)
+
+					# Check and update or set characteristics
+					if char_tx_pattern.match(char_uuid):
+						temp_indexer.tx_characteristic = characteristic
+					elif char_txs_pattern.match(char_uuid):
+						temp_indexer.txs_characteristic = characteristic
+					elif char_rx_pattern.match(char_uuid):
+						temp_indexer.rx_characteristic = characteristic
+
+				# Register the temp_indexer
+				temp_indexer.name = "<arctic>"
+				self.console_services[service_uuid] = temp_indexer
+
+		# Setup notification and read name characteristic
+		self.setup_consoles()
 
 	# Initialize a new updater window (OTA)
 	def new_updater_window(self, name, uuid):
-		print("New updater window")
-		ble_service = self.updater_service
 
 		# Check if the console window is already open
-		if uuid == self.updater_ref:
+		if self.updater_ref:
 			window = self.updater_ref
 		else:
 			# Console window is not open, create a new one
-			window = UpdaterWindow(self.main_window, self.ble_handler, name, ble_service)
+			window = UpdaterWindow(self.main_window, self.ble_handler, name, self.updater_service)
 			self.updater_ref = window
 
 			self.main_window.add_updater_tab(window, name)
 	
 	# Initialize a new console window
 	def new_console_window(self, name, uuid):
-		ble_service = self.console_services[uuid]
 
 		# Check if the console window is already open
 		if uuid in self.console_ref:
 			console = self.console_ref[uuid]
 		else:
 			# Console window is not open, create a new one
-			console = ConsoleWindow(self.main_window, self.ble_handler, name, ble_service)
+			console = ConsoleWindow(self.main_window, self.ble_handler, name, self.console_services[uuid])
 			self.console_ref[uuid] = console
 
 			self.main_window.add_console_tab(console, name)
