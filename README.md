@@ -1,4 +1,4 @@
-# ArcticStream [WIP]
+# ArcticStream
 
 ArcticStream is a versatile, Python-based visualizer, seamlessly integrated with the [ArcticTerminal](https://github.com/SlimeCodex/ArcticTerminal) library for ESP32. At its core, ArcticStream is thread-safe, multi-console GUI application, crafted using PyQt5, that offers a comprehensive suite of functionalities for interacting with your ESP32 wirelessly through Bluetooth.
 
