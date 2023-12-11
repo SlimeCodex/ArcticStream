@@ -135,7 +135,7 @@ default_text_edit_style = """
 """
 
 updater_highligh_text_edit_style = """
-	QTextEdit {
+	QPlainTextEdit {
 		background-color: rgba(150, 150, 150, 0.5);
 	}
 """
