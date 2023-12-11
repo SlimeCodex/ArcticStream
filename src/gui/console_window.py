@@ -221,6 +221,8 @@ class ConsoleWindow(QWidget):
 		if "ARCTIC_COMMAND_HIDE" in info:
 			self.main_window.visibility_tab(self, False)
 			return
+		if "ARCTIC_COMMAND_REQ_NAME" in info:
+			return
 		self.line_edit_singlef.setText(info)
 	
 	# Copy the text from the main text box

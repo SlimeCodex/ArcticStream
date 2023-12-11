@@ -34,6 +34,7 @@ import helpers.theme_helper as th
 # Default window properties
 DEFAULT_TITLE = "ArcticStream"
 DEFAULT_SIZE = (800, 410)
+MINIMUM_SIZE = (550, 320)
 
 # Default styles
 default_style_names = [
@@ -58,6 +59,7 @@ class MainWindow(SSCWindowProperties):
 		self.setWindowTitle(DEFAULT_TITLE)
 		self.set_custom_title(DEFAULT_TITLE)
 		self.resize(*DEFAULT_SIZE)
+		self.setMinimumSize(*MINIMUM_SIZE)
 
 		# Set the stylesheet
 		app_main.setStyleSheet(th.get_style(default_style_names))
@@ -66,20 +68,20 @@ class MainWindow(SSCWindowProperties):
 		# Load the font file (.ttf or .otf)
 		QFontDatabase.addApplicationFont(f"{self.font_path()}/Ubuntu-Regular.ttf")
 		QFontDatabase.addApplicationFont(f"{self.font_path()}/Inconsolata-Regular.ttf")
-		app_main.setFont(QFont("Ubuntu")) # TODO: FIX THIS!
+		app_main.setFont(QFont("Ubuntu"))
 
 		# Set the status label
 		self.set_status_bar("Disconnected")
 		self.setContentsMargins(2, 2, 2, 2)
 
 		# Globals
-		self.debug_show = False
+		self.debug_show = True
 
 		self.setup_layout()
 
 		 # Set the default theme
 		self.theme_status = "dark"
-		self.toggle_theme()
+		#self.toggle_theme()
 
 	# GUI Functions ------------------------------------------------------------------------------------------
 
@@ -92,7 +94,7 @@ class MainWindow(SSCWindowProperties):
 		self.line_edit_debug.setFixedHeight(DEBUG_LINE_EDIT_HEIGHT)
 		self.line_edit_debug.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
 		self.line_edit_debug.setReadOnly(True)
-		self.line_edit_debug.setVisible(False)
+		self.line_edit_debug.setVisible(self.debug_show)
 		self.line_edit_debug.setText("> Debug info")
 
 		# Central widget to hold the layout

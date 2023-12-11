@@ -24,7 +24,7 @@ from datetime import datetime
 
 import asyncio
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QLineEdit, QPushButton, QTextEdit, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QProgressBar
+from PyQt5.QtWidgets import QLineEdit, QPushButton, QPlainTextEdit, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QProgressBar
 from PyQt5.QtGui import QTextCursor, QFont
 
 from bluetooth.ble_handler import BLEHandler
@@ -99,7 +99,7 @@ class UpdaterWindow(QWidget):
 		)
 
 		# Main text area for accumulating text
-		self.text_edit_printf = QTextEdit(self)
+		self.text_edit_printf = QPlainTextEdit(self)
 		self.text_edit_printf.setFont(QFont("Inconsolata"))
 		self.text_edit_printf.setReadOnly(True)
 		

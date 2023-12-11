@@ -220,6 +220,7 @@ class ConnectionWindow(QWidget):
 	def callback_handle_notification(self, uuid, value):
 		for service_uuid, indexer in self.console_services.items():
 			if indexer.txs_characteristic.uuid == uuid:
+				value = value.replace("ARCTIC_COMMAND_REQ_NAME:", "") # Remove command
 				self.console_services[service_uuid].name = value
 				self.get_name_event.set()
 		
