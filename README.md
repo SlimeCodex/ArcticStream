@@ -112,6 +112,7 @@ This will start the application and open the main window.
 * Make OTA process more robust against disconnections and errors.
 * Multi-tab visualization.
 * Console handling in runtime.
+* Integrate ANSI coloring.
 * Toggle auto-reconnect.
 * Graphs integration.
 * [WIP]
