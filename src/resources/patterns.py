@@ -14,7 +14,7 @@ char_ota_tx_uuid = "4fafc201-1fb5-459e-2000-c5c9c3319a00"
 char_ota_rx_uuid= "4fafc201-1fb5-459e-2000-c5c9c3319b00"
 
 # UUID Patterns for console operation
-service_console_pattern = re.compile(r"4fafc201-1fb5-459e-3[0-9a-fA-F]{3}-c5c9c33190[0-9a-fA-F]{2}")
-char_tx_pattern = re.compile(r"4fafc201-1fb5-459e-3[0-9a-fA-F]{3}-c5c9c3319a[0-9a-fA-F]{2}")
-char_txs_pattern = re.compile(r"4fafc201-1fb5-459e-3[0-9a-fA-F]{3}-c5c9c3319b[0-9a-fA-F]{2}")
-char_rx_pattern = re.compile(r"4fafc201-1fb5-459e-3[0-9a-fA-F]{3}-c5c9c3319c[0-9a-fA-F]{2}")
+service_console_pattern = re.compile(r"4fafc201-1fb5-459e-30[0-9a-fA-F]{2}-c5c9c3319f[0-9a-fA-F]{2}")
+char_tx_pattern = re.compile(r"4fafc201-1fb5-459e-30[0-9a-fA-F]{2}-c5c9c3319a[0-9a-fA-F]{2}")
+char_txs_pattern = re.compile(r"4fafc201-1fb5-459e-30[0-9a-fA-F]{2}-c5c9c3319b[0-9a-fA-F]{2}")
+char_rx_pattern = re.compile(r"4fafc201-1fb5-459e-30[0-9a-fA-F]{2}-c5c9c3319c[0-9a-fA-F]{2}")
