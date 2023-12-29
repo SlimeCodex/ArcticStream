@@ -40,7 +40,7 @@ Balances simplicity and functionality, offering a lightweight, portable, and str
 Designed to operate consistently across various operating systems, enhancing its utility in diverse computing environments.
 
 ### Standalone Executable Application
-The project includes a standalone executable application for Windows OS. This means you don't necessarily need to install any dependencies or learn Python to use it. Simply run the executable file and the application will start. Please note that as of now, this standalone executable is only available for Windows OS. I am working on providing similar solutions for other operating systems. Please refer to [Quick Start](#quick-start-(windows)) for more information.
+The project includes a standalone executable application for Windows OS. This means you don't necessarily need to install any dependencies or learn Python to use it. Simply run the executable file and the application will start. Please note that as of now, this standalone executable is only available for Windows OS. I am working on providing similar solutions for other operating systems.
 
 ## ⚠️ Development Status Warning ⚠️
 Please be aware that this project is currently under active development. While efforts are made to ensure reliability and stability, potential failures and unexpected behaviors may occur, particularly under certain untested conditions.
