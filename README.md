@@ -11,7 +11,7 @@ ArcticStream is a versatile, Python-based visualizer, seamlessly integrated with
 
 # Quick Start (Windows)
 
-For quick access to the application, a pre-built executable is available in the `build` folder. You can run this executable to start the application without having to install any dependencies or run any scripts.
+For quick access to the application, a pre-built executable is available in the [Builds](https://github.com/SlimeCodex/ArcticStream-Builds) repository. In theory, you should be able to run this executable to start the application without having to install any dependencies or run any scripts.
 
 ## For Linux or Mac Users
 
@@ -19,11 +19,13 @@ If the `Quick Start` didn't worked for you or if using Linux or Mac, please refe
 
 # Project Overview
 
+This project introduces a comprehensive BLE (Bluetooth Low Energy) application, primarily designed for the ESP32 platform. It's engineered with an eye towards future expansions, potentially encompassing other platforms like nRF, Raspberry Pi, and more.
+
 ### Multi-Console Interface
-Offers the ability to manage multiple consoles for each connected device, enabling detailed and segmented monitoring and interaction within a single BLE device environment. Just initialize any terminals in your ESP32 with a few lines and done!
+Offers the ability to manage multiple consoles (supports with ease up to 16 consoles) for each connected device, enabling detailed and segmented monitoring and interaction within a single BLE device environment. Just initialize any terminals in your ESP32 with a few lines and done!
 
 ### OTA Update Support
-Facilitates Over-The-Air (OTA) firmware updating capabilities through BLE, tailored for precise and efficient software deployment to devices.
+Facilitates Over-The-Air (OTA) firmware updating capabilities through BLE, tailored for precise and efficient software deployment to devices. This feature should be capable of achieving speeds up to 19kb/s under optimal conditions.
 
 ### Reconnection Management
 Efficiently addresses reconnections, maintaining steadfast communication links, particularly after device resets or interruptions.
@@ -38,44 +40,19 @@ Balances simplicity and functionality, offering a lightweight, portable, and str
 Designed to operate consistently across various operating systems, enhancing its utility in diverse computing environments.
 
 ### Standalone Executable Application
-The project includes a standalone executable application for Windows OS. This means you don't necessarily need to install any dependencies or learn Python to use it. Simply run the executable file and the application will start. Please note that as of now, this standalone executable is only available for Windows OS. I am working on providing similar solutions for other operating systems.
+The project includes a standalone executable application for Windows OS. This means you don't necessarily need to install any dependencies or learn Python to use it. Simply run the executable file and the application will start. Please note that as of now, this standalone executable is only available for Windows OS. I am working on providing similar solutions for other operating systems. Please refer to [Quick Start](#quick-start-(windows)) for more information.
 
-## Development Status Warning
-⚠️ **Important Notice: Project in Development** ⚠️
+## ⚠️ Development Status Warning ⚠️
 Please be aware that this project is currently under active development. While efforts are made to ensure reliability and stability, potential failures and unexpected behaviors may occur, particularly under certain untested conditions.
 
 ### Current Testing Status
-- **Operating System**: Primarily tested on Windows 11 OS. It has also been successfully tested on Raspberry Pi 4 and MacBook Pro (Sonoma 14.1) by manually running the scripts (using Python). Compatibility with other operating systems or OS versions may not be fully verified and could potentially encounter issues.
+Primarily tested on Windows 11 OS. It has also been successfully tested on Raspberry Pi 4 and MacBook Pro (Sonoma 14.1) by manually running the scripts (using Python). Compatibility with other operating systems or OS versions may not be fully verified and could potentially encounter issues.
 
 ### User Discretion Advised
 Users should exercise caution when using this application, keeping in mind its developmental status. Feedback, bug reports, and contributions to enhance stability and functionality are greatly appreciated. This project is my first step into collaborative development. I've never before contributed to an active, public project, and I'm excited to learn and grow through this experience.
 
 ### Future Updates
 Regular updates and improvements are planned as the project progresses.
-
-# Project Overview
-This project introduces a comprehensive BLE (Bluetooth Low Energy) application, primarily designed for the ESP32 platform. It's engineered with an eye towards future expansions, potentially encompassing other platforms like nRF, Raspberry Pi, and more.
-
-## Key Features
-### BLE Capabilities
-- **GATT Protocol**: Leverages the Generic Attribute Profile (GATT) for efficient BLE communication.
-- **OTA Updates**: Supports Over-The-Air (OTA) firmware updates via BLE, capable of achieving speeds up to 19kb/s under optimal conditions.
-
-### Console Management
-- **Dynamic Console Creation**: Facilitates on-demand creation of consoles based on server-side (MCU) requirements.
-- **Auto Reconnection**: Automatically re-establishes connection following MCU resets.
-- **Multiple Consoles**: Supports up to 15 consoles, allowing extensive monitoring and control (note: not fully tested).
-- **Low Latency**: Achieves as low as 2ms latency in ideal scenarios.
-
-### User Interface
-- **Theme Customization**: Offers both dark and light color themes, switchable with a single click.
-- **Console Features**: Each console includes Start, Stop, Clear, Copy and logging functions.
-- **Log Types**: Supports Multiline and Single Line logs, ideal for status information or animations.
-- **Independent Text Input**: Each console features an independent text input box for sending data to the device, ensuring command isolation among consoles.
-
-### OTA Specific Features
-- **Firmware Management**: Allows users to Start, Stop, Clear, and Reload the selected local firmware, streamlining the development cycle.
-- **Drag and Drop**: Includes a little feature for drag-and-drop the file directly into the window.
 
 # Python Implementation
 
@@ -131,9 +108,12 @@ python main.py
 This will start the application and open the main window.
 
 # TODOs
+* Crash report. Better error handling.
 * Make OTA process more robust against disconnections and errors.
-* Dynamic console creations
-* Crash report
+* Multi-tab visualization.
+* Console handling in runtime.
+* Toggle auto-reconnect.
+* Graphs integration.
 * [WIP]
 
 ## License
