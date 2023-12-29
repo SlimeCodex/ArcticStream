@@ -131,7 +131,7 @@ class ConnectionWindow(QWidget):
 
 		# Load OTA window
 		if self.updater_service:
-			print("OTA service found")
+			self.main_window.debug_log("OTA service found")
 			if self.updater_service.tx_characteristic:
 				await self.ble_handler.startNotifications(self.updater_service.tx_characteristic)
 			self.new_updater_window(self.updater_service.name, self.updater_service.service.uuid)
@@ -231,11 +231,11 @@ class ConnectionWindow(QWidget):
 		registered_services = self.ble_handler.getServices() # Not async
 		for service in registered_services:
 			service_uuid = str(service.uuid)
-			print(f"Service found: {service_uuid}")
+			self.main_window.debug_log(f"Service found: {service_uuid}")
 
 			# Register background services
 			if service_uuid == service_background_uuid:
-				print("Background service found")
+				self.main_window.debug_log("Background service found")
 				temp_indexer = BackgroundIndex(service)
 
 				# Loop through characteristics
@@ -251,7 +251,7 @@ class ConnectionWindow(QWidget):
 				
 			# Register OTA services
 			if service_uuid == service_ota_uuid:
-				print("OTA service found")
+				self.main_window.debug_log("OTA service found")
 				temp_indexer = OTAIndex(service)
 				
 				# Loop through characteristics
@@ -268,7 +268,7 @@ class ConnectionWindow(QWidget):
 
 			# Register console services
 			if service_console_pattern.match(service_uuid):
-				print("Console service found")
+				self.main_window.debug_log("Console service found")
 			
 				# Check if the service is already registered and reuse it
 				if service_uuid in self.console_services:

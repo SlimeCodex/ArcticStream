@@ -35,13 +35,13 @@ class ConsoleWindow(QWidget):
 		self.win_title = title # Original title of the tab
 		self.console_index = console_index # Console information
 
-		print("ConsoleWindow: Initializing ...")
-		print(f"ConsoleWindow: {self.console_index.name}")
-		print(f"ConsoleWindow: {self.console_index.service.uuid}")
-		print(f"ConsoleWindow: {self.console_index.tx_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.console_index.txs_characteristic.uuid}")
-		print(f"ConsoleWindow: {self.console_index.rx_characteristic.uuid}")
-		print("------------------------------------------")
+		self.main_window.debug_log("ConsoleWindow: Initializing ...")
+		self.main_window.debug_log(f"ConsoleWindow: {self.console_index.name}")
+		self.main_window.debug_log(f"ConsoleWindow: {self.console_index.service.uuid}")
+		self.main_window.debug_log(f"ConsoleWindow: {self.console_index.tx_characteristic.uuid}")
+		self.main_window.debug_log(f"ConsoleWindow: {self.console_index.txs_characteristic.uuid}")
+		self.main_window.debug_log(f"ConsoleWindow: {self.console_index.rx_characteristic.uuid}")
+		self.main_window.debug_log("------------------------------------------")
 
 		# Async BLE Signals
 		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)

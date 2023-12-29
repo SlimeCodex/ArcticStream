@@ -17,10 +17,11 @@
 #
 
 import sys
+import time
 from pathlib import Path
 
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QLineEdit
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QLineEdit, QHBoxLayout
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 
 from bluetooth.ble_handler import BLEHandler
@@ -35,6 +36,7 @@ import helpers.theme_helper as th
 DEFAULT_TITLE = "ArcticStream"
 DEFAULT_SIZE = (800, 410)
 MINIMUM_SIZE = (550, 320)
+API_VERSION = "v1.0.0"
 
 # Default styles
 default_style_names = [
@@ -75,7 +77,8 @@ class MainWindow(SSCWindowProperties):
 		self.setContentsMargins(2, 2, 2, 2)
 
 		# Globals
-		self.debug_show = True
+		self.debug_show = False
+		self.start_time = time.time()
 
 		self.setup_layout()
 
@@ -95,12 +98,26 @@ class MainWindow(SSCWindowProperties):
 		self.line_edit_debug.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
 		self.line_edit_debug.setReadOnly(True)
 		self.line_edit_debug.setVisible(self.debug_show)
-		self.line_edit_debug.setText("> Debug info")
+		self.line_edit_debug.setText(">")
+
+		# Single line text area for displaying version
+		self.line_edit_version = QLineEdit(self)
+		self.line_edit_version.setAlignment(Qt.AlignCenter)
+		self.line_edit_version.setFixedWidth(80)
+		self.line_edit_version.setFixedHeight(DEBUG_LINE_EDIT_HEIGHT)
+		self.line_edit_version.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
+		self.line_edit_version.setReadOnly(True)
+		self.line_edit_version.setVisible(self.debug_show)
+		self.line_edit_version.setText(API_VERSION)
+
+		debug_layout = QHBoxLayout()
+		debug_layout.addWidget(self.line_edit_debug)
+		debug_layout.addWidget(self.line_edit_version)
 
 		# Central widget to hold the layout
 		main_window_layout = QVBoxLayout()
 		main_window_layout.addWidget(self.tab_widget)
-		main_window_layout.addWidget(self.line_edit_debug)
+		main_window_layout.addLayout(debug_layout)
 		
 		central_widget = QWidget()
 		central_widget.setLayout(main_window_layout)
@@ -114,8 +131,16 @@ class MainWindow(SSCWindowProperties):
 
 	# Update the debug info
 	def debug_info(self, text):
-		print(text)
 		self.line_edit_debug.setText(f"> {text}")
+		
+		# Log to console
+		self.debug_log(text)
+
+	# Log debug data
+	def debug_log(self, text):
+		elapsed_time = (time.time() - self.start_time) * 1000
+		log_entry = f"[{elapsed_time:.3f}]\t{text}"
+		print(log_entry)
 
 	# Add a connection tab dynamically
 	def add_connection_tab(self, console_widget, title):
@@ -199,6 +224,7 @@ class MainWindow(SSCWindowProperties):
 		th.toggle_theme() # Update global theme
 		QApplication.instance().setStyleSheet(th.get_style(default_style_names))
 		self.line_edit_debug.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
+		self.line_edit_version.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
 
 		# Update children widgets
 		self.themeChanged.emit(self.theme_status)
@@ -207,9 +233,11 @@ class MainWindow(SSCWindowProperties):
 		if self.debug_show:
 			self.debug_show = False
 			self.line_edit_debug.setVisible(False)
+			self.line_edit_version.setVisible(False)
 		else:
 			self.debug_show = True
 			self.line_edit_debug.setVisible(True)
+			self.line_edit_version.setVisible(True)
 	
 	# Qt Events ----------------------------------------------------------------------------------------------
 
@@ -219,10 +247,10 @@ class MainWindow(SSCWindowProperties):
 
 	def closeEvent(self, event):
 		if not self.connection_tab.is_closing:
-			self.signal_window_close.emit()  # Emit the signal to start closing tasks
-			event.ignore()  # Ignore the close event initially
+			self.signal_window_close.emit() # Emit the signal to start closing tasks
+			event.ignore() # Ignore the close event initially
 		else:
-			event.accept()  # Accept the close event if already closing
+			event.accept() # Accept the close event if already closing
 
 	def callback_finalize_close(self):
-		self.close()  # Now safe to close the MainWindow
+		self.close() # Now safe to close the MainWindow
