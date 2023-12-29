@@ -19,16 +19,16 @@ default_app_style = """
 		background-color: #f0f0f0;
 		color: #303030;
 		font-size: 12px;
-        
+		
 		margin: 0px;
 		padding: 8px;
-        
+		
 		border: none;
 		border-radius: 4px;
 	}
 	QLabel {
 		color: #303030;
-        font-size: 13px;
+		font-size: 13px;
 	}
 """
 
@@ -46,10 +46,10 @@ default_button_style = """
 	QPushButton {
 		background-color: #e0e0e0;
 		color: #303030;
-        font-size: 12px;
-        
+		font-size: 12px;
+		
 		border-radius: 4px;
-        height: 30px;
+		height: 30px;
 	}
 	QPushButton:hover {
 		background-color: #c0c0c0;
@@ -94,10 +94,10 @@ default_line_edit_style = """
 		background-color: #f0f0f0;
 		color: #303030;
 		font-size: 12px;
-        
+		
 		margin: 0px;
 		padding: 4px;
-        
+		
 		border: none;
 		border-radius: 4px;
 	}
@@ -107,13 +107,13 @@ console_send_line_edit_style = """
 	QLineEdit {
 		background-color: #c0c0c0;
 		color: #303030;
-        font-size: 12px;
+		font-size: 12px;
 	}
 """
 
 updater_placeholder_line_edit_style = """
 	QLineEdit {
-        background: transparent;
+		background: transparent;
 		color: gray;
 	}
 """
@@ -132,13 +132,13 @@ default_text_edit_style = """
 	QPlainTextEdit {
 		background-color: #f0f0f0;
 		color: #303030;
-        font-size: 12px;
-        
-        padding: 8px;
+		font-size: 12px;
+		
+		padding: 8px;
 		margin: 0px;
-        
+		
 		border: none;
-        border-radius: 4px;
+		border-radius: 4px;
 	}
 """
 
@@ -153,23 +153,26 @@ updater_highligh_text_edit_style = """
 default_tab_style = """
 	QTabWidget::pane {
 		background-color: #d6d6d6;
-        
+		
 		margin: 0px;
 		padding: 0px;
-        
+		
 		border-bottom-right-radius: 4px;
 		border-bottom-left-radius: 4px;
 	}
 	QTabBar::tab {
 		background: #e0e0e0;
 		color: #303030;
-        font-size: 12px;
-        
+		font-size: 12px;
+		
 		padding: 4px;
 		margin-right: 4px;
-        
+		
 		border-top-left-radius: 4px;
 		border-top-right-radius: 4px;
+	}
+	QTabWidget::tab-bar {
+		alignment: left;
 	}
 	QTabBar::tab:hover {
 		background: #c0c0c0;
@@ -246,7 +249,7 @@ default_loading_bar_style = """
 	QProgressBar {
 		background-color: #c0c0c0;
 		color: #303030;
-        font-size: 12px;
+		font-size: 12px;
 		
 		height: 26px;
 		padding: 0px;
@@ -257,14 +260,14 @@ default_loading_bar_style = """
 	QProgressBar::chunk {
 		background-color: rgba(0, 100, 0, 128);
 		border-radius: 4px;
-    }
+	}
 """
 
 uploader_loading_bar_fail_style = """
 	QProgressBar {
 		background-color: #c0c0c0;
 		color: #303030;
-        font-size: 12px;
+		font-size: 12px;
 		
 		height: 26px;
 		padding: 0px;
@@ -275,5 +278,5 @@ uploader_loading_bar_fail_style = """
 	QProgressBar::chunk {
 		background-color: rgba(139, 0, 0, 128);
 		border-radius: 4px;
-    }
+	}
 """
