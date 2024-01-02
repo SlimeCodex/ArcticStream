@@ -44,6 +44,7 @@ default_style_names = [
 	"default_button_style",
 	"default_line_edit_style",
 	"default_text_edit_style",
+	"default_ptext_edit_style",
 	"default_tab_style",
 	"default_scroll_style"
 ]
@@ -79,7 +80,7 @@ class MainWindow(SSCWindowProperties):
 		# Globals
 		self.debug_show = False
 		self.start_time = time.time()
-
+	
 		self.setup_layout()
 
 		 # Set the default theme

@@ -89,7 +89,7 @@ class BLEHandler(QObject):
 	# Callback for notifications
 	def notificationCallback(self, sender, data):
 		sender_info = sender.uuid if hasattr(sender, 'uuid') else str(sender)
-		decoded_data = data.decode('utf-8') if isinstance(data, (bytearray, bytes)) else str(data)
+		decoded_data = data.decode('utf-8', errors='replace') if isinstance(data, (bytearray, bytes)) else str(data)
 		self.notificationReceived.emit(sender_info, decoded_data)
 
 	# Callback disconnected

@@ -18,8 +18,9 @@
 
 import qasync
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QLineEdit, QPushButton, QPlainTextEdit, QApplication, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog
-from PyQt5.QtGui import QTextCursor, QFont
+from PyQt5.QtWidgets import QLineEdit, QPushButton, QPlainTextEdit, QApplication, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QTextEdit
+from PyQt5.QtGui import QTextCursor, QFont, QTextCharFormat
+from datetime import datetime
 
 from bluetooth.ble_handler import BLEHandler
 from resources.indexer import ConsoleIndex
@@ -30,6 +31,7 @@ import helpers.theme_helper as th
 class ConsoleWindow(QWidget):
 	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
 		super().__init__()
+	
 		self.main_window = main_window # MainWindow Reference
 		self.ble_handler = ble_handler # BLE Reference
 		self.win_title = title # Original title of the tab
@@ -44,16 +46,23 @@ class ConsoleWindow(QWidget):
 		self.main_window.debug_log("------------------------------------------")
 
 		# Async BLE Signals
+		self.ble_handler.connectionCompleted.connect(self.callback_connection_complete)
+		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
 		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
 		self.main_window.themeChanged.connect(self.callback_update_theme)
 
 		# Globals
 		self.icons_dir = self.main_window.icon_path()
-		self.data_counter = 0
+		self.data_tab_counter = 0
 		self.scroll_locked = True
 		self.console_paused = False
 		self.logging_enabled = False
 		self.user_log_path = None
+
+		self.total_lines = 0
+		self.total_bytes_received = 0
+		self.last_received_timestamp = 0
+		self.total_data_counter = 0
 
 		self.setup_layout()
 
@@ -88,6 +97,17 @@ class ConsoleWindow(QWidget):
 		self.text_edit_printf.setFont(QFont("Inconsolata"))
 		self.text_edit_printf.installEventFilter(self)
 		self.text_edit_printf.setReadOnly(True)
+		
+		# Create an overlay
+		self.status_overlay = QLineEdit(self)
+		self.status_overlay.setFont(QFont("Inconsolata"))
+		self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit_style"))
+		self.status_overlay.setGeometry(self.text_edit_printf.geometry())
+		self.status_overlay.setReadOnly(True)
+		self.status_overlay.setAlignment(Qt.AlignCenter)
+		self.status_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
+		self.set_overlay_geometry()
+		self.update_status()
 
 		# Single line text area for displaying info
 		self.line_edit_singlef = QLineEdit(self)
@@ -144,12 +164,12 @@ class ConsoleWindow(QWidget):
 	
 	# Reset the tab counter
 	def resetCounter(self):
-		self.data_counter = 0
+		self.data_tab_counter = 0
 		self.update_tab_title()
 	
 	# Update the tab title
 	def update_tab_title(self):
-		new_title = f"{self.win_title} ({self.data_counter})" if self.data_counter > 0 else self.win_title
+		new_title = f"{self.win_title} ({self.data_tab_counter})" if self.data_tab_counter > 0 else self.win_title
 		self.main_window.update_tab_title(self, new_title)
 
 	def isTabInFocus(self):
@@ -167,9 +187,17 @@ class ConsoleWindow(QWidget):
 
 	# Callbacks -----------------------------------------------------------------------------------------------
 
+	# Callback connection success
+	def callback_connection_complete(self, connected):
+		if connected:
+			self.update_data("> device connected\n")
+	
+	# Callback device disconnected
+	def callback_disconnected(self, client):
+		self.update_data("> device disconnected\n")
+
 	# Callback handle input notification
 	def callback_handle_notification(self, sender, data):
-
 		# Redirect the data to the printf text box
 		if sender == self.console_index.tx_characteristic.uuid:
 			self.update_data(data)
@@ -178,17 +206,66 @@ class ConsoleWindow(QWidget):
 
 	# Window Functions ------------------------------------------------------------------------------------------
 
+	def set_overlay_geometry(self):
+		# Calculate the geometry based on the main text area
+		text_edit_geom = self.text_edit_printf.geometry()
+		overlay_width = DEFAULT_STATUS_LEDIT_WIDTH
+		overlay_height = DEFAULT_STATUS_LEDIT_HEIGH
+
+		# Center the overlay within text_edit_printf
+		overlay_x = text_edit_geom.x() + (text_edit_geom.width() - overlay_width) // 2
+		overlay_y = text_edit_geom.y() + text_edit_geom.height() - overlay_height
+
+		# Set the geometry for the status overlay
+		self.status_overlay.setGeometry(overlay_x, overlay_y, overlay_width, overlay_height)
+
+	# Overlay text
+	def update_status(self):
+		current_time = datetime.now()
+
+		# Calculate latency in milliseconds
+		if self.last_received_timestamp:
+			latency = int((current_time - self.last_received_timestamp).total_seconds() * 1000)
+			latency_text = f"{latency:3.0f} ms"
+		else:
+			latency_text = "N/A"
+
+		status_text = (f"Lines: {self.total_lines} | "
+					f"Inputs: {self.total_data_counter} | "
+					f"Bytes: {self.total_bytes_received} B | "
+					f"Delta: {latency_text} | "
+					f"Last: {self.last_received_timestamp.strftime('%H:%M:%S') if self.last_received_timestamp else 'N/A'}")
+		
+		self.status_overlay.setText(status_text)
+
 	def update_data(self, data, line_limit=1000):
 		if self.console_paused:
 			return
+
+		# New data received - update metrics
+		self.total_bytes_received += len(data.encode('utf-8'))
 
 		# Save the current position of the scrollbar
 		scrollbar = self.text_edit_printf.verticalScrollBar()
 		current_pos = scrollbar.value()
 
+		# Reset the text format to default before inserting new data
+		cursor = self.text_edit_printf.textCursor()
+		cursor.movePosition(QTextCursor.End)
+		reset_format = QTextCharFormat()
+		cursor.setCharFormat(reset_format)
+
 		# Insert the new data
-		self.text_edit_printf.moveCursor(QTextCursor.End)
+		self.text_edit_printf.setTextCursor(cursor)
 		self.text_edit_printf.insertPlainText(data)
+
+		# Log the data if logging is enabled
+		if self.logging_enabled and self.user_log_path:
+			try:
+				with open(self.user_log_path, 'a') as log_file:
+					log_file.write(data)
+			except Exception as e:
+				print(f"Error writing to log file: {e}")
 
 		# Limit the number of lines
 		text = self.text_edit_printf.toPlainText()
@@ -205,13 +282,15 @@ class ConsoleWindow(QWidget):
 		
 		# Increment the tab counter
 		if not self.isTabInFocus():
-			self.data_counter += 1
+			self.data_tab_counter += 1
 			self.update_tab_title()
 
-		# Log data to file if logging is enabled
-		if self.logging_enabled and self.user_log_path:
-			with open(self.user_log_path, 'a') as file:
-				file.write(data)
+		# Update the total lines
+		self.total_data_counter += 1
+		self.total_lines = len(self.text_edit_printf.toPlainText().split('\n'))
+		
+		self.update_status()
+		self.last_received_timestamp = datetime.now()
 
 	# Update the info text box (singlef)
 	def update_info(self, info):
@@ -234,6 +313,13 @@ class ConsoleWindow(QWidget):
 	def clear_text(self):
 		self.text_edit_printf.clear()
 		self.line_edit_singlef.clear()
+
+		# Clears status bar
+		self.total_lines = 0
+		self.total_bytes_received = 0
+		self.last_received_timestamp = 0
+		self.total_data_counter = 0
+		self.update_status()
 	
 	# Save the text from the main text box
 	def log_text(self):
@@ -260,6 +346,7 @@ class ConsoleWindow(QWidget):
 			self.log_button.setStyleSheet(th.get_style("default_button_style"))
 		self.lock_button.setStyleSheet(th.get_style("default_button_style"))
 		self.send_button.setStyleSheet(th.get_style("default_button_style"))
+		self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit_style"))
 
 		# Update special widgets by theme
 		if theme == "dark":
@@ -270,6 +357,10 @@ class ConsoleWindow(QWidget):
 			self.send_button.changeIconColor("#000000")
 	
 	# Qt Functions ------------------------------------------------------------------------------------------
+
+	def resizeEvent(self, event):
+		self.set_overlay_geometry()
+		super().resizeEvent(event)
 
 	# Reimplement the keyPressEvent
 	def keyPressEvent(self, event):

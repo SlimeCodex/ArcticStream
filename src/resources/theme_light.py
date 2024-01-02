@@ -111,6 +111,20 @@ console_send_line_edit_style = """
 	}
 """
 
+console_status_line_edit_style = """
+	QLineEdit {
+		background-color: rgba(180, 180, 180, 128);
+		color: #303030;
+		font-size: 12px;
+        
+        border: none;
+		border-top-left-radius: 8px;
+		border-top-right-radius: 8px;
+		border-bottom-left-radius: 0px;
+		border-bottom-right-radius: 0px;
+	}
+"""
+
 updater_placeholder_line_edit_style = """
 	QLineEdit {
 		background: transparent;
@@ -129,6 +143,20 @@ debug_bar_line_edit_style = """
 # QTextEdit ----------------------------
 
 default_text_edit_style = """
+	QTextEdit {
+		background-color: #1e1e1e;
+		color: #dcdcdc;
+		font-size: 12px;
+		
+		padding: 8px;
+		margin: 0px;
+		
+		border: none;
+		border-radius: 4px;
+	}
+"""
+
+default_ptext_edit_style = """
 	QPlainTextEdit {
 		background-color: #f0f0f0;
 		color: #303030;
@@ -142,7 +170,7 @@ default_text_edit_style = """
 	}
 """
 
-updater_highligh_text_edit_style = """
+updater_highligh_ptext_edit_style = """
 	QPlainTextEdit {
 		background-color: rgba(150, 150, 150, 0.5);
 	}

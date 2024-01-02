@@ -112,12 +112,20 @@ class UpdaterWindow(QWidget):
 		self.drag_placeholder.setAlignment(Qt.AlignCenter)
 		self.drag_placeholder.setAttribute(Qt.WA_TransparentForMouseEvents)
 		self.show_drag_placeholder(True)
+		self.adjust_drag_placeholder()
 
 		# Single line text area for displaying info
 		self.line_edit_singlef = QLineEdit(self)
 		self.line_edit_singlef.setFont(QFont("Inconsolata"))
 		self.line_edit_singlef.setFixedHeight(DEFAULT_LINE_EDIT_HEIGHT)
 		self.line_edit_singlef.setReadOnly(True)
+
+		# Create the progress bar
+		self.progress_bar = QProgressBar(self)
+		self.progress_bar.setFixedHeight(DEFAULT_LOADING_BAR_HEIGHT)
+		self.progress_bar.setStyleSheet(th.get_style("default_loading_bar_style"))
+		self.progress_bar.setMaximum(100)
+		self.progress_bar.setValue(0)
 
 		# Layout for Start and Stop buttons
 		buttons_layout = QHBoxLayout()
@@ -127,13 +135,6 @@ class UpdaterWindow(QWidget):
 		buttons_layout.addWidget(reload_button)
 		buttons_layout.addWidget(self.folder_button)
 
-		# Create the progress bar
-		self.progress_bar = QProgressBar(self)
-		self.progress_bar.setFixedHeight(DEFAULT_LOADING_BAR_HEIGHT)
-		self.progress_bar.setStyleSheet(th.get_style("default_loading_bar_style"))
-		self.progress_bar.setMaximum(100)
-		self.progress_bar.setValue(0)
-
 		# Update the main layout
 		updater_win_layout = QVBoxLayout()
 		updater_win_layout.addLayout(buttons_layout)
@@ -141,8 +142,6 @@ class UpdaterWindow(QWidget):
 		updater_win_layout.addWidget(self.line_edit_singlef)
 		updater_win_layout.addWidget(self.progress_bar)
 		self.setLayout(updater_win_layout)
-
-		self.adjust_drag_placeholder()
 
 	# Window Functions ------------------------------------------------------------------------------------------
 
@@ -154,7 +153,7 @@ class UpdaterWindow(QWidget):
 
 	def highlight_drag_box(self, highlight):
 		if highlight:
-			self.text_edit_printf.setStyleSheet(th.get_style("updater_highligh_text_edit_style"))
+			self.text_edit_printf.setStyleSheet(th.get_style("updater_highligh_ptext_edit_style"))
 		else:
 			self.text_edit_printf.setStyleSheet(th.get_style("default_text_edit_style"))
 	
