@@ -25,8 +25,12 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QLin
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 
 from interfaces.bluetooth.ble_handler import BLEHandler
+from interfaces.wifi.wifi_handler import WiFiHandler
+from interfaces.uart.uart_handler import UARTHandler
 from gui.window_properties import SSCWindowProperties
-from gui.connection_window import ConnectionWindow
+from gui.connection_window_ble import BLEConnectionWindow
+from gui.connection_window_wifi import WiFiConnectionWindow
+from gui.connection_window_uart import UARTConnectionWindow
 from gui.console_window import ConsoleWindow
 from helpers.pushbutton_helper import SimpleButton
 
@@ -49,15 +53,13 @@ class MainWindow(SSCWindowProperties):
 
 	def __init__(self, app_main=None):
 		super().__init__(self)
-		self.ble_handler = BLEHandler()
-		self.ble_handler.connectionCompleted.connect(self.callback_connection_success)
-		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
+		self.stream_interface = 0
 
 		# Default window properties
 		self.default_title = "ArcticStream"
 		self.default_size = (800, 420)
-		self.minimum_size = (550, 320)
-		self.app_version = "v1.0.0"
+		self.minimum_size = (550, 350)
+		self.app_version = "v1.1.0"
 
 		# Window initialization
 		self.setWindowTitle(self.default_title)
@@ -91,9 +93,9 @@ class MainWindow(SSCWindowProperties):
 	# GUI Functions ------------------------------------------------------------------------------------------
 
 	def setup_layout(self):
-		self.tab_widget_ble = QTabWidget(self)
-		self.tab_widget_ble.currentChanged.connect(self.callback_tab_change)
-		self.tab_widget_ble.setVisible(False)
+		self.tab_widget = QTabWidget(self)
+		self.tab_widget.currentChanged.connect(self.callback_tab_change)
+		self.tab_widget.setVisible(False)
 
 		# Single line text area for displaying debug info
 		self.line_edit_debug = QLineEdit(self)
@@ -125,7 +127,7 @@ class MainWindow(SSCWindowProperties):
 		self.usb_button = SimpleButton(self,
 			icon=f"{self.icons_dir}/usb_FILL0_wght300_GRAD0_opsz24.svg",
 			style=th.get_style("connectors_button_style"),
-			callback=self.connect_usb
+			callback=self.connect_uart
 		)
 		self.usb_button.setIconSize(QSize(CONNECTORS_ICON_SIZE,CONNECTORS_ICON_SIZE))
 
@@ -160,7 +162,7 @@ class MainWindow(SSCWindowProperties):
 
 		# Central widget to hold the layout
 		main_window_layout = QVBoxLayout()
-		main_window_layout.addWidget(self.tab_widget_ble)
+		main_window_layout.addWidget(self.tab_widget)
 		main_window_layout.addLayout(connectors_layout)
 		main_window_layout.addLayout(descriptors_layout)
 		main_window_layout.addLayout(debug_layout)
@@ -168,10 +170,6 @@ class MainWindow(SSCWindowProperties):
 		central_widget = QWidget()
 		central_widget.setLayout(main_window_layout)
 		self.setCentralWidget(central_widget)
-
-		# Connection tab
-		self.connection_tab = ConnectionWindow(self, self.ble_handler, "BLE")
-		self.connection_tab.signal_closing_complete.connect(self.callback_finalize_close)
 
 	# Window Functions ---------------------------------------------------------------------------------------
 
@@ -190,30 +188,30 @@ class MainWindow(SSCWindowProperties):
 
 	# Add a connection tab dynamically
 	def add_connection_tab(self, console_widget, title):
-		tabIndex = self.tab_widget_ble.addTab(console_widget, title)
+		tabIndex = self.tab_widget.addTab(console_widget, title)
 		return tabIndex
 
 	# Add a console tab dynamically
 	def add_console_tab(self, console_widget, title):
-		tabIndex = self.tab_widget_ble.addTab(console_widget, title)
+		tabIndex = self.tab_widget.addTab(console_widget, title)
 		self.themeChanged.emit(self.theme_status) # Update theme for new tab
 		return tabIndex
 
 	# Add a updater tab dynamically
 	def add_updater_tab(self, console_widget, title):
-		tabIndex = self.tab_widget_ble.addTab(console_widget, title)
+		tabIndex = self.tab_widget.addTab(console_widget, title)
 		self.themeChanged.emit(self.theme_status) # Update theme for new tab
 		return tabIndex
 
 	def update_tab_title(self, console, title):
-		index = self.tab_widget_ble.indexOf(console)
+		index = self.tab_widget.indexOf(console)
 		if index != -1:
-			self.tab_widget_ble.setTabText(index, title)
+			self.tab_widget.setTabText(index, title)
 	
 	def visibility_tab(self, console, status):
-		index = self.tab_widget_ble.indexOf(console)
+		index = self.tab_widget.indexOf(console)
 		if index != -1:
-			self.tab_widget_ble.setTabVisible(index, status)
+			self.tab_widget.setTabVisible(index, status)
 
 	def set_status_bar(self, mode):
 		if mode == "Connected":
@@ -246,7 +244,7 @@ class MainWindow(SSCWindowProperties):
 	# Callbacks ----------------------------------------------------------------------------------------------
 
 	def callback_tab_change(self, index):
-		console = self.tab_widget_ble.widget(index)
+		console = self.tab_widget.widget(index)
 		if isinstance(console, ConsoleWindow):
 			console.resetCounter()
 
@@ -304,32 +302,54 @@ class MainWindow(SSCWindowProperties):
 			self.line_edit_version.setVisible(True)
 	
 	def connect_ble(self):
-		self.tab_widget_ble.setVisible(True)
+		self.debug_info("Interface selected: BLE")
+		self.stream_interface = BLEHandler()
+		self.connection_tab = BLEConnectionWindow(self, self.stream_interface, "BLE")
+		self.connection_tab.signal_closing_complete.connect(self.callback_finalize_close)
+		self.stream_interface.connectionCompleted.connect(self.callback_connection_success)
+		self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+		self.tab_widget.setVisible(True)
+		self.hide_interfaces()
+	
+	def connect_wifi(self):
+		self.debug_info("Interface selected: WiFi")
+		self.stream_interface = WiFiHandler()
+		self.connection_tab = WiFiConnectionWindow(self, self.stream_interface, "WiFi")
+		self.connection_tab.signal_closing_complete.connect(self.callback_finalize_close)
+		self.stream_interface.connectionCompleted.connect(self.callback_connection_success)
+		self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+		self.tab_widget.setVisible(True)
+		self.hide_interfaces()
+	
+	def connect_uart(self):
+		self.debug_info("Interface selected: UART")
+		self.stream_interface = UARTHandler()
+		self.connection_tab = UARTConnectionWindow(self, self.stream_interface, "UART")
+		self.connection_tab.signal_closing_complete.connect(self.callback_finalize_close)
+		self.stream_interface.connectionCompleted.connect(self.callback_connection_success)
+		self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+		self.tab_widget.setVisible(True)
+		self.hide_interfaces()
+	
+	def exit_ble(self):
+		self.tab_widget.setVisible(False)
+		self.show_interfaces()
 
+	def hide_interfaces(self):
 		self.ble_button.setVisible(False)
 		self.usb_button.setVisible(False)
 		self.wifi_button.setVisible(False)
-		
 		self.ble_descriptor.setVisible(False)
 		self.usb_descriptor.setVisible(False)
 		self.wifi_descriptor.setVisible(False)
 	
-	def exit_ble(self):
-		self.tab_widget_ble.setVisible(False)
-
+	def show_interfaces(self):
 		self.ble_button.setVisible(True)
 		self.usb_button.setVisible(True)
 		self.wifi_button.setVisible(True)
-		
 		self.ble_descriptor.setVisible(True)
 		self.usb_descriptor.setVisible(True)
 		self.wifi_descriptor.setVisible(True)
-	
-	def connect_usb(self):
-		self.debug_info("Function not available")
-	
-	def connect_wifi(self):
-		self.debug_info("Function not available")
 
 	# Qt Events ----------------------------------------------------------------------------------------------
 

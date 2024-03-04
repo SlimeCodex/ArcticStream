@@ -29,11 +29,11 @@ from resources.theme_config import *
 import helpers.theme_helper as th
 
 class ConsoleWindow(QWidget):
-	def __init__(self, main_window, ble_handler: BLEHandler, title, console_index: ConsoleIndex):
+	def __init__(self, main_window, stream_interface: BLEHandler, title, console_index: ConsoleIndex):
 		super().__init__()
 	
 		self.main_window = main_window # MainWindow Reference
-		self.ble_handler = ble_handler # BLE Reference
+		self.stream_interface = stream_interface # BLE Reference
 		self.win_title = title # Original title of the tab
 		self.console_index = console_index # Console information
 
@@ -46,9 +46,9 @@ class ConsoleWindow(QWidget):
 		self.main_window.debug_log("------------------------------------------")
 
 		# Async BLE Signals
-		self.ble_handler.connectionCompleted.connect(self.callback_connection_complete)
-		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
-		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
+		self.stream_interface.connectionCompleted.connect(self.callback_connection_complete)
+		self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+		self.stream_interface.notificationReceived.connect(self.callback_handle_notification)
 		self.main_window.themeChanged.connect(self.callback_update_theme)
 
 		# Globals
@@ -173,7 +173,7 @@ class ConsoleWindow(QWidget):
 		self.main_window.update_tab_title(self, new_title)
 
 	def check_tab_focus(self):
-		current_widget = self.main_window.tab_widget_ble.currentWidget()
+		current_widget = self.main_window.tab_widget.currentWidget()
 		return current_widget == self
 
 	# Async BLE Functions ------------------------------------------------------------------------------------------
@@ -182,7 +182,7 @@ class ConsoleWindow(QWidget):
 	async def send_data(self):
 		data = self.line_edit_send.text()
 		if data:
-			await self.ble_handler.writeCharacteristic(self.console_index.rx_characteristic.uuid, data.encode())
+			await self.stream_interface.writeCharacteristic(self.console_index.rx_characteristic.uuid, data.encode())
 			self.line_edit_send.clear()
 
 	# Callbacks -----------------------------------------------------------------------------------------------

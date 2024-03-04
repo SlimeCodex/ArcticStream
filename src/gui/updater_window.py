@@ -37,10 +37,10 @@ import helpers.theme_helper as th
 OTA_ENABLE_OUTPUT_DEBUG = False
 
 class UpdaterWindow(QWidget):
-	def __init__(self, main_window, ble_handler: BLEHandler, title, updater_index: OTAIndex):
+	def __init__(self, main_window, stream_interface: BLEHandler, title, updater_index: OTAIndex):
 		super().__init__()
 		self.main_window = main_window # MainWindow Reference
-		self.ble_handler = ble_handler # BLE Reference
+		self.stream_interface = stream_interface # BLE Reference
 		self.win_title = title # Original title of the tab
 		self.updater_index = updater_index # Console information
 
@@ -52,8 +52,8 @@ class UpdaterWindow(QWidget):
 		self.main_window.debug_log("------------------------------------------")
 
 		# Async BLE Signals
-		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
-		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
+		self.stream_interface.notificationReceived.connect(self.callback_handle_notification)
+		self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
 		self.main_window.themeChanged.connect(self.callback_update_theme)
 
 		# Async Events from the device
@@ -248,7 +248,7 @@ class UpdaterWindow(QWidget):
 		return os.path.getsize(file_path)
 
 	async def send_file_info(self, total_size, file_hash):
-		await self.ble_handler.writeCharacteristic(
+		await self.stream_interface.writeCharacteristic(
 			self.updater_index.rx_characteristic.uuid,
 			str(f"ARCTIC_COMMAND_OTA_SETUP -s {total_size} -md5 {file_hash}").encode()
 		)
@@ -331,7 +331,7 @@ class UpdaterWindow(QWidget):
 		self.ack_event.clear()
 		if OTA_ENABLE_OUTPUT_DEBUG:
 			self.main_window.debug_log(f"Sending chunk of {len(dataChunk)} bytes")
-		await self.ble_handler.writeCharacteristic(self.updater_index.rx_characteristic.uuid, dataChunk)
+		await self.stream_interface.writeCharacteristic(self.updater_index.rx_characteristic.uuid, dataChunk)
 		return await self.wait_for_ack_or_stop()
 
 	async def wait_for_ack_or_stop(self):

@@ -24,34 +24,36 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget, QHBoxLayout
 from PyQt5.QtGui import QFont
 
-from interfaces.bluetooth.ble_handler import BLEHandler
+from interfaces.bluetooth.ble_handler import BLEHandler # DELETE
+from interfaces.wifi.wifi_handler import WiFiHandler
+from interfaces.uart.uart_handler import UARTHandler # DELETE
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackgroundIndex, OTAIndex
 from resources.patterns import *
 		
-class ConnectionWindow(QWidget):
+class WiFiConnectionWindow(QWidget):
 	signal_closing_complete = pyqtSignal()
 	
-	def __init__(self, main_window, ble_handler: BLEHandler, title):
+	def __init__(self, main_window, stream_interface: WiFiHandler, title):
 		self.connection_event = asyncio.Event()
 		self.reconnection_event = asyncio.Event()
 
 		super().__init__()
 		self.main_window = main_window # MainWindow Reference
-		self.ble_handler = ble_handler # BLE Reference
-		self.win_title = title  # Original title of the tab
+		self.stream_interface = stream_interface # Interface Reference
+		self.win_title = title # Original title of the tab
 
 		# Add this tab to the main window
 		self.main_window.add_connection_tab(self, self.win_title)
 		self.main_window.signal_window_close.connect(self.process_close_task)
 
 		# Async BLE Signals
-		self.ble_handler.devicesDiscovered.connect(self.callback_update_scan_list)
-		self.ble_handler.connectionCompleted.connect(self.callback_connection_complete)
-		self.ble_handler.deviceDisconnected.connect(self.callback_disconnected)
-		self.ble_handler.characteristicRead.connect(self.callback_handle_char_read)
-		self.ble_handler.notificationReceived.connect(self.callback_handle_notification)
+		self.stream_interface.devicesDiscovered.connect(self.callback_update_scan_list)
+		self.stream_interface.connectionCompleted.connect(self.callback_connection_complete)
+		self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+		self.stream_interface.characteristicRead.connect(self.callback_handle_char_read)
+		self.stream_interface.notificationReceived.connect(self.callback_handle_notification)
 		
 		# Async Events from the device
 		self.get_name_event = asyncio.Event()
@@ -82,7 +84,7 @@ class ConnectionWindow(QWidget):
 		self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
 		self.scan_device_list.itemDoubleClicked.connect(self.ble_connect)
 
-		scan_button = QPushButton("Scan Bluetooth")
+		scan_button = QPushButton("Scan Network")
 		scan_button.clicked.connect(self.ble_scan)
 
 		exit_button = QPushButton("Exit")
@@ -106,7 +108,7 @@ class ConnectionWindow(QWidget):
 	@qasync.asyncSlot()
 	async def ble_scan(self):
 		self.main_window.debug_info("Scanning for devices ...")
-		await self.ble_handler.scanForDevices()
+		await self.stream_interface.network_scan()
 		self.main_window.debug_info("Scanning complete")
 
 	# BLE Connection
@@ -123,7 +125,7 @@ class ConnectionWindow(QWidget):
 		if not reconnect:
 			self.main_window.debug_info(f"Connecting to {device_address} ...")
 			
-		await self.ble_handler.connectToDevice(device_address)
+		await self.stream_interface.connectToDevice(device_address)
 
 	# BLE Setting up notifications and retrieving name characteristic
 	@qasync.asyncSlot()
@@ -133,7 +135,7 @@ class ConnectionWindow(QWidget):
 		if self.updater_service:
 			self.main_window.debug_log("OTA service found")
 			if self.updater_service.tx_characteristic:
-				await self.ble_handler.startNotifications(self.updater_service.tx_characteristic)
+				await self.stream_interface.startNotifications(self.updater_service.tx_characteristic)
 			self.new_updater_window(self.updater_service.name, self.updater_service.service.uuid)
 
 		# Load consoles windows
@@ -141,13 +143,13 @@ class ConnectionWindow(QWidget):
 
 			# Start notifications
 			if indexer.tx_characteristic:
-				await self.ble_handler.startNotifications(indexer.tx_characteristic)
+				await self.stream_interface.startNotifications(indexer.tx_characteristic)
 			if indexer.txs_characteristic:
-				await self.ble_handler.startNotifications(indexer.txs_characteristic)
+				await self.stream_interface.startNotifications(indexer.txs_characteristic)
 			
 			# Retreive console name from device
 			self.get_name_event.clear()
-			await self.ble_handler.writeCharacteristic( # Request name
+			await self.stream_interface.writeCharacteristic( # Request name
 				indexer.rx_characteristic.uuid,
 				str(f"ARCTIC_COMMAND_GET_NAME").encode()
 			)
@@ -177,7 +179,7 @@ class ConnectionWindow(QWidget):
 	@qasync.asyncSlot()
 	async def ble_stop(self):
 		self.main_window.debug_info("Disconnecting ...")
-		await self.ble_handler.disconnect()
+		await self.stream_interface.disconnect()
 	
 	# Clear connection
 	@qasync.asyncSlot()
@@ -192,8 +194,8 @@ class ConnectionWindow(QWidget):
 	# Callback update device list
 	def callback_update_scan_list(self, devices):
 		self.scan_device_list.clear()
-		for name, address in devices:
-			self.scan_device_list.addItem(f"{name} - {address}")
+		for name, address, ip in devices:
+			self.scan_device_list.addItem(f"{name} - {address} - {ip}")
 
 	# Callback connection success
 	def callback_connection_complete(self, connected):
@@ -228,7 +230,7 @@ class ConnectionWindow(QWidget):
 
 	# Register services
 	def register_services(self):
-		registered_services = self.ble_handler.getServices() # Not async
+		registered_services = self.stream_interface.getServices() # Not async
 		for service in registered_services:
 			service_uuid = str(service.uuid)
 			self.main_window.debug_log(f"Service found: {service_uuid}")
@@ -303,7 +305,7 @@ class ConnectionWindow(QWidget):
 			window = self.updater_ref
 		else:
 			# Console window is not open, create a new one
-			window = UpdaterWindow(self.main_window, self.ble_handler, name, self.updater_service)
+			window = UpdaterWindow(self.main_window, self.stream_interface, name, self.updater_service)
 			self.updater_ref = window
 
 			self.main_window.add_updater_tab(window, name)
@@ -316,7 +318,7 @@ class ConnectionWindow(QWidget):
 			console = self.console_ref[uuid]
 		else:
 			# Console window is not open, create a new one
-			console = ConsoleWindow(self.main_window, self.ble_handler, name, self.console_services[uuid])
+			console = ConsoleWindow(self.main_window, self.stream_interface, name, self.console_services[uuid])
 			self.console_ref[uuid] = console
 
 			self.main_window.add_console_tab(console, name)
