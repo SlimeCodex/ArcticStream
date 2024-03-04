@@ -44,9 +44,10 @@ class WiFiHandler(QObject):
 		self.host_ip = "192.168.1.23"
 		self.ports = {"char1": 10001, "char2": 10002}
 
-		self.network = "192.168.1.0/24"
+		self.network = "192.168.0.0/24"
 		self.port = 56320
 
+	# Check if a host is up and running
 	@qasync.asyncSlot()
 	async def check_host(self, ip):
 		# Ping parameters as per the OS
@@ -64,7 +65,8 @@ class WiFiHandler(QObject):
 			except (asyncio.TimeoutError, OSError):
 				pass
 		return None
-
+	
+	# Scan the network for devices
 	@qasync.asyncSlot()
 	async def network_scan(self):
 		ip_net = ipaddress.ip_network(self.network)
@@ -82,14 +84,14 @@ class WiFiHandler(QObject):
 		for ip in filtered_ips:
 			info_response = await self.send_command(ip, "ARCTIC_COMMAND_GET_DEVICE")
 			if "Error:" not in info_response:
-				parts = info_response.split(", ")
-				name = ""
-				mac = ""
-				for part in parts:
-					if part.startswith("Name:"):
-						name = part.split("Name:")[1].strip()
-					elif part.startswith("MAC:"):
-						mac = part.split("MAC:")[1].strip()
+				parts = info_response.split(',')
+				if len(parts) == 2:
+					name = parts[0].strip()
+					mac = parts[1].strip()
+				else:
+					name = ""
+					mac = ""
+
 				print(f"Response from {ip}: Name - {name}, MAC - {mac}")
 
 				# Append the device information as a tuple
@@ -100,6 +102,7 @@ class WiFiHandler(QObject):
 		# Emit the devicesDiscovered signal with the formatted devices
 		self.devicesDiscovered.emit(devices_info)
 
+	# Send a command to a device
 	@qasync.asyncSlot()
 	async def send_command(self, ip, command):
 		try:

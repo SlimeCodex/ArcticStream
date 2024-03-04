@@ -4,7 +4,7 @@ import errno
 import time
 
 def main():
-	host = '192.168.1.86'  # Replace with your ESP32's IP address
+	host = '192.168.0.5'  # Replace with your ESP32's IP address
 	port = 56320  # Port number should match the one on the ESP32 server
 
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -45,8 +45,8 @@ def main():
 					print("Socket error:", e)
 					break
 				else:
-					time.sleep(0.01)  # Short sleep to prevent high CPU usage
-					continue  # No data available
+					time.sleep(0.01)
+					continue
 
 	else:
 		print("Connection failed: Timeout or error")
