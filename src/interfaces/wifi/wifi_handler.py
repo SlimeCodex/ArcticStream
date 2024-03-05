@@ -119,6 +119,42 @@ class WiFiHandler(QObject):
 			return f"Error: {e}"
 
 	@qasync.asyncSlot()
+	async def connectAndReceiveData(self, device_ip):
+		try:
+			# Create a non-blocking socket
+			client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			client_socket.setblocking(False)
+			await asyncio.wait_for(asyncio.open_connection(sock=client_socket), 5)
+
+			self.connectionCompleted.emit(True)
+			data_buffer = b""
+
+			while True:
+				try:
+					# Asynchronously receive data
+					data = await asyncio.wait_for(client_socket.recv(1024), 5)
+					if data:
+						data_buffer += data
+						while b'\n' in data_buffer:
+							line, data_buffer = data_buffer.split(b'\n', 1)
+							line = line.strip()
+							if line:
+								self.dataReceived.emit(line.decode())
+					else:
+						print("Connection closed by the server")
+						break
+				except asyncio.TimeoutError:
+					pass  # Continue receiving data
+				except Exception as e:
+					print(f"Socket error: {e}")
+					break
+		except Exception as e:
+			print(f"Connection failed: {e}")
+			self.connectionCompleted.emit(False)
+		finally:
+			client_socket.close()
+
+	@qasync.asyncSlot()
 	async def connectToServer(self):
 		try:
 			for char, self.port in self.ports.items():
