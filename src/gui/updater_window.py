@@ -27,7 +27,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QPlainTextEdit, QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, QProgressBar
 from PyQt5.QtGui import QTextCursor, QFont
 
-from interfaces.bluetooth.ble_handler import BLEHandler
+from interfaces.ble_handler import BLEHandler
 from resources.indexer import OTAIndex
 from helpers.pushbutton_helper import SimpleButton
 from resources.theme_config import *

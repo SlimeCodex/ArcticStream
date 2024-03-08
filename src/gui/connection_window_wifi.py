@@ -24,9 +24,10 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget, QHBoxLayout
 from PyQt5.QtGui import QFont
 
-from interfaces.bluetooth.ble_handler import BLEHandler # DELETE
-from interfaces.wifi.wifi_handler import WiFiHandler
-from interfaces.uart.uart_handler import UARTHandler # DELETE
+from interfaces.com_handler import CommunicationInterface
+from interfaces.ble_handler import BLEHandler # DELETE
+from interfaces.wifi_handler import WiFiHandler
+from interfaces.uart_handler import UARTHandler # DELETE
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackgroundIndex, OTAIndex
@@ -35,7 +36,7 @@ from resources.patterns import *
 class WiFiConnectionWindow(QWidget):
 	signal_closing_complete = pyqtSignal()
 	
-	def __init__(self, main_window, stream_interface: WiFiHandler, title):
+	def __init__(self, main_window, stream_interface: CommunicationInterface, title):
 		self.connection_event = asyncio.Event()
 		self.reconnection_event = asyncio.Event()
 
@@ -48,7 +49,7 @@ class WiFiConnectionWindow(QWidget):
 		self.main_window.add_connection_tab(self, self.win_title)
 		self.main_window.signal_window_close.connect(self.process_close_task)
 
-		# Async BLE Signals
+		# Async WiFi Signals
 		self.stream_interface.devicesDiscovered.connect(self.callback_update_scan_list)
 		self.stream_interface.connectionCompleted.connect(self.callback_connection_complete)
 		self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
@@ -74,7 +75,7 @@ class WiFiConnectionWindow(QWidget):
 	# Layout and Widgets
 	def setup_layout(self):
 		connect_button = QPushButton("Connect")
-		connect_button.clicked.connect(self.ble_connect)
+		connect_button.clicked.connect(self.wifi_connect)
 
 		disconnect_button = QPushButton("Disconnect")
 		disconnect_button.clicked.connect(self.ble_clear_connection)
@@ -82,10 +83,10 @@ class WiFiConnectionWindow(QWidget):
 		self.scan_device_list = QListWidget()
 		self.scan_device_list.setFont(QFont("Inconsolata"))
 		self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
-		self.scan_device_list.itemDoubleClicked.connect(self.ble_connect)
+		self.scan_device_list.itemDoubleClicked.connect(self.wifi_connect)
 
 		scan_button = QPushButton("Scan Network")
-		scan_button.clicked.connect(self.ble_scan)
+		scan_button.clicked.connect(self.wifi_scan)
 
 		exit_button = QPushButton("Exit")
 		exit_button.clicked.connect(self.exitApplication)
@@ -102,70 +103,51 @@ class WiFiConnectionWindow(QWidget):
 		connection_layout.addWidget(exit_button)
 		self.setLayout(connection_layout)
 
-	# Async BLE Functions ------------------------------------------------------------------------------------------
+	# Async WiFi Functions ------------------------------------------------------------------------------------------
 
-	# BLE Scanning
+	# WiFi Scanning
 	@qasync.asyncSlot()
-	async def ble_scan(self):
+	async def wifi_scan(self):
 		self.main_window.debug_info("Scanning for devices ...")
-		await self.stream_interface.network_scan()
+		await self.stream_interface.scan_for_devices()
 		self.main_window.debug_info("Scanning complete")
 
-	# BLE Connection
+	# WiFi Connection
 	@qasync.asyncSlot()
-	async def ble_connect(self, reconnect=False):
+	async def wifi_connect(self, reconnect=False):
 		selected_items = self.scan_device_list.selectedItems()
 		if not selected_items:
 			self.main_window.debug_info("No device selected")
 			return
 		
-		device_address = selected_items[0].text().split(" - ")[1]
+		device_address = selected_items[0].text().split(" - ")[2]
 		self.last_device_address = device_address
 
 		if not reconnect:
 			self.main_window.debug_info(f"Connecting to {device_address} ...")
 			
-		await self.stream_interface.connectToDevice(device_address)
+		retreived_services = await self.stream_interface.get_services()
 
-	# BLE Setting up notifications and retrieving name characteristic
-	@qasync.asyncSlot()
-	async def setup_consoles(self):
+		print("---------------")
+		for service in retreived_services:
+			print(f"Module Name: {service['name']}")
+			print(f"UUIDTX: {service['uuidtx']}")
+			print(f"UUIDTXS: {service['uuidtxs']}")
+			print(f"UUIDRX: {service['uuidrx']}")
+			print("---------------")
 
-		# Load OTA window
-		if self.updater_service:
-			self.main_window.debug_log("OTA service found")
-			if self.updater_service.tx_characteristic:
-				await self.stream_interface.startNotifications(self.updater_service.tx_characteristic)
-			self.new_updater_window(self.updater_service.name, self.updater_service.service.uuid)
-
-		# Load consoles windows
-		for service_uuid, indexer in self.console_services.items():
-
-			# Start notifications
-			if indexer.tx_characteristic:
-				await self.stream_interface.startNotifications(indexer.tx_characteristic)
-			if indexer.txs_characteristic:
-				await self.stream_interface.startNotifications(indexer.txs_characteristic)
-			
-			# Retreive console name from device
-			self.get_name_event.clear()
-			await self.stream_interface.writeCharacteristic( # Request name
-				indexer.rx_characteristic.uuid,
-				str(f"ARCTIC_COMMAND_GET_NAME").encode()
-			)
-			await self.get_name_event.wait() # Wait for the name to be retrieved
-			self.new_console_window(indexer.name, service_uuid)
+		await self.stream_interface.connect_to_device(device_address)
 
 	# Reconnection
 	@qasync.asyncSlot()
-	async def ble_reconnect(self):
+	async def wifi_reconnect(self):
 		max_recon_retries = 5
 		retries_counter = 1
 
 		while retries_counter <= max_recon_retries:
 			self.connection_event.clear()
 			self.main_window.debug_info(f"Attempting reconnection to {self.last_device_address}. Retry: {retries_counter}/{max_recon_retries}")
-			await self.ble_connect(self.last_device_address, reconnect=True) # Will wait 5s before timeout
+			await self.wifi_connect(self.last_device_address, reconnect=True) # Will wait 5s before timeout
 			if self.connection_event.is_set():
 				# Reconnection successful
 				break
@@ -175,7 +157,7 @@ class WiFiConnectionWindow(QWidget):
 		if retries_counter > max_recon_retries:
 			self.main_window.debug_info(f"Reconnection to {self.last_device_address} failed")
 
-	# Stop BLE
+	# Stop WiFi
 	@qasync.asyncSlot()
 	async def ble_stop(self):
 		self.main_window.debug_info("Disconnecting ...")
@@ -202,7 +184,6 @@ class WiFiConnectionWindow(QWidget):
 		if connected:
 			self.connection_event.set()
 			self.main_window.debug_info(f"Connected to {self.last_device_address}")
-			self.register_services()
 		else:
 			self.connection_event.clear()
 	
@@ -216,7 +197,7 @@ class WiFiConnectionWindow(QWidget):
 
 		# Manual disconnect are not handled
 		if self.last_device_address:
-			self.ble_reconnect()
+			self.wifi_reconnect()
 	
 	# Callback handle notification for retrieving console name
 	def callback_handle_notification(self, uuid, value):
@@ -227,75 +208,6 @@ class WiFiConnectionWindow(QWidget):
 				self.get_name_event.set()
 		
 	# Window Functions ------------------------------------------------------------------------------------------
-
-	# Register services
-	def register_services(self):
-		registered_services = self.stream_interface.getServices() # Not async
-		for service in registered_services:
-			service_uuid = str(service.uuid)
-			self.main_window.debug_log(f"Service found: {service_uuid}")
-
-			# Register background services
-			if service_uuid == service_background_uuid:
-				self.main_window.debug_log("Background service found")
-				temp_indexer = BackgroundIndex(service)
-
-				# Loop through characteristics
-				for characteristic in service.characteristics:
-					char_uuid = str(characteristic.uuid)
-					if char_uuid == char_background_tx_uuid: #TX
-						temp_indexer.tx_characteristic = characteristic
-					if char_uuid == char_background_rx_uuid: #TX
-						temp_indexer.rx_characteristic = characteristic
-
-				# Register the temp_indexer
-				self.background_service = temp_indexer
-				
-			# Register OTA services
-			if service_uuid == service_ota_uuid:
-				self.main_window.debug_log("OTA service found")
-				temp_indexer = OTAIndex(service)
-				
-				# Loop through characteristics
-				for characteristic in service.characteristics:
-					char_uuid = str(characteristic.uuid)
-					if char_uuid == char_ota_tx_uuid: #TX
-						temp_indexer.tx_characteristic = characteristic
-					if char_uuid == char_ota_rx_uuid: #TX
-						temp_indexer.rx_characteristic = characteristic
-
-				# Register the temp_indexer
-				temp_indexer.name = "OTA"
-				self.updater_service = temp_indexer
-
-			# Register console services
-			if service_console_pattern.match(service_uuid):
-				self.main_window.debug_log("Console service found")
-			
-				# Check if the service is already registered and reuse it
-				if service_uuid in self.console_services:
-					temp_indexer = self.console_services[service_uuid]
-				else:
-					temp_indexer = ConsoleIndex(service)
-
-				# Loop through characteristics
-				for characteristic in service.characteristics:
-					char_uuid = str(characteristic.uuid)
-
-					# Check and update or set characteristics
-					if char_tx_pattern.match(char_uuid):
-						temp_indexer.tx_characteristic = characteristic
-					elif char_txs_pattern.match(char_uuid):
-						temp_indexer.txs_characteristic = characteristic
-					elif char_rx_pattern.match(char_uuid):
-						temp_indexer.rx_characteristic = characteristic
-
-				# Register the temp_indexer
-				temp_indexer.name = "<arctic>"
-				self.console_services[service_uuid] = temp_indexer
-
-		# Setup notification and read name characteristic
-		self.setup_consoles()
 
 	# Initialize a new updater window (OTA)
 	def new_updater_window(self, name, uuid):
@@ -330,7 +242,7 @@ class WiFiConnectionWindow(QWidget):
 		for uuid, console in self.console_ref.items():
 			console.close()
 	
-	# Stop the BLE Handler
+	# Stop the WiFi Handler
 	@qasync.asyncSlot()
 	async def process_close_task(self, close_window=True):
 		self.last_device_address = None # Clear the last device address

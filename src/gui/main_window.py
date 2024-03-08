@@ -24,9 +24,9 @@ from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QLineEdit, QHBoxLayout, QPushButton
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 
-from interfaces.bluetooth.ble_handler import BLEHandler
-from interfaces.wifi.wifi_handler import WiFiHandler
-from interfaces.uart.uart_handler import UARTHandler
+from interfaces.ble_handler import BLEHandler
+from interfaces.wifi_handler import WiFiHandler
+from interfaces.uart_handler import UARTHandler
 from gui.window_properties import SSCWindowProperties
 from gui.connection_window_ble import BLEConnectionWindow
 from gui.connection_window_wifi import WiFiConnectionWindow
@@ -332,6 +332,11 @@ class MainWindow(SSCWindowProperties):
 		self.hide_interfaces()
 	
 	def exit_ble(self):
+		# Clear the current tab
+		current_index = self.tab_widget.currentIndex()
+		if current_index != -1:
+			self.tab_widget.removeTab(current_index)
+
 		self.tab_widget.setVisible(False)
 		self.show_interfaces()
 

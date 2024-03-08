@@ -16,11 +16,13 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+import asyncio
+
 from bleak import BleakScanner, BleakClient
 from PyQt5.QtCore import QObject, pyqtSignal
 
-import asyncio
 import qasync
+from interfaces.com_handler import CommunicationInterface
 
 class BLEHandler(QObject):
 
@@ -39,15 +41,17 @@ class BLEHandler(QObject):
 
 	# Scan for devices
 	@qasync.asyncSlot()
-	async def scanForDevices(self):
+	async def scan_for_devices(self):
+		"""Scans for available devices on the interface."""
 		devices = await BleakScanner.discover()
 		formatted_devices = [(device.name, device.address) for device in devices]
 		self.devicesDiscovered.emit(formatted_devices)
 
 	# Connect to device
 	@qasync.asyncSlot()
-	async def connectToDevice(self, device_address):
-		self.client = BleakClient(device_address, disconnected_callback=self.onDisconnected, timeout=5)
+	async def connect_to_device(self, device_address):
+		"""Connects to a device on the interface."""
+		self.client = BleakClient(device_address, disconnected_callback=self.on_disconnect, timeout=5)
 		try:
 			connected = await self.client.connect()
 			if connected:
@@ -62,19 +66,22 @@ class BLEHandler(QObject):
 
 	# Setup notifications for characteristic
 	@qasync.asyncSlot()
-	async def startNotifications(self, characteristic):
+	async def start_notifications(self, characteristic):
+		"""Starts notifications for a characteristic."""
 		if "notify" in characteristic.properties:
-			await self.client.start_notify(characteristic, self.notificationCallback)
+			await self.client.start_notify(characteristic, self.notification_callback)
 
 	# Read data from characteristic
 	@qasync.asyncSlot()
-	async def readCharacteristic(self, characteristic):
+	async def read_characteristic(self, characteristic):
+		"""Reads data from a characteristic."""
 		value = await self.client.read_gatt_char(characteristic)
 		self.characteristicRead.emit(str(characteristic.uuid), bytes(value))
 
 	# Write data to characteristic
 	@qasync.asyncSlot()
-	async def writeCharacteristic(self, characteristic, data, response=False):
+	async def send_data(self, characteristic, data, response=False):
+		"""Sends data to the specified characteristic."""
 		try:
 			if self.disconnect_event.is_set():
 				print("Operation aborted: Device disconnected.")
@@ -87,23 +94,27 @@ class BLEHandler(QObject):
 			self.writeCompleted.emit(False)
 
 	# Callback for notifications
-	def notificationCallback(self, sender, data):
+	def notification_callback(self, sender, data):
+		"""Callback for notifications. Emits a signal with the received data."""
 		sender_info = sender.uuid if hasattr(sender, 'uuid') else str(sender)
 		decoded_data = data.decode('utf-8', errors='replace') if isinstance(data, (bytearray, bytes)) else str(data)
 		self.notificationReceived.emit(sender_info, decoded_data)
 
 	# Callback disconnected
-	def onDisconnected(self, client):
+	def on_disconnect(self, client):
+		"""Callback for disconnection. Emits a signal with the disconnected client."""
 		self.disconnect_event.set()
 		self.deviceDisconnected.emit(client)
 
 	# Manual retrieve of services
-	def getServices(self):
+	def get_services(self):
+		"""Retrieves services information from the connected device (if applicable)."""
 		return self.services if hasattr(self, 'services') else None
 
 	# Manual disconnect
 	@qasync.asyncSlot()
 	async def disconnect(self):
+		"""Disconnects from the connected device."""
 		if self.client and self.client.is_connected:
 			self.disconnect_event.set()
 			await self.client.disconnect()

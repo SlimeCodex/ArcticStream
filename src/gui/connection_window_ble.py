@@ -24,18 +24,17 @@ from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget, QHBoxLayout
 from PyQt5.QtGui import QFont
 
-from interfaces.bluetooth.ble_handler import BLEHandler
-from interfaces.wifi.wifi_handler import WiFiHandler
-from interfaces.uart.uart_handler import UARTHandler
+from interfaces.com_handler import CommunicationInterface
+from interfaces.ble_handler import BLEHandler
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackgroundIndex, OTAIndex
 from resources.patterns import *
-		
+
 class BLEConnectionWindow(QWidget):
 	signal_closing_complete = pyqtSignal()
 	
-	def __init__(self, main_window, stream_interface: BLEHandler, title):
+	def __init__(self, main_window, stream_interface: CommunicationInterface, title):
 		self.connection_event = asyncio.Event()
 		self.reconnection_event = asyncio.Event()
 
@@ -108,7 +107,7 @@ class BLEConnectionWindow(QWidget):
 	@qasync.asyncSlot()
 	async def ble_scan(self):
 		self.main_window.debug_info("Scanning for devices ...")
-		await self.stream_interface.scanForDevices()
+		await self.stream_interface.scan_for_devices()
 		self.main_window.debug_info("Scanning complete")
 
 	# BLE Connection
@@ -125,7 +124,7 @@ class BLEConnectionWindow(QWidget):
 		if not reconnect:
 			self.main_window.debug_info(f"Connecting to {device_address} ...")
 			
-		await self.stream_interface.connectToDevice(device_address)
+		await self.stream_interface.connect_to_device(device_address)
 
 	# BLE Setting up notifications and retrieving name characteristic
 	@qasync.asyncSlot()
@@ -135,7 +134,7 @@ class BLEConnectionWindow(QWidget):
 		if self.updater_service:
 			self.main_window.debug_log("OTA service found")
 			if self.updater_service.tx_characteristic:
-				await self.stream_interface.startNotifications(self.updater_service.tx_characteristic)
+				await self.stream_interface.start_notifications(self.updater_service.tx_characteristic)
 			self.new_updater_window(self.updater_service.name, self.updater_service.service.uuid)
 
 		# Load consoles windows
@@ -143,13 +142,13 @@ class BLEConnectionWindow(QWidget):
 
 			# Start notifications
 			if indexer.tx_characteristic:
-				await self.stream_interface.startNotifications(indexer.tx_characteristic)
+				await self.stream_interface.start_notifications(indexer.tx_characteristic)
 			if indexer.txs_characteristic:
-				await self.stream_interface.startNotifications(indexer.txs_characteristic)
+				await self.stream_interface.start_notifications(indexer.txs_characteristic)
 			
 			# Retreive console name from device
 			self.get_name_event.clear()
-			await self.stream_interface.writeCharacteristic( # Request name
+			await self.stream_interface.send_command( # Request name
 				indexer.rx_characteristic.uuid,
 				str(f"ARCTIC_COMMAND_GET_NAME").encode()
 			)
@@ -230,7 +229,7 @@ class BLEConnectionWindow(QWidget):
 
 	# Register services
 	def register_services(self):
-		registered_services = self.stream_interface.getServices() # Not async
+		registered_services = self.stream_interface.get_services() # Not async
 		for service in registered_services:
 			service_uuid = str(service.uuid)
 			self.main_window.debug_log(f"Service found: {service_uuid}")

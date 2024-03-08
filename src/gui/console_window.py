@@ -22,14 +22,14 @@ from PyQt5.QtWidgets import QLineEdit, QPushButton, QPlainTextEdit, QApplication
 from PyQt5.QtGui import QTextCursor, QFont, QTextCharFormat
 from datetime import datetime
 
-from interfaces.bluetooth.ble_handler import BLEHandler
+from interfaces.com_handler import CommunicationInterface
 from resources.indexer import ConsoleIndex
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
 from resources.theme_config import *
 import helpers.theme_helper as th
 
 class ConsoleWindow(QWidget):
-	def __init__(self, main_window, stream_interface: BLEHandler, title, console_index: ConsoleIndex):
+	def __init__(self, main_window, stream_interface: CommunicationInterface, title, console_index: ConsoleIndex):
 		super().__init__()
 	
 		self.main_window = main_window # MainWindow Reference
@@ -182,7 +182,7 @@ class ConsoleWindow(QWidget):
 	async def send_data(self):
 		data = self.line_edit_send.text()
 		if data:
-			await self.stream_interface.writeCharacteristic(self.console_index.rx_characteristic.uuid, data.encode())
+			await self.stream_interface.send_data(self.console_index.rx_characteristic.uuid, data.encode())
 			self.line_edit_send.clear()
 
 	# Callbacks -----------------------------------------------------------------------------------------------
