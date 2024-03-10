@@ -1,16 +1,6 @@
 # Desc: Styles for the GUI
 # This file is part of ArcticStream Library.
 
-#1e1e1e f0f0f0
-#333333 e0e0e0
-#2b2b2b d6d6d6
-#dcdcdc 303030
-#ffffff 303030
-#292929 b0b0b0
-#3d3d3d c0c0c0
-#555555 c0c0c0
-#darkgreen #90ee90
-
 default_app_style = """
 	QMainWindow {
 		background-color: #f0f0f0;

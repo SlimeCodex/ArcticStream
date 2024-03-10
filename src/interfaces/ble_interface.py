@@ -22,7 +22,9 @@ from bleak import BleakScanner, BleakClient
 from PyQt5.QtCore import QObject, pyqtSignal
 
 import qasync
-from interfaces.com_handler import CommunicationInterface
+
+import resources.config as app_config
+from interfaces.com_interface import CommunicationInterface
 
 class BLEHandler(QObject):
 
@@ -51,7 +53,7 @@ class BLEHandler(QObject):
 	@qasync.asyncSlot()
 	async def connect_to_device(self, device_address):
 		"""Connects to a device on the interface."""
-		self.client = BleakClient(device_address, disconnected_callback=self.on_disconnect, timeout=5)
+		self.client = BleakClient(device_address, disconnected_callback=self.on_disconnect, timeout=app_config.globals["bluetooth"]["connection_timeout"])
 		try:
 			connected = await self.client.connect()
 			if connected:
