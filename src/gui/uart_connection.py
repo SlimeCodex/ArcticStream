@@ -17,7 +17,6 @@
 #
 
 import asyncio
-import traceback
 
 import qasync
 from PyQt5.QtCore import pyqtSignal
@@ -28,7 +27,7 @@ from interfaces.com_interface import CommunicationInterface
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex
-from resources.patterns import *
+import resources.patterns as patterns
 
 
 class UARTConnectionWindow(QWidget):
@@ -211,9 +210,9 @@ class UARTConnectionWindow(QWidget):
         if connected:
             self.connection_event.set()
             self.main_window.debug_info(f"Connected to {self.last_device_address}")
+            self.register_services()
         else:
             self.connection_event.clear()
-            self.register_services()
 
     def callback_disconnected(self, client):
         self.main_window.debug_info(f"UART device {client.address} disconnected")

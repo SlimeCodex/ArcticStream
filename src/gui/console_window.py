@@ -55,7 +55,8 @@ class ConsoleWindow(QWidget):
 
         self.main_window.debug_log("ConsoleWindow: Initializing ...")
         self.main_window.debug_log(f"ConsoleWindow: {self.console_index.name}")
-        self.main_window.debug_log(f"ConsoleWindow: {self.console_index.service}")
+        self.main_window.debug_log(
+            f"ConsoleWindow: {self.console_index.service}")
         self.main_window.debug_log(
             f"ConsoleWindow: {self.console_index.tx_characteristic}"
         )
@@ -65,13 +66,15 @@ class ConsoleWindow(QWidget):
         self.main_window.debug_log(
             f"ConsoleWindow: {self.console_index.rx_characteristic}"
         )
-        self.main_window.debug_log("------------------------------------------")
+        self.main_window.debug_log(
+            "------------------------------------------")
 
         # Async BLE Signals
         self.stream_interface.connectionCompleted.connect(
             self.callback_connection_complete
         )
-        self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+        self.stream_interface.deviceDisconnected.connect(
+            self.callback_disconnected)
         self.stream_interface.dataReceived.connect(self.callback_data_received)
         self.main_window.themeChanged.connect(self.callback_update_theme)
 
@@ -94,7 +97,6 @@ class ConsoleWindow(QWidget):
 
     # Layout and Widgets
     def setup_layout(self):
-
         # Start and Stop buttons
         start_button = QPushButton("Start", self)
         start_button.clicked.connect(self.start_console)
@@ -162,7 +164,8 @@ class ConsoleWindow(QWidget):
         self.line_edit_send.setFixedHeight(
             app_config.globals["gui"]["default_line_edit_height"]
         )
-        self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit_style"))
+        self.line_edit_send.setStyleSheet(
+            th.get_style("console_send_line_edit_style"))
         self.line_edit_send.setPlaceholderText("Insert data to send ...")
 
         # Simple send button
@@ -254,8 +257,8 @@ class ConsoleWindow(QWidget):
     def set_overlay_geometry(self):
         # Calculate the geometry based on the main text area
         text_edit_geom = self.text_edit_printf.geometry()
-        overlay_width = app_config.globals["gui"]["default_status_ledit_width"]
-        overlay_height = app_config.globals["gui"]["default_status_ledit_height"]
+        overlay_width = app_config.globals["gui"]["default_status_ledit_size"][0]
+        overlay_height = app_config.globals["gui"]["default_status_ledit_size"][1]
 
         # Center the overlay within text_edit_printf
         overlay_x = text_edit_geom.x() + (text_edit_geom.width() - overlay_width) // 2
@@ -284,7 +287,8 @@ class ConsoleWindow(QWidget):
             f"Inputs: {self.total_data_counter} | "
             f"Bytes: {self.total_bytes_received} B | "
             f"Delta: {latency_text} | "
-            f"Last: {self.last_received_timestamp.strftime('%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
+            f"Last: {self.last_received_timestamp.strftime(
+                '%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
         )
 
         self.status_overlay.setText(status_text)
@@ -397,7 +401,8 @@ class ConsoleWindow(QWidget):
 
     def callback_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
-        self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit_style"))
+        self.line_edit_send.setStyleSheet(
+            th.get_style("console_send_line_edit_style"))
         if not self.logging_enabled:
             self.log_button.setStyleSheet(th.get_style("default_button_style"))
         self.lock_button.setStyleSheet(th.get_style("default_button_style"))

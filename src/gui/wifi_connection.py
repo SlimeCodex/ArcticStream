@@ -17,7 +17,6 @@
 #
 
 import asyncio
-import traceback
 
 import qasync
 from PyQt5.QtCore import pyqtSignal
@@ -29,7 +28,7 @@ from interfaces.com_interface import CommunicationInterface
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex
-from resources.patterns import *
+import resources.patterns as patterns
 
 
 class WiFiConnectionWindow(QWidget):
@@ -49,11 +48,13 @@ class WiFiConnectionWindow(QWidget):
         self.main_window.signal_window_close.connect(self.process_close_task)
 
         # Async WiFi Signals
-        self.stream_interface.devicesDiscovered.connect(self.callback_update_scan_list)
+        self.stream_interface.devicesDiscovered.connect(
+            self.callback_update_scan_list)
         self.stream_interface.connectionCompleted.connect(
             self.callback_connection_complete
         )
-        self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+        self.stream_interface.deviceDisconnected.connect(
+            self.callback_disconnected)
         self.stream_interface.writeCompleted.connect(
             self.callback_handle_write_complete
         )
@@ -65,8 +66,10 @@ class WiFiConnectionWindow(QWidget):
         self.background_service = (
             None  # Background service reference (for service reuse)
         )
-        self.updater_service = None  # Updater service reference (for service reuse)
-        self.console_services = {}  # Console services reference (for service reuse)
+        # Updater service reference (for service reuse)
+        self.updater_service = None
+        # Console services reference (for service reuse)
+        self.console_services = {}
         self.updater_ref = None  # Updater window reference (for window reuse)
         self.console_ref = {}  # Console windows reference (for window reuse)
         self.last_device_address = None
@@ -166,12 +169,13 @@ class WiFiConnectionWindow(QWidget):
     @qasync.asyncSlot()
     async def wifi_reconnect(self):
         max_recon_retries = app_config.globals["wifi"]["reconnection_retries"]
-        retries_counter = 1 # Static start value
+        retries_counter = 1  # Static start value
 
         while retries_counter <= max_recon_retries:
             self.connection_event.clear()
             self.main_window.debug_info(
-                f"Attempting reconnection to {self.last_device_address}. Retry: {retries_counter}/{max_recon_retries}"
+                f"Attempting reconnection to {self.last_device_address}. Retry: {
+                    retries_counter}/{max_recon_retries}"
             )
             await self.wifi_connect(
                 self.last_device_address, reconnect=True
@@ -213,7 +217,8 @@ class WiFiConnectionWindow(QWidget):
     def callback_connection_complete(self, connected):
         if connected:
             self.connection_event.set()
-            self.main_window.debug_info(f"Connected to {self.last_device_address}")
+            self.main_window.debug_info(
+                f"Connected to {self.last_device_address}")
         else:
             self.connection_event.clear()
 
@@ -280,7 +285,8 @@ class WiFiConnectionWindow(QWidget):
             await self.wifi_stop()
             self.stop_consoles()
             if close_window:
-                self.signal_closing_complete.emit()  # Emit the signal after all tasks are completed
+                # Emit the signal after all tasks are completed
+                self.signal_closing_complete.emit()
 
     # Exit triggered from "exit" button
     def exitApplication(self):

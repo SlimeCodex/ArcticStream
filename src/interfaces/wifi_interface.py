@@ -101,7 +101,8 @@ class WiFiHandler(QObject):
 
     def _parse_device_info(self, response):
         """Parses device information from the response string."""
-        response = response.replace("ARCTIC_COMMAND_GET_DEVICE:", "").split(",")
+        response = response.replace(
+            "ARCTIC_COMMAND_GET_DEVICE:", "").split(",")
         if len(response) == 2:
             name = response[0].strip()
             mac = response[1].strip()
@@ -115,10 +116,12 @@ class WiFiHandler(QObject):
     @qasync.asyncSlot()
     async def connect_to_device(self, device_address):
         """Connects to a device and starts the data stream."""
-        self.dataStreamThread = DataStreamThread(device_address, self.port_uplink)
+        self.dataStreamThread = DataStreamThread(
+            device_address, self.port_uplink)
         self.dataStreamThread.dataReceived.connect(self.handleDataStream)
         self.dataStreamThread.errorOccurred.connect(self.handleDataStreamError)
-        self.dataStreamThread.connectionClosed.connect(self.handleDataStreamClosed)
+        self.dataStreamThread.connectionClosed.connect(
+            self.handleDataStreamClosed)
         self.dataStreamThread.start()
 
         self.device_address = device_address
@@ -149,7 +152,8 @@ class WiFiHandler(QObject):
         try:
             # Unpack reader and writer from open_connection
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(self.device_address, self.port_downlink),
+                asyncio.open_connection(
+                    self.device_address, self.port_downlink),
                 timeout=3,
             )
             print(f"Sending data to {self.device_address}: {uuid} - {data}")
@@ -170,7 +174,8 @@ class WiFiHandler(QObject):
         """Sends a command to a device and returns the response."""
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(self.device_address, self.port_downlink),
+                asyncio.open_connection(
+                    self.device_address, self.port_downlink),
                 timeout=3,
             )
             if uuid:
@@ -194,13 +199,14 @@ class WiFiHandler(QObject):
         if "Error:" not in services_response:
             return self._parse_services(services_response)
         else:
-            print(f"Error in response from {self.device_address}: {services_response}")
+            print(f"Error in response from {
+                  self.device_address}: {services_response}")
             return []
 
     def _parse_services(self, response):
         """Parses services information from the response string."""
-        modules = response.replace("ARCTIC_COMMAND_GET_SERVICES:", "").split(":")
-        print(modules)
+        modules = response.replace(
+            "ARCTIC_COMMAND_GET_SERVICES:", "").split(":")
         parsed_services = []
         for module in modules:
             parts = module.split(",")

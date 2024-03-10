@@ -17,7 +17,6 @@
 #
 
 import asyncio
-import traceback
 
 import qasync
 from PyQt5.QtCore import pyqtSignal
@@ -29,7 +28,7 @@ from interfaces.com_interface import CommunicationInterface
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex
-from resources.patterns import *
+import resources.patterns as patterns
 
 
 class BLEConnectionWindow(QWidget):
@@ -49,12 +48,15 @@ class BLEConnectionWindow(QWidget):
         self.main_window.signal_window_close.connect(self.process_close_task)
 
         # Async BLE Signals
-        self.stream_interface.devicesDiscovered.connect(self.callback_update_scan_list)
+        self.stream_interface.devicesDiscovered.connect(
+            self.callback_update_scan_list)
         self.stream_interface.connectionCompleted.connect(
             self.callback_connection_complete
         )
-        self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
-        self.stream_interface.characteristicRead.connect(self.callback_handle_char_read)
+        self.stream_interface.deviceDisconnected.connect(
+            self.callback_disconnected)
+        self.stream_interface.characteristicRead.connect(
+            self.callback_handle_char_read)
         self.stream_interface.notificationReceived.connect(
             self.callback_handle_notification
         )
@@ -66,8 +68,10 @@ class BLEConnectionWindow(QWidget):
         self.background_service = (
             None  # Background service reference (for service reuse)
         )
-        self.updater_service = None  # Updater service reference (for service reuse)
-        self.console_services = {}  # Console services reference (for service reuse)
+        # Updater service reference (for service reuse)
+        self.updater_service = None
+        # Console services reference (for service reuse)
+        self.console_services = {}
         self.updater_ref = None  # Updater window reference (for window reuse)
         self.console_ref = {}  # Console windows reference (for window reuse)
         self.last_device_address = None
@@ -164,7 +168,8 @@ class BLEConnectionWindow(QWidget):
             # Retreive console name from device
             self.get_name_event.clear()
             await self.stream_interface.send_command(  # Request name
-                indexer.rx_characteristic.uuid, str(f"ARCTIC_COMMAND_GET_NAME").encode()
+                indexer.rx_characteristic.uuid, str(
+                    "ARCTIC_COMMAND_GET_NAME").encode()
             )
             await self.get_name_event.wait()  # Wait for the name to be retrieved
             self.new_console_window(indexer.name, service_uuid)
@@ -173,12 +178,13 @@ class BLEConnectionWindow(QWidget):
     @qasync.asyncSlot()
     async def ble_reconnect(self):
         max_recon_retries = app_config.globals["bluetooth"]["reconnection_retries"]
-        retries_counter = 1 # Static start value
+        retries_counter = 1  # Static start value
 
         while retries_counter <= max_recon_retries:
             self.connection_event.clear()
             self.main_window.debug_info(
-                f"Attempting reconnection to {self.last_device_address}. Retry: {retries_counter}/{max_recon_retries}"
+                f"Attempting reconnection to {self.last_device_address}. Retry: {
+                    retries_counter}/{max_recon_retries}"
             )
             await self.ble_connect(
                 self.last_device_address, reconnect=True
@@ -220,7 +226,8 @@ class BLEConnectionWindow(QWidget):
     def callback_connection_complete(self, connected):
         if connected:
             self.connection_event.set()
-            self.main_window.debug_info(f"Connected to {self.last_device_address}")
+            self.main_window.debug_info(
+                f"Connected to {self.last_device_address}")
             self.register_services()
         else:
             self.connection_event.clear()
@@ -241,7 +248,8 @@ class BLEConnectionWindow(QWidget):
     def callback_handle_notification(self, uuid, value):
         for service_uuid, indexer in self.console_services.items():
             if indexer.txs_characteristic.uuid == uuid:
-                value = value.replace("ARCTIC_COMMAND_REQ_NAME:", "")  # Remove command
+                value = value.replace(
+                    "ARCTIC_COMMAND_REQ_NAME:", "")  # Remove command
                 self.console_services[service_uuid].name = value
                 self.get_name_event.set()
 
@@ -255,32 +263,32 @@ class BLEConnectionWindow(QWidget):
             self.main_window.debug_log(f"Service found: {service_uuid}")
 
             # Register background services
-            if service_uuid == uuid_ble_backend_ats:
+            if service_uuid == patterns.uuid_ble_backend_ats:
                 self.main_window.debug_log("Background service found")
                 temp_indexer = BackendIndex(service)
 
                 # Loop through characteristics
                 for characteristic in service.characteristics:
                     char_uuid = str(characteristic.uuid)
-                    if char_uuid == uuid_ble_backend_tx:  # TX
+                    if char_uuid == patterns.uuid_ble_backend_tx:  # TX
                         temp_indexer.tx_characteristic = characteristic
-                    if char_uuid == uuid_ble_backend_rx:  # RX
+                    if char_uuid == patterns.uuid_ble_backend_rx:  # RX
                         temp_indexer.rx_characteristic = characteristic
 
                 # Register the temp_indexer
                 self.background_service = temp_indexer
 
             # Register OTA services
-            if service_uuid == uuid_ble_ota_ats:
+            if service_uuid == patterns.uuid_ble_ota_ats:
                 self.main_window.debug_log("OTA service found")
                 temp_indexer = UpdaterIndex(service)
 
                 # Loop through characteristics
                 for characteristic in service.characteristics:
                     char_uuid = str(characteristic.uuid)
-                    if char_uuid == uuid_ble_ota_tx:  # TX
+                    if char_uuid == patterns.uuid_ble_ota_tx:  # TX
                         temp_indexer.tx_characteristic = characteristic
-                    if char_uuid == uuid_ble_ota_rx:  # RX
+                    if char_uuid == patterns.uuid_ble_ota_rx:  # RX
                         temp_indexer.rx_characteristic = characteristic
 
                 # Register the temp_indexer
@@ -288,7 +296,7 @@ class BLEConnectionWindow(QWidget):
                 self.updater_service = temp_indexer
 
             # Register console services
-            if uuid_ble_console_ats.match(service_uuid):
+            if patterns.uuid_ble_console_ats.match(service_uuid):
                 self.main_window.debug_log("Console service found")
 
                 # Check if the service is already registered and reuse it
@@ -302,11 +310,11 @@ class BLEConnectionWindow(QWidget):
                     char_uuid = str(characteristic.uuid)
 
                     # Check and update or set characteristics
-                    if uuid_ble_console_tx.match(char_uuid):
+                    if patterns.uuid_ble_console_tx.match(char_uuid):
                         temp_indexer.tx_characteristic = characteristic
-                    elif uuid_ble_console_txs.match(char_uuid):
+                    elif patterns.uuid_ble_console_txs.match(char_uuid):
                         temp_indexer.txs_characteristic = characteristic
-                    elif uuid_ble_console_rx.match(char_uuid):
+                    elif patterns.uuid_ble_console_rx.match(char_uuid):
                         temp_indexer.rx_characteristic = characteristic
 
                 # Register the temp_indexer
@@ -365,7 +373,8 @@ class BLEConnectionWindow(QWidget):
             await self.ble_stop()
             self.stop_consoles()
             if close_window:
-                self.signal_closing_complete.emit()  # Emit the signal after all tasks are completed
+                # Emit the signal after all tasks are completed
+                self.signal_closing_complete.emit()
 
     # Exit triggered from "exit" button
     def exitApplication(self):

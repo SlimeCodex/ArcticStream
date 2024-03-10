@@ -52,7 +52,8 @@ class SSCWindowProperties(QMainWindow):
         self.custom_bar_widget.setFixedHeight(
             app_config.globals["gui"]["custom_bar_height"]
         )
-        self.custom_bar_widget.setStyleSheet(th.get_style("custom_bar_widget_style"))
+        self.custom_bar_widget.setStyleSheet(
+            th.get_style("custom_bar_widget_style"))
 
         custom_bar_layout = QHBoxLayout()
         custom_bar_layout.setContentsMargins(0, 0, 0, 0)
@@ -189,7 +190,8 @@ class SSCWindowProperties(QMainWindow):
 
     def toggle_hint(self, status):
         if status:
-            self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+            self.setWindowFlags(Qt.FramelessWindowHint |
+                                Qt.WindowStaysOnTopHint)
             self.show()
         else:
             self.setWindowFlags(Qt.FramelessWindowHint)
@@ -204,14 +206,20 @@ class SSCWindowProperties(QMainWindow):
     def callback_update_theme(self, theme):
 
         # Reload stylesheets (background for SVG buttons)
-        self.custom_bar_widget.setStyleSheet(th.get_style("custom_bar_widget_style"))
+        self.custom_bar_widget.setStyleSheet(
+            th.get_style("custom_bar_widget_style"))
         self.logo_button.setStyleSheet(th.get_style("custom_bar_button_style"))
         self.title_label.setStyleSheet(th.get_style("custom_bar_button_style"))
-        self.color_mode_button.setStyleSheet(th.get_style("custom_bar_button_style"))
-        self.top_hint_button.setStyleSheet(th.get_style("custom_bar_button_style"))
-        self.minimize_button.setStyleSheet(th.get_style("custom_bar_button_style"))
-        self.fullscreen_button.setStyleSheet(th.get_style("custom_bar_button_style"))
-        self.close_button.setStyleSheet(th.get_style("custom_bar_close_button_style"))
+        self.color_mode_button.setStyleSheet(
+            th.get_style("custom_bar_button_style"))
+        self.top_hint_button.setStyleSheet(
+            th.get_style("custom_bar_button_style"))
+        self.minimize_button.setStyleSheet(
+            th.get_style("custom_bar_button_style"))
+        self.fullscreen_button.setStyleSheet(
+            th.get_style("custom_bar_button_style"))
+        self.close_button.setStyleSheet(
+            th.get_style("custom_bar_close_button_style"))
 
         # Update special widgets by theme
         if theme == "dark":
@@ -221,7 +229,8 @@ class SSCWindowProperties(QMainWindow):
             self.minimize_button.changeIconColor("#ffffff")
             self.fullscreen_button.changeIconColor("#ffffff")
             self.close_button.changeIconColor("#ffffff")
-            self.con_status_button.setTriangleColor("#333333")  # Same as bar background
+            self.con_status_button.setTriangleColor(
+                "#333333")  # Same as bar background
         elif theme == "light":
             self.logo_button.changeIconColor("#303030")
             self.color_mode_button.changeIconColor("#303030")
@@ -229,7 +238,8 @@ class SSCWindowProperties(QMainWindow):
             self.minimize_button.changeIconColor("#303030")
             self.fullscreen_button.changeIconColor("#303030")
             self.close_button.changeIconColor("#303030")
-            self.con_status_button.setTriangleColor("#e0e0e0")  # Same as bar background
+            self.con_status_button.setTriangleColor(
+                "#e0e0e0")  # Same as bar background
 
     # Qt event ------------------------------------------------------------------------------------------
 
@@ -299,13 +309,15 @@ class SSCWindowProperties(QMainWindow):
             triangle = QPolygon(
                 [
                     QPoint(
-                        self.width() - app_config.globals["gui"]["resize_corner_size"],
+                        self.width() -
+                        app_config.globals["gui"]["resize_corner_size"],
                         self.height(),
                     ),
                     QPoint(self.width(), self.height()),
                     QPoint(
                         self.width(),
-                        self.height() - app_config.globals["gui"]["resize_corner_size"],
+                        self.height() -
+                        app_config.globals["gui"]["resize_corner_size"],
                     ),
                 ]
             )

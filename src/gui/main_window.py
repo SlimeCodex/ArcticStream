@@ -69,8 +69,10 @@ class MainWindow(SSCWindowProperties):
         self.setWindowIcon(QIcon(f"{self.icon_path()}/main_icon.png"))
 
         # Load the font file (.ttf or .otf)
-        QFontDatabase.addApplicationFont(f"{self.font_path()}/Ubuntu-Regular.ttf")
-        QFontDatabase.addApplicationFont(f"{self.font_path()}/Inconsolata-Regular.ttf")
+        QFontDatabase.addApplicationFont(
+            f"{self.font_path()}/Ubuntu-Regular.ttf")
+        QFontDatabase.addApplicationFont(
+            f"{self.font_path()}/Inconsolata-Regular.ttf")
         app_main.setFont(QFont("Ubuntu"))
 
         # Set the status label
@@ -99,7 +101,8 @@ class MainWindow(SSCWindowProperties):
         self.line_edit_debug.setFixedHeight(
             app_config.globals["gui"]["debug_line_edit_height"]
         )
-        self.line_edit_debug.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
+        self.line_edit_debug.setStyleSheet(
+            th.get_style("debug_bar_line_edit_style"))
         self.line_edit_debug.setReadOnly(True)
         self.line_edit_debug.setVisible(self.debug_show)
         self.line_edit_debug.setText(">")
@@ -111,7 +114,8 @@ class MainWindow(SSCWindowProperties):
         self.line_edit_version.setFixedHeight(
             app_config.globals["gui"]["debug_line_edit_height"]
         )
-        self.line_edit_version.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
+        self.line_edit_version.setStyleSheet(
+            th.get_style("debug_bar_line_edit_style"))
         self.line_edit_version.setReadOnly(True)
         self.line_edit_version.setVisible(self.debug_show)
         self.line_edit_version.setText(self.app_version)
@@ -150,11 +154,14 @@ class MainWindow(SSCWindowProperties):
         )
 
         self.ble_descriptor = QPushButton("Bluetooth", self)
-        self.ble_descriptor.setStyleSheet(th.get_style("connectors_desc_button_style"))
+        self.ble_descriptor.setStyleSheet(
+            th.get_style("connectors_desc_button_style"))
         self.usb_descriptor = QPushButton("USB", self)
-        self.usb_descriptor.setStyleSheet(th.get_style("connectors_desc_button_style"))
+        self.usb_descriptor.setStyleSheet(
+            th.get_style("connectors_desc_button_style"))
         self.wifi_descriptor = QPushButton("Wifi", self)
-        self.wifi_descriptor.setStyleSheet(th.get_style("connectors_desc_button_style"))
+        self.wifi_descriptor.setStyleSheet(
+            th.get_style("connectors_desc_button_style"))
 
         connectors_layout = QHBoxLayout()
         connectors_layout.addWidget(self.ble_button)
@@ -225,13 +232,15 @@ class MainWindow(SSCWindowProperties):
 
     def set_status_bar(self, mode):
         if mode == "Connected":
-            self.setStyleSheet("MainWindow {border: 2px solid rgba(0, 100, 0, 128);}")
+            self.setStyleSheet(
+                "MainWindow {border: 2px solid rgba(0, 100, 0, 128);}")
             self.con_status_button.setStyleSheet(
                 "font-size: 13px; color: white; background-color: rgba(0, 100, 0, 128); border-radius: 0px;"
             )
             self.con_status_button.setText("Connected")
         elif mode == "Disconnected":
-            self.setStyleSheet("MainWindow {border: 2px solid rgba(139, 0, 0, 128);}")
+            self.setStyleSheet(
+                "MainWindow {border: 2px solid rgba(139, 0, 0, 128);}")
             self.con_status_button.setStyleSheet(
                 "font-size: 13px; color: white; background-color: rgba(139, 0, 0, 128); border-radius: 0px;"
             )
@@ -287,12 +296,17 @@ class MainWindow(SSCWindowProperties):
         self.usb_button.setStyleSheet(th.get_style("connectors_button_style"))
         self.wifi_button.setStyleSheet(th.get_style("connectors_button_style"))
 
-        self.ble_descriptor.setStyleSheet(th.get_style("connectors_desc_button_style"))
-        self.usb_descriptor.setStyleSheet(th.get_style("connectors_desc_button_style"))
-        self.wifi_descriptor.setStyleSheet(th.get_style("connectors_desc_button_style"))
+        self.ble_descriptor.setStyleSheet(
+            th.get_style("connectors_desc_button_style"))
+        self.usb_descriptor.setStyleSheet(
+            th.get_style("connectors_desc_button_style"))
+        self.wifi_descriptor.setStyleSheet(
+            th.get_style("connectors_desc_button_style"))
 
-        self.line_edit_debug.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
-        self.line_edit_version.setStyleSheet(th.get_style("debug_bar_line_edit_style"))
+        self.line_edit_debug.setStyleSheet(
+            th.get_style("debug_bar_line_edit_style"))
+        self.line_edit_version.setStyleSheet(
+            th.get_style("debug_bar_line_edit_style"))
 
         # Update special widgets by theme
         if self.theme_status == "dark":
@@ -320,42 +334,48 @@ class MainWindow(SSCWindowProperties):
     def connect_ble(self):
         self.debug_info("Interface selected: BLE")
         self.stream_interface = BLEHandler()
-        self.connection_tab = BLEConnectionWindow(self, self.stream_interface, "BLE")
+        self.connection_tab = BLEConnectionWindow(
+            self, self.stream_interface, "BLE")
         self.connection_tab.signal_closing_complete.connect(
             self.callback_finalize_close
         )
         self.stream_interface.connectionCompleted.connect(
             self.callback_connection_success
         )
-        self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+        self.stream_interface.deviceDisconnected.connect(
+            self.callback_disconnected)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
 
     def connect_wifi(self):
         self.debug_info("Interface selected: WiFi")
         self.stream_interface = WiFiHandler()
-        self.connection_tab = WiFiConnectionWindow(self, self.stream_interface, "WiFi")
+        self.connection_tab = WiFiConnectionWindow(
+            self, self.stream_interface, "WiFi")
         self.connection_tab.signal_closing_complete.connect(
             self.callback_finalize_close
         )
         self.stream_interface.connectionCompleted.connect(
             self.callback_connection_success
         )
-        self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+        self.stream_interface.deviceDisconnected.connect(
+            self.callback_disconnected)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
 
     def connect_uart(self):
         self.debug_info("Interface selected: UART")
         self.stream_interface = UARTHandler()
-        self.connection_tab = UARTConnectionWindow(self, self.stream_interface, "UART")
+        self.connection_tab = UARTConnectionWindow(
+            self, self.stream_interface, "UART")
         self.connection_tab.signal_closing_complete.connect(
             self.callback_finalize_close
         )
         self.stream_interface.connectionCompleted.connect(
             self.callback_connection_success
         )
-        self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
+        self.stream_interface.deviceDisconnected.connect(
+            self.callback_disconnected)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
 
