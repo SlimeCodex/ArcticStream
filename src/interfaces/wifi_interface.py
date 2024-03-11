@@ -205,8 +205,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         if "Error:" not in response:
             return self._parse_services(response)
         else:
-            print(f"Error in response from {
-                self.device_address}: {response}")
+            print(f"Error in response from {self.device_address}: {response}")
             return []
 
     def _parse_services(self, response):

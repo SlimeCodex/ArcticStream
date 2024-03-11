@@ -30,7 +30,7 @@ globals = {
         "keepalive_com": 0xA5 # Keepalive command for UART
 	},
 	"wifi": {
-		"network": "192.168.1.0/24", # Network IP range for WiFi
+		"network": "192.168.0.0/24", # Network IP range for WiFi
 		"port_uplink": 56320, # Uplink port number for WiFi
 		"port_downlink": 56321, # Downlink port number for WiFi
 		"reconnection_retries": 5 # Number of retries for WiFi reconnection

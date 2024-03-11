@@ -118,8 +118,7 @@ class UpdaterWindow(QWidget):
         # Simple folder button
         self.folder_button = SimpleButton(
             self,
-            icon=f"{
-                self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
+            icon=f"{self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
             size=app_config.globals["gui"]["default_button_size"],
             style=th.get_style("default_button_style"),
             callback=self.setPath,
@@ -298,8 +297,7 @@ class UpdaterWindow(QWidget):
     async def send_file_info(self, total_size, file_hash):
         await self.stream_interface.writeCharacteristic(
             self.updater_index.rx_characteristic.uuid,
-            str(f"ARCTIC_COMMAND_OTA_SETUP -s {
-                total_size} -md5 {file_hash}").encode(),
+            str(f"ARCTIC_COMMAND_OTA_SETUP -s {total_size} -md5 {file_hash}").encode(),
         )
 
     async def wait_for_device_ready(
@@ -320,8 +318,7 @@ class UpdaterWindow(QWidget):
                 return True
             except asyncio.TimeoutError:
                 self.main_window.debug_log(
-                    f"Timeout waiting for device to be ready. Retrying {
-                        retries+1}/{max_retries}..."
+                    f"Timeout waiting for device to be ready. Retrying {retries+1}/{max_retries}..."
                 )
                 retries += 1
 
@@ -370,8 +367,7 @@ class UpdaterWindow(QWidget):
         self.elapsed_str = str(elapsed_time).split(".")[0]
         kbytes_per_second = (transferred / elapsed_time.total_seconds()) / 1024
         self.update_info(
-            f"[{self.elapsed_str}] OTA Loading Progress: {
-                progress}% ({transferred}/{total_size} bytes, {kbytes_per_second:.2f} kb/s)"
+            f"[{self.elapsed_str}] OTA Loading Progress: {progress}% ({transferred}/{total_size} bytes, {kbytes_per_second:.2f} kb/s)"
         )
 
     async def send_chunk_with_retries(

@@ -141,8 +141,7 @@ class UARTConnectionWindow(QWidget):
         while retries_counter <= max_recon_retries:
             self.connection_event.clear()
             self.main_window.debug_info(
-                f"Attempting reconnection to {self.last_device_address}. Retry: {
-                    retries_counter}/{max_recon_retries}"
+                f"Attempting reconnection to {self.last_device_address}. Retry: {retries_counter}/{max_recon_retries}"
             )
             await self.uart_connect(
                 self.last_device_address, reconnect=True

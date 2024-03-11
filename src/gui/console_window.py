@@ -287,8 +287,7 @@ class ConsoleWindow(QWidget):
             f"Inputs: {self.total_data_counter} | "
             f"Bytes: {self.total_bytes_received} B | "
             f"Delta: {latency_text} | "
-            f"Last: {self.last_received_timestamp.strftime(
-                '%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
+            f"Last: {self.last_received_timestamp.strftime('%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
         )
 
         self.status_overlay.setText(status_text)

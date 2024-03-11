@@ -128,7 +128,8 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
                                 # Ignore this line or handle it differently
                                 print(f"Ignoring malformed data: {data}")
                 else:
-                    self.running = False
+                    print("No data received from serial port")
+                    #self.running = False
             except Exception as e:
                 self.dataStreamError.emit(f"Data stream error: {e}")
                 break
@@ -200,8 +201,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         if "Error:" not in response:
             return self._parse_services(response)
         else:
-            print(f"Error in response from {
-                self.device_address}: {response}")
+            print(f"Error in response from {self.device_address}: {response}")
             return []
 
     def _parse_services(self, response):

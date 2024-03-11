@@ -90,6 +90,8 @@ Once Python is installed, you will need to install the following mandatory depen
 pip install pyqt5
 pip install bleak
 pip install qasync
+pip install pyserial
+pip install aioserial
 ```
 
 These packages provide the necessary modules for the GUI, BLE handling, and asynchronous operations.
