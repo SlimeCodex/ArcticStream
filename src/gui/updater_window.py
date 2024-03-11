@@ -71,7 +71,7 @@ class UpdaterWindow(QWidget):
             "------------------------------------------")
 
         # Async BLE Signals
-        self.stream_interface.notificationReceived.connect(
+        self.stream_interface.dataReceived.connect(
             self.callback_handle_notification
         )
         self.stream_interface.deviceDisconnected.connect(
@@ -120,7 +120,7 @@ class UpdaterWindow(QWidget):
             self,
             icon=f"{
                 self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
-            size=app_config["gui"]["default_button_size"],
+            size=app_config.globals["gui"]["default_button_size"],
             style=th.get_style("default_button_style"),
             callback=self.setPath,
         )
@@ -149,14 +149,14 @@ class UpdaterWindow(QWidget):
         self.line_edit_singlef = QLineEdit(self)
         self.line_edit_singlef.setFont(QFont("Inconsolata"))
         self.line_edit_singlef.setFixedHeight(
-            app_config["gui"]["default_line_edit_height"]
+            app_config.globals["gui"]["default_line_edit_height"]
         )
         self.line_edit_singlef.setReadOnly(True)
 
         # Create the progress bar
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setFixedHeight(
-            app_config["gui"]["default_loading_bar_height"]
+            app_config.globals["gui"]["default_loading_bar_height"]
         )
         self.progress_bar.setStyleSheet(
             th.get_style("default_loading_bar_style"))

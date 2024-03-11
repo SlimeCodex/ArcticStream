@@ -26,7 +26,8 @@ globals = {
 	"uart": {
 		"baudrate": 230400, # Baud rate for UART communication
 		"keepalive": 400, # Keepalive interval for UART
-		"reconnection_retries": 5 # Number of retries for UART reconnection
+		"reconnection_retries": 5, # Number of retries for UART reconnection
+        "keepalive_com": 0xA5 # Keepalive command for UART
 	},
 	"wifi": {
 		"network": "192.168.1.0/24", # Network IP range for WiFi

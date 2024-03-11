@@ -57,7 +57,7 @@ class BLEConnectionWindow(QWidget):
             self.callback_disconnected)
         self.stream_interface.characteristicRead.connect(
             self.callback_handle_char_read)
-        self.stream_interface.notificationReceived.connect(
+        self.stream_interface.dataReceived.connect(
             self.callback_handle_notification
         )
 
@@ -140,7 +140,6 @@ class BLEConnectionWindow(QWidget):
     # BLE Setting up notifications and retrieving name characteristic
     @qasync.asyncSlot()
     async def setup_consoles(self):
-
         # Load OTA window
         if self.updater_service:
             self.main_window.debug_log("OTA service found")
@@ -154,7 +153,6 @@ class BLEConnectionWindow(QWidget):
 
         # Load consoles windows
         for service_uuid, indexer in self.console_services.items():
-
             # Start notifications
             if indexer.tx_characteristic:
                 await self.stream_interface.start_notifications(
@@ -168,8 +166,8 @@ class BLEConnectionWindow(QWidget):
             # Retreive console name from device
             self.get_name_event.clear()
             await self.stream_interface.send_command(  # Request name
-                indexer.rx_characteristic.uuid, str(
-                    "ARCTIC_COMMAND_GET_NAME").encode()
+                str("ARCTIC_COMMAND_GET_NAME").encode(),
+                indexer.rx_characteristic.uuid
             )
             await self.get_name_event.wait()  # Wait for the name to be retrieved
             self.new_console_window(indexer.name, service_uuid)
@@ -303,7 +301,8 @@ class BLEConnectionWindow(QWidget):
                 if service_uuid in self.console_services:
                     temp_indexer = self.console_services[service_uuid]
                 else:
-                    temp_indexer = ConsoleIndex(service)
+                    temp_indexer = ConsoleIndex()
+                    temp_indexer.service = service
 
                 # Loop through characteristics
                 for characteristic in service.characteristics:
@@ -311,7 +310,7 @@ class BLEConnectionWindow(QWidget):
 
                     # Check and update or set characteristics
                     if patterns.uuid_ble_console_tx.match(char_uuid):
-                        temp_indexer.tx_characteristic = characteristic
+                        temp_indexer.tx_characteristic = characteristic # TODO: CHECK HANDLER FOR THIS, SHOULD BE ONLY UUID, NOT COMPLETE CHARACTERISTIC
                     elif patterns.uuid_ble_console_txs.match(char_uuid):
                         temp_indexer.txs_characteristic = characteristic
                     elif patterns.uuid_ble_console_rx.match(char_uuid):
@@ -326,7 +325,6 @@ class BLEConnectionWindow(QWidget):
 
     # Initialize a new updater window (OTA)
     def new_updater_window(self, name, uuid):
-
         # Check if the console window is already open
         if self.updater_ref:
             window = self.updater_ref
@@ -341,7 +339,6 @@ class BLEConnectionWindow(QWidget):
 
     # Initialize a new console window
     def new_console_window(self, name, uuid):
-
         # Check if the console window is already open
         if uuid in self.console_ref:
             console = self.console_ref[uuid]

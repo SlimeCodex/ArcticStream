@@ -16,10 +16,10 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 
 
-class CommunicationInterface(ABC):
+class CommunicationInterface(metaclass=ABCMeta):
     @abstractmethod
     async def scan_for_devices(self):
         """Scans for available devices on the interface."""
@@ -38,11 +38,6 @@ class CommunicationInterface(ABC):
     @abstractmethod
     async def send_command(self, command, uuid=""):
         """Sends a command to the specified characteristic or equivalent on the interface."""
-        pass
-
-    @abstractmethod
-    async def receive_data(self):
-        """Receives data from the connected device."""
         pass
 
     @abstractmethod

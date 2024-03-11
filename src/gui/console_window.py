@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QWidget,
-    QFileDialog,
+    QFileDialog
 )
 from PyQt5.QtGui import QTextCursor, QFont, QTextCharFormat
 from datetime import datetime
@@ -93,7 +93,7 @@ class ConsoleWindow(QWidget):
 
         self.setup_layout()
 
-    # GUI Functions ------------------------------------------------------------------------------------------
+    # GUI Functions
 
     # Layout and Widgets
     def setup_layout(self):
@@ -218,7 +218,7 @@ class ConsoleWindow(QWidget):
         current_widget = self.main_window.tab_widget.currentWidget()
         return current_widget == self
 
-    # Async BLE Functions ------------------------------------------------------------------------------------------
+    # Async BLE Functions
 
     @qasync.asyncSlot()
     async def send_data(self):
@@ -229,7 +229,7 @@ class ConsoleWindow(QWidget):
             )
             self.line_edit_send.clear()
 
-    # Callbacks -----------------------------------------------------------------------------------------------
+    # Callbacks
 
     # Callback connection success
     def callback_connection_complete(self, connected):
@@ -252,7 +252,7 @@ class ConsoleWindow(QWidget):
         elif uuid == self.console_index.txs_characteristic:
             self.update_info(data)
 
-    # Window Functions ------------------------------------------------------------------------------------------
+    # Window Functions
 
     def set_overlay_geometry(self):
         # Calculate the geometry based on the main text area
@@ -419,7 +419,7 @@ class ConsoleWindow(QWidget):
             self.lock_button.changeIconColor("#000000")
             self.send_button.changeIconColor("#000000")
 
-    # Qt Functions ------------------------------------------------------------------------------------------
+    # Qt Functions
 
     def resizeEvent(self, event):
         self.set_overlay_geometry()

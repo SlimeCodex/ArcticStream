@@ -17,24 +17,33 @@
 #
 
 import asyncio
-
-from bleak import BleakScanner, BleakClient
-from PyQt5.QtCore import QObject, pyqtSignal
+from abc import ABCMeta
 
 import qasync
+from bleak import BleakScanner, BleakClient
+from PyQt5.QtCore import QObject, pyqtSignal
 
 import resources.config as app_config
 from interfaces.com_interface import CommunicationInterface
 
+# PyQt wrapper type
+pyqtWrapperType = type(QObject)
 
-class BLEHandler(QObject):
+
+# Metaclass for BLEHandler to resolve metaclass conflict
+class BLEHandlerMeta(pyqtWrapperType, ABCMeta):
+    pass
+
+
+# Concrete class for handling BLE communication
+class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
 
     # BLE Signals
     devicesDiscovered = pyqtSignal(list)
     connectionCompleted = pyqtSignal(bool)
     deviceDisconnected = pyqtSignal(object)
     characteristicRead = pyqtSignal(str, bytes)
-    notificationReceived = pyqtSignal(str, str)
+    dataReceived = pyqtSignal(str, str)
     writeCompleted = pyqtSignal(bool)
 
     def __init__(self):
@@ -97,6 +106,12 @@ class BLEHandler(QObject):
         except Exception as e:
             print(f"Write failed: {e}")
             self.writeCompleted.emit(False)
+        
+    # Send Command
+    @qasync.asyncSlot()
+    async def send_command(self, command, uuid=""):
+        """Sends a command to the specified characteristic."""
+        self.send_data(uuid, command)
 
     # Callback for notifications
     def notification_callback(self, sender, data):
@@ -104,7 +119,7 @@ class BLEHandler(QObject):
         sender_info = sender.uuid if hasattr(sender, 'uuid') else str(sender)
         decoded_data = data.decode(
             'utf-8', errors='replace') if isinstance(data, (bytearray, bytes)) else str(data)
-        self.notificationReceived.emit(sender_info, decoded_data)
+        self.dataReceived.emit(sender_info, decoded_data)
 
     # Callback disconnected
     def on_disconnect(self, client):

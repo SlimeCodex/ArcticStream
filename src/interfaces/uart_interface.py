@@ -16,38 +16,53 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
-import qasync
-from PyQt5.QtCore import QObject, pyqtSignal, QThread, QTimer
-
-# --- Platform-specific imports ---
-# For Windows:
+import asyncio
+from abc import ABCMeta
 import serial.tools.list_ports
 
-# For macOS and Linux:
-# import serial.tools.list_ports_posix
+import qasync
+import aioserial
+from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 
+import resources.config as app_config
 from interfaces.com_interface import CommunicationInterface
 
+# PyQt wrapper type
+pyqtWrapperType = type(QObject)
 
-class UARTHandler(QObject):
+
+# Metaclass for UARTHandler to resolve metaclass conflict
+class UARTHandlerMeta(pyqtWrapperType, ABCMeta):
+    pass
+
+
+# Concrete class for handling UART communication
+class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
+    connectionCompleted = pyqtSignal(bool)
+    dataReceived = pyqtSignal(str, str)
+    writeCompleted = pyqtSignal(bool)
 
     # UART Signals
     devicesDiscovered = pyqtSignal(list)
-    connectionCompleted = pyqtSignal(bool)
     deviceDisconnected = pyqtSignal(object)
-    dataReceived = pyqtSignal(str)
-    writeCompleted = pyqtSignal(bool)
-
     dataStreamError = pyqtSignal(str)
     dataStreamClosed = pyqtSignal()
 
     def __init__(self):
         super().__init__()
+        self.device_address = None
+        self.baudrate = app_config.globals["uart"]["baudrate"]
+        self.port_instance = None
 
-        self.serial_port = None
-        self.baudrate = 230400
+        self.run_digester = False
+        self.running = False
 
-    # --- Device Discovery ---
+        # Timer for keepalive sent
+        self.keepalive_timer = QTimer()
+        self.keepalive_timer.timeout.connect(self.send_keepalive)
+        self.keepalive_timer.start(400)
+
+    # --- Network Scanning ---
 
     @qasync.asyncSlot()
     async def scan_for_devices(self):
@@ -68,71 +83,125 @@ class UARTHandler(QObject):
     # --- Connection ---
 
     @qasync.asyncSlot()
-    async def connect_to_device(self, device_address):
-        """Connects to a device on the interface."""
-        self.dataStreamThread = DataStreamThread(device_address, self.baudrate)
-        self.dataStreamThread.dataReceived.connect(self.handleDataStream)
-        self.dataStreamThread.errorOccurred.connect(self.handleDataStreamError)
-        self.dataStreamThread.connectionClosed.connect(
-            self.handleDataStreamClosed)
-        self.dataStreamThread.start()
+    async def connect_to_device(self, device_port):
+        """Connects to a device and starts the data stream."""
+        try:
+            self.port_instance = aioserial.AioSerial(
+                port=device_port,
+                baudrate=self.baudrate,
+                parity=aioserial.PARITY_NONE,
+                stopbits=aioserial.STOPBITS_ONE,
+                bytesize=aioserial.EIGHTBITS,
+                timeout=0.1,
+            )
+            self.running = True
+            self.device_address = device_port
+            self.connectionCompleted.emit(True)
 
-        self.serial_port = device_address
-        self.connectionCompleted.emit(True)
+            # Start asynchronous data reading task
+            asyncio.create_task(self.read_data_stream())
+        except Exception as e:
+            print(f"Error opening UART port: {e}")
 
-    def handleDataStream(self, data):
-        # Emit the dataReceived signal with appropriate parameters
-        # Assuming the data format includes UUID and data separated by ':'
-        uuid, data = data.split(':', 1)
-        self.dataReceived.emit(uuid, data)
+    # --- Data Digester ---
 
-    def handleDataStreamError(self, error_message):
-        print(f"Error in data stream: {error_message}")
-        self.dataStreamError.emit(error_message)
+    async def read_data_stream(self):
+        """Reads data from the serial port asynchronously."""
+        data_buffer = b""
+        while self.running:
+            if not self.run_digester:
+                await asyncio.sleep(0.1)
+            try:
+                data = await self.port_instance.read_until_async(b'\n')
+                if data:
+                    data_buffer += data
+                    while b"\n" in data_buffer:
+                        line, data_buffer = data_buffer.split(b"\n", 1)
+                        line = line.strip()
+                        if line:
+                            data = line.decode()
+                            # Check if the data contains a colon before unpacking
+                            if ":" in data:
+                                uuid, data = data.split(":", 1)
+                                self.dataReceived.emit(uuid, data + "\n")
+                            else:
+                                # Ignore this line or handle it differently
+                                print(f"Ignoring malformed data: {data}")
+                else:
+                    self.running = False
+            except Exception as e:
+                self.dataStreamError.emit(f"Data stream error: {e}")
+                break
 
-    def handleDataStreamClosed(self):
         self.dataStreamClosed.emit()
 
-    # --- Data Communication ---
+    # --- Data Transmission ---
 
     @qasync.asyncSlot()
     async def send_data(self, uuid, data):
-        """Sends data to the connected device."""
-        try:
-            if self.serial_port and self.serial_port.isOpen():
-                self.serial_port.write(
-                    uuid.encode() + b':' + data.encode() + b'\n')
+        """Sends data to a device."""
+        if self.port_instance is not None:
+            try:
+                print(f"Sending data: {uuid}:{data}")
+                await self.port_instance.write_async(uuid.encode() + b":" + data.encode() + b"\n")
                 self.writeCompleted.emit(True)
-            else:
+            except Exception as e:
+                print(f"Error writing data: {e}")
                 self.writeCompleted.emit(False)
-        except Exception as e:
-            print(f"Write failed: {e}")
-            self.writeCompleted.emit(False)
+
+    # --- Command Transmission ---
 
     @qasync.asyncSlot()
     async def send_command(self, command, uuid=""):
-        """Sends a command to the connected device."""
-        try:
-            if self.serial_port and self.serial_port.isOpen():
-                self.serial_port.write(
-                    uuid.encode() + b':' + command.encode() + b'\n')
-                self.writeCompleted.emit(True)
-            else:
-                self.writeCompleted.emit(False)
-        except Exception as e:
-            print(f"Write failed: {e}")
-            self.writeCompleted.emit(False)
+        """Sends a command to a device and returns the response."""
+        if self.port_instance is not None:
+            try:
+                if uuid:
+                    uuid = uuid + ":"
+                command_output = uuid + command
+
+                self.disable_data_digester()
+                await self.port_instance.write_async(command_output.encode() + b"\n")
+
+                # Wait for the exact response
+                expected_response_prefix = f"{command}:"
+                response = await self.read_until_prefix(expected_response_prefix)
+
+                self.enable_data_digester()
+                return response.decode().strip()
+
+            except asyncio.TimeoutError:
+                return "Error: Command response timed out"
+            except Exception as e:
+                return f"Error: {e}"
+        else:
+            return "Error: Not connected to a device"
+
+    async def read_until_prefix(self, prefix):
+        """Reads data from the serial port until the specified prefix is found."""
+        data_buffer = b""
+        while self.running:
+            try:
+                data = await self.port_instance.read_async(2048)
+                if data:
+                    data_buffer += data
+                    if data_buffer.startswith(prefix.encode()):
+                        return data_buffer
+            except Exception as e:
+                print(f"Error reading response: {e}")
+                break
+
+    # --- Services ---
 
     @qasync.asyncSlot()
     async def get_services(self):
         """Retrieves services information from the connected device."""
-        services_response = await self.send_command("ARCTIC_COMMAND_GET_SERVICES")
-        print(f"Services response: {services_response}")
-        if "Error:" not in services_response:
-            return self._parse_services(services_response)
+        response = await self.send_command("ARCTIC_COMMAND_GET_SERVICES")
+        if "Error:" not in response:
+            return self._parse_services(response)
         else:
             print(f"Error in response from {
-                  self.serial_port}: {services_response}")
+                self.device_address}: {response}")
             return []
 
     def _parse_services(self, response):
@@ -153,58 +222,40 @@ class UARTHandler(QObject):
                 parsed_services.append(module_info)
         return parsed_services
 
+    # --- Keepalive ---
+
+    @qasync.asyncSlot()
+    async def send_keepalive(self):
+        """Sends a keepalive message to the device."""
+        if self.port_instance is not None:
+            try:
+                await self.port_instance.write_async(b"\n")
+            except Exception as e:
+                print(f"Error sending keepalive: {e}")
+
+    # --- Data Transmission Control ---
+
+    def enable_data_digester(self):
+        """Starts the data digester."""
+        self.run_digester = True
+
+    def disable_data_digester(self):
+        """Stops the data digester."""
+        self.run_digester = False
+
     # --- Disconnection ---
 
     @qasync.asyncSlot()
     async def disconnect(self):
-        """Disconnects from the connected device."""
-        if self.serial_port and self.serial_port.isOpen():
-            self.serial_port.close()
-            self.deviceDisconnected.emit(None)
-
-
-class DataStreamThread(QThread):
-    dataReceived = pyqtSignal(str)
-    errorOccurred = pyqtSignal(str)
-    connectionClosed = pyqtSignal()
-
-    def __init__(self, port, baudrate):  # Adjust baud rate as needed
-        super().__init__()
-        self.port = port
-        self.baudrate = baudrate
-        self.running = True
-        self.keepaliveTimer = QTimer()
-        self.keepaliveTimer.timeout.connect(self.send_keepalive)
-        self.keepaliveTimer.start(400)  # Keepalive interval (ms)
-
-    def run(self):
-        try:
-            self.serial_port = serial.Serial(self.port, self.baudrate)
-            self.errorOccurred.emit("UART connection established")
-
-            while self.running:
-                data = self.serial_port.readline().decode()
-                if data:
-                    print(f"Received: {data.strip()}")
-                    # self.dataReceived.emit(data.strip() + "\n")
-                else:
-                    self.connectionClosed.emit()
-                    break
-
-        except serial.SerialException as e:
-            self.errorOccurred.emit(f"UART error: {e}")
-
-        finally:
-            self.keepaliveTimer.stop()
-            if self.serial_port and self.serial_port.isOpen():
-                self.serial_port.close()
-
-    def send_keepalive(self):
-        if self.serial_port and self.serial_port.isOpen():
-            self.serial_port.write(b'\x00')
-
-    def stop(self):
+        """Closes all client sockets and clears the connections."""
+        self.deviceDisconnected.emit(self.device_address)
+        self.device_address = None
         self.running = False
-        self.keepaliveTimer.stop()
-        self.quit()  # Ask the thread to quit
-        self.wait()  # Wait for the thread to actually finish
+        if self.port_instance and self.port_instance.is_open:
+            self.port_instance.close()
+
+    # --- Destructor ---
+
+    def __del__(self):
+        if self.port_instance and self.port_instance.is_open:
+            self.port_instance.close()

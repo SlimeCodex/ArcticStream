@@ -17,22 +17,30 @@
 #
 
 import time
-import platform
-import ipaddress
+import errno
 import select
 import socket
-import errno
+import platform
+import ipaddress
+from abc import ABCMeta
 
-from PyQt5.QtCore import QObject, pyqtSignal, QThread
-
-import asyncio
 import qasync
+import asyncio
+from PyQt5.QtCore import QObject, pyqtSignal, QThread
 
 import resources.config as app_config
 from interfaces.com_interface import CommunicationInterface
 
+# PyQt wrapper type
+pyqtWrapperType = type(QObject)
 
-class WiFiHandler(QObject):
+
+# Metaclass for WiFiHandler to resolve metaclass conflict
+class WiFiHandlerMeta(pyqtWrapperType, ABCMeta):
+    pass
+
+
+class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
     connectionCompleted = pyqtSignal(bool)
     dataReceived = pyqtSignal(str, str)
     writeCompleted = pyqtSignal(bool)
@@ -63,15 +71,13 @@ class WiFiHandler(QObject):
 
         devices_info = []
         for ip in filtered_ips:
-            self.device_address = (
-                ip  # Set the device address before sending the command
-            )
-            info_response = await self.send_command("ARCTIC_COMMAND_GET_DEVICE")
-            if "Error:" not in info_response:
-                name, mac = self._parse_device_info(info_response)
+            self.device_address = ip
+            response = await self.send_command("ARCTIC_COMMAND_GET_DEVICE")
+            if "Error:" not in response:
+                name, mac = self._parse_device_info(response)
                 devices_info.append((name, mac, ip))
             else:
-                print(f"Response from {ip}: {info_response}")
+                print(f"Response from {ip}: {response}")
 
         self.devicesDiscovered.emit(devices_info)
 
@@ -195,12 +201,12 @@ class WiFiHandler(QObject):
     @qasync.asyncSlot()
     async def get_services(self):
         """Retrieves services information from the connected device."""
-        services_response = await self.send_command("ARCTIC_COMMAND_GET_SERVICES")
-        if "Error:" not in services_response:
-            return self._parse_services(services_response)
+        response = await self.send_command("ARCTIC_COMMAND_GET_SERVICES")
+        if "Error:" not in response:
+            return self._parse_services(response)
         else:
             print(f"Error in response from {
-                  self.device_address}: {services_response}")
+                self.device_address}: {response}")
             return []
 
     def _parse_services(self, response):

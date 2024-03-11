@@ -20,7 +20,13 @@ import asyncio
 
 import qasync
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget, QHBoxLayout
+from PyQt5.QtWidgets import (
+    QVBoxLayout,
+    QWidget,
+    QPushButton,
+    QListWidget,
+    QHBoxLayout
+)
 from PyQt5.QtGui import QFont
 
 from interfaces.com_interface import CommunicationInterface
@@ -47,12 +53,13 @@ class UARTConnectionWindow(QWidget):
         self.main_window.signal_window_close.connect(self.process_close_task)
 
         # Async UART Signals
-        self.stream_interface.devicesDiscovered.connect(self.callback_update_scan_list)
+        self.stream_interface.devicesDiscovered.connect(
+            self.callback_update_scan_list)
         self.stream_interface.connectionCompleted.connect(
             self.callback_connection_complete
         )
-        self.stream_interface.deviceDisconnected.connect(self.callback_disconnected)
-        self.stream_interface.dataReceived.connect(self.callback_handle_data_received)
+        self.stream_interface.deviceDisconnected.connect(
+            self.callback_disconnected)
         self.stream_interface.writeCompleted.connect(
             self.callback_handle_write_complete
         )
@@ -71,7 +78,7 @@ class UARTConnectionWindow(QWidget):
     # Layout and Widgets
     def setup_layout(self):
         connect_button = QPushButton("Connect")
-        connect_button.clicked.connect(self.uart_connect)  # Use uart_connect
+        connect_button.clicked.connect(self.uart_connect)
 
         disconnect_button = QPushButton("Disconnect")
         disconnect_button.clicked.connect(self.uart_clear_connection)
@@ -81,10 +88,10 @@ class UARTConnectionWindow(QWidget):
         self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
         self.scan_device_list.itemDoubleClicked.connect(
             self.uart_connect
-        )  # Use uart_connect
+        )
 
-        scan_button = QPushButton("Scan UART Devices")  # Adjust label
-        scan_button.clicked.connect(self.uart_scan)  # Use uart_scan
+        scan_button = QPushButton("Scan UART Devices")
+        scan_button.clicked.connect(self.uart_scan)
 
         exit_button = QPushButton("Exit")
         exit_button.clicked.connect(self.exitApplication)
@@ -117,7 +124,7 @@ class UARTConnectionWindow(QWidget):
             return
 
         device_port = selected_items[0].text().split(" - ")[1]
-        self.last_device_address = device_port  # Adjust for UART
+        self.last_device_address = device_port
 
         if not reconnect:
             self.main_window.debug_info(f"Connecting to {device_port} ...")
@@ -127,20 +134,20 @@ class UARTConnectionWindow(QWidget):
     # --- Reconnection ---
 
     @qasync.asyncSlot()
-    async def uart_reconnect(self):  # Renamed for clarity
+    async def uart_reconnect(self):
         max_recon_retries = 5
         retries_counter = 1
 
         while retries_counter <= max_recon_retries:
             self.connection_event.clear()
             self.main_window.debug_info(
-                f"Attempting reconnection to {self.last_device_address}. Retry: {retries_counter}/{max_recon_retries}"
+                f"Attempting reconnection to {self.last_device_address}. Retry: {
+                    retries_counter}/{max_recon_retries}"
             )
             await self.uart_connect(
                 self.last_device_address, reconnect=True
-            )  # Use uart_connect
+            )
             if self.connection_event.is_set():
-                # Reconnection successful
                 break
             else:
                 retries_counter += 1
@@ -193,7 +200,7 @@ class UARTConnectionWindow(QWidget):
     # --- Clear connection ---
 
     @qasync.asyncSlot()
-    async def uart_clear_connection(self):  # Keep the name for consistency
+    async def uart_clear_connection(self):
         self.main_window.debug_info("Clearing UART connection ...")
         self.last_device_address = None
         if not self.is_closing:
@@ -209,25 +216,18 @@ class UARTConnectionWindow(QWidget):
     def callback_connection_complete(self, connected):
         if connected:
             self.connection_event.set()
-            self.main_window.debug_info(f"Connected to {self.last_device_address}")
+            self.main_window.debug_info(
+                f"Connected to {self.last_device_address}")
             self.register_services()
         else:
             self.connection_event.clear()
 
     def callback_disconnected(self, client):
-        self.main_window.debug_info(f"UART device {client.address} disconnected")
+        self.main_window.debug_info(f"UART device {client} disconnected")
 
         # Manual disconnect are not handled
         if self.last_device_address:
             self.uart_reconnect()  # Use uart_reconnect
-
-    def callback_handle_data_received(self, data):
-        # Create a new console window if needed
-        if not self.console_ref:
-            self.new_console_window("UART Console", None)  # Adjust UUID if needed
-
-        # Redirect data to the console window
-        # self.console_ref[None].update_data(data)  # Adjust UUID if needed
 
     def callback_handle_write_complete(self, success):
         if not success:
@@ -248,7 +248,7 @@ class UARTConnectionWindow(QWidget):
             # Console window is not open, create a new one
             console = ConsoleWindow(
                 self.main_window, self.stream_interface, name, None
-            )  # Adjust UUID if needed
+            )
             self.console_ref[uuid] = console
 
             self.main_window.add_console_tab(console, name)
@@ -267,7 +267,8 @@ class UARTConnectionWindow(QWidget):
             await self.uart_stop()  # Use uart_stop
             self.stop_consoles()
             if close_window:
-                self.signal_closing_complete.emit()  # Emit the signal after all tasks are completed
+                # Emit the signal after all tasks are completed
+                self.signal_closing_complete.emit()
 
     # --- Exit triggered from "exit" button ---
 
