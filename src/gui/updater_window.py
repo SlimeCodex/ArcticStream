@@ -47,36 +47,27 @@ class UpdaterWindow(QWidget):
     def __init__(
         self,
         main_window,
-        stream_interface: BLEHandler,
+        interface: BLEHandler,
         title,
         updater_index: UpdaterIndex,
     ):
         super().__init__()
-        self.main_window = main_window  # MainWindow Reference
-        self.stream_interface = stream_interface  # BLE Reference
+        self.mw = main_window  # MainWindow Reference
+        self.interface = interface  # BLE Reference
         self.win_title = title  # Original title of the tab
         self.updater_index = updater_index  # Console information
 
-        self.main_window.debug_log("UpdaterWindow: Initializing ...")
-        self.main_window.debug_log(f"UpdaterWindow: {self.updater_index.name}")
-        self.main_window.debug_log(
-            f"UpdaterWindow: {self.updater_index.service.uuid}")
-        self.main_window.debug_log(
-            f"UpdaterWindow: {self.updater_index.tx_characteristic.uuid}"
-        )
-        self.main_window.debug_log(
-            f"UpdaterWindow: {self.updater_index.rx_characteristic.uuid}"
-        )
-        self.main_window.debug_log(
-            "------------------------------------------")
+        self.mw.debug_log("UpdaterWindow: Initializing ...")
+        self.mw.debug_log(f"UpdaterWindow: {self.updater_index.name}")
+        self.mw.debug_log(f"UpdaterWindow: {self.updater_index.service.uuid}")
+        self.mw.debug_log(f"UpdaterWindow: {self.updater_index.txm.uuid}")
+        self.mw.debug_log(f"UpdaterWindow: {self.updater_index.rxm.uuid}")
+        self.mw.debug_log("------------------------------------------")
 
         # Async BLE Signals
-        self.stream_interface.dataReceived.connect(
-            self.callback_handle_notification
-        )
-        self.stream_interface.deviceDisconnected.connect(
-            self.callback_disconnected)
-        self.main_window.themeChanged.connect(self.callback_update_theme)
+        self.interface.dataReceived.connect(self.cb_handle_notification)
+        self.interface.linkLost.connect(self.cb_link_lost)
+        self.mw.themeChanged.connect(self.cb_update_theme)
 
         # Async Events from the device
         self.ready_event = asyncio.Event()
@@ -96,15 +87,14 @@ class UpdaterWindow(QWidget):
         self.start_time = 0
         self.elapsed_str = "00:00:00"
         self.ota_error_status = False
-        self.icons_dir = self.main_window.icon_path()
+        self.icons_dir = self.mw.icon_path()
 
         self.setup_layout()
 
-    # GUI Functions ------------------------------------------------------------------------------------------
+    # GUI Functions
 
     # Layout and Widgets
     def setup_layout(self):
-
         # Start and Stop buttons
         start_button = QPushButton("Start", self)
         start_button.clicked.connect(self.start_ota)
@@ -118,7 +108,8 @@ class UpdaterWindow(QWidget):
         # Simple folder button
         self.folder_button = SimpleButton(
             self,
-            icon=f"{self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
+            icon=f"{
+                self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
             size=app_config.globals["gui"]["default_button_size"],
             style=th.get_style("default_button_style"),
             callback=self.setPath,
@@ -178,7 +169,7 @@ class UpdaterWindow(QWidget):
         updater_win_layout.addWidget(self.progress_bar)
         self.setLayout(updater_win_layout)
 
-    # Window Functions ------------------------------------------------------------------------------------------
+    # Window Functions
 
     def adjust_drag_placeholder(self):
         self.drag_placeholder.setGeometry(self.text_edit_printf.geometry())
@@ -195,7 +186,7 @@ class UpdaterWindow(QWidget):
             self.text_edit_printf.setStyleSheet(
                 th.get_style("default_text_edit_style"))
 
-    def callback_update_theme(self, theme):
+    def cb_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
         self.folder_button.setStyleSheet(th.get_style("default_button_style"))
         self.drag_placeholder.setStyleSheet(
@@ -218,7 +209,7 @@ class UpdaterWindow(QWidget):
         elif theme == "light":
             self.folder_button.changeIconColor("#000000")
 
-    # Qt Functions ------------------------------------------------------------------------------------------------
+    # Qt Functions ------
 
     def resizeEvent(self, event):
         self.adjust_drag_placeholder()
@@ -245,26 +236,25 @@ class UpdaterWindow(QWidget):
             else:
                 self.update_info("Not a .bin file")
 
-    # Async BLE Functions ------------------------------------------------------------------------------------------
+    # Async BLE Functions
 
     @qasync.asyncSlot()
     async def start_ota(self):
-
         if self.firmware_path is None:
-            self.main_window.debug_log("No file selected.")
+            self.mw.debug_log("No file selected.")
             return
 
         file_hash = self.calculate_hash(self.firmware_path)
         file_size = self.get_file_size(self.firmware_path)
         if file_size == 0:
-            self.main_window.debug_log("File is empty, aborting OTA update")
+            self.mw.debug_log("File is empty, aborting OTA update")
             return
 
         if self.ota_running:
-            self.main_window.debug_log("OTA update is already in progress.")
+            self.mw.debug_log("OTA update is already in progress.")
             return
 
-        self.initialize_ota()  # Initializing OTA-specific variables and settings
+        self.initialize_ota()
 
         if not await self.wait_for_device_ready(file_size, file_hash):
             return
@@ -295,9 +285,10 @@ class UpdaterWindow(QWidget):
         return os.path.getsize(file_path)
 
     async def send_file_info(self, total_size, file_hash):
-        await self.stream_interface.writeCharacteristic(
-            self.updater_index.rx_characteristic.uuid,
-            str(f"ARCTIC_COMMAND_OTA_SETUP -s {total_size} -md5 {file_hash}").encode(),
+        await self.interface.writeCharacteristic(
+            self.updater_index.rxm.uuid,
+            str(f"ARCTIC_COMMAND_OTA_SETUP -s {
+                total_size} -md5 {file_hash}").encode(),
         )
 
     async def wait_for_device_ready(
@@ -314,17 +305,17 @@ class UpdaterWindow(QWidget):
                     self.ready_event.wait(),
                     timeout=app_config.globals["updater"]["ack_timeout"],
                 )
-                self.main_window.debug_log("Device is ready.")
+                self.mw.debug_log("Device is ready.")
                 return True
             except asyncio.TimeoutError:
-                self.main_window.debug_log(
-                    f"Timeout waiting for device to be ready. Retrying {retries+1}/{max_retries}..."
+                self.mw.debug_log(
+                    f"Timeout waiting for device to be ready. Retrying {
+                        retries+1}/{max_retries}..."
                 )
                 retries += 1
 
-        self.main_window.debug_log(
-            "Device not ready after maximum retries. OTA update aborted."
-        )
+        self.mw.debug_log(
+            "Device not ready after maximum retries. OTA update aborted.")
         self.ota_running = False
         return False
 
@@ -333,15 +324,14 @@ class UpdaterWindow(QWidget):
             with open(self.firmware_path, "rb") as file:
                 await self.file_transfer_loop(file, total_size)
         except IOError as e:
-            self.main_window.debug_log(f"Error reading file: {e}")
+            self.mw.debug_log(f"Error reading file: {e}")
 
     async def file_transfer_loop(self, file, total_size):
         transferred = 0
         while self.ota_running and transferred < total_size:
             # Check if a disconnect event occurred
             if self.disconnect_event.is_set():
-                self.main_window.debug_log(
-                    "OTA update aborted due to disconnection.")
+                self.mw.debug_log("OTA update aborted due to disconnection.")
                 self.progress_bar.setStyleSheet(
                     th.get_style("uploader_loading_bar_fail_style")
                 )
@@ -367,7 +357,8 @@ class UpdaterWindow(QWidget):
         self.elapsed_str = str(elapsed_time).split(".")[0]
         kbytes_per_second = (transferred / elapsed_time.total_seconds()) / 1024
         self.update_info(
-            f"[{self.elapsed_str}] OTA Loading Progress: {progress}% ({transferred}/{total_size} bytes, {kbytes_per_second:.2f} kb/s)"
+            f"[{self.elapsed_str}] OTA Loading Progress: {
+                progress}% ({transferred}/{total_size} bytes, {kbytes_per_second:.2f} kb/s)"
         )
 
     async def send_chunk_with_retries(
@@ -376,8 +367,7 @@ class UpdaterWindow(QWidget):
         retries = 0
         while retries < max_retries:
             if self.disconnect_event.is_set():
-                self.main_window.debug_log(
-                    "OTA update aborted due to disconnection.")
+                self.mw.debug_log("OTA update aborted due to disconnection.")
                 self.progress_bar.setStyleSheet(
                     th.get_style("uploader_loading_bar_fail_style")
                 )
@@ -390,7 +380,7 @@ class UpdaterWindow(QWidget):
                 return True
             retries += 1
 
-        self.main_window.debug_log("Maximum retries reached, stopping OTA")
+        self.mw.debug_log("Maximum retries reached, stopping OTA")
         self.progress_bar.setStyleSheet(
             th.get_style("uploader_loading_bar_fail_style"))
         self.ota_error_status = True
@@ -400,11 +390,8 @@ class UpdaterWindow(QWidget):
     async def send_chunk_and_wait_for_ack(self, dataChunk):
         self.ack_event.clear()
         if app_config.globals["updater"]["enable_output_debug"]:
-            self.main_window.debug_log(
-                f"Sending chunk of {len(dataChunk)} bytes")
-        await self.stream_interface.writeCharacteristic(
-            self.updater_index.rx_characteristic.uuid, dataChunk
-        )
+            self.mw.debug_log(f"Sending chunk of {len(dataChunk)} bytes")
+        await self.interface.writeCharacteristic(self.updater_index.rxm.uuid, dataChunk)
         return await self.wait_for_ack_or_stop()
 
     async def wait_for_ack_or_stop(self):
@@ -425,7 +412,7 @@ class UpdaterWindow(QWidget):
             return True
 
         if app_config.globals["updater"]["enable_output_debug"]:
-            self.main_window.debug_log("ACK not received for chunk, retrying")
+            self.mw.debug_log("ACK not received for chunk, retrying")
         return False
 
     def handle_stop_event(self):
@@ -458,21 +445,20 @@ class UpdaterWindow(QWidget):
     async def stop_ota(self):
         self.stop_event.set()
 
-    # Callbacks -----------------------------------------------------------------------------------------------
+    # Callbacks -----
 
     # Callback handle input notification
-    def callback_handle_notification(self, sender, data):
-
+    def cb_handle_notification(self, sender, data):
         # Redirect the data to the printf text box
-        if sender == self.updater_index.tx_characteristic.uuid:
+        if sender == self.updater_index.txm.uuid:
             self.update_info(data)
 
-    def callback_disconnected(self, client):
+    def cb_link_lost(self, client):
         if self.ota_running:
             self.stop_event.set()
             self.disconnect_event.set()
 
-    # Window Functions ------------------------------------------------------------------------------------------
+    # Window Functions
 
     # Update the main text box (printf)
     def update_data(self, data):
@@ -484,31 +470,32 @@ class UpdaterWindow(QWidget):
 
     # Update the info text box (singlef)
     def update_info(self, info):
+        debug_status = app_config.globals["updater"]["enable_output_debug"]
 
         # ACKs coming from the device
         if "READY" in info:
             self.ready_event.set()
-            if app_config.globals["updater"]["enable_output_debug"]:
-                self.main_window.debug_log("Device ready")
+            if debug_status:
+                self.mw.debug_log("Device ready")
         elif "ACK" in info:
             self.ack_event.set()
-            if app_config.globals["updater"]["enable_output_debug"]:
-                self.main_window.debug_log("Device ack")
+            if debug_status:
+                self.mw.debug_log("Device ack")
         elif "ERROR" in info:
             self.error_event.set()
             self.stop_event.set()
-            if app_config.globals["updater"]["enable_output_debug"]:
-                self.main_window.debug_log("Device error")
+            if debug_status:
+                self.mw.debug_log("Device error")
         elif "DONE" in info:
             self.success_event.set()
             self.stop_event.set()
-            if app_config.globals["updater"]["enable_output_debug"]:
-                self.main_window.debug_log("Device done")
+            if debug_status:
+                self.mw.debug_log("Device done")
         elif "TIMEOUT" in info:
             self.error_event.set()
             self.stop_event.set()
-            if app_config.globals["updater"]["enable_output_debug"]:
-                self.main_window.debug_log("Device timeout")
+            if debug_status:
+                self.mw.debug_log("Device timeout")
         else:  # Info coming from the program
             self.line_edit_singlef.setText(info)
 

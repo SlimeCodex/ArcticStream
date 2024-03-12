@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QWidget,
-    QFileDialog
+    QFileDialog,
 )
 from PyQt5.QtGui import QTextCursor, QFont, QTextCharFormat
 from datetime import datetime
@@ -42,44 +42,33 @@ class ConsoleWindow(QWidget):
     def __init__(
         self,
         main_window,
-        stream_interface: CommunicationInterface,
+        interface: CommunicationInterface,
         title,
-        console_index: ConsoleIndex,
+        index: ConsoleIndex,
     ):
         super().__init__()
 
-        self.main_window = main_window  # MainWindow Reference
-        self.stream_interface = stream_interface  # BLE Reference
+        self.mw = main_window  # MainWindow Reference
+        self.interface = interface  # BLE Reference
         self.win_title = title  # Original title of the tab
-        self.console_index = console_index  # Console information
+        self.index = index  # Console information
 
-        self.main_window.debug_log("ConsoleWindow: Initializing ...")
-        self.main_window.debug_log(f"ConsoleWindow: {self.console_index.name}")
-        self.main_window.debug_log(
-            f"ConsoleWindow: {self.console_index.service}")
-        self.main_window.debug_log(
-            f"ConsoleWindow: {self.console_index.tx_characteristic}"
-        )
-        self.main_window.debug_log(
-            f"ConsoleWindow: {self.console_index.txs_characteristic}"
-        )
-        self.main_window.debug_log(
-            f"ConsoleWindow: {self.console_index.rx_characteristic}"
-        )
-        self.main_window.debug_log(
-            "------------------------------------------")
+        self.mw.debug_log("ConsoleWindow: Initializing ...")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.name}")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.service}")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.txm}")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.txs}")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.rxm}")
+        self.mw.debug_log("--------------------------------")
 
         # Async BLE Signals
-        self.stream_interface.connectionCompleted.connect(
-            self.callback_connection_complete
-        )
-        self.stream_interface.deviceDisconnected.connect(
-            self.callback_disconnected)
-        self.stream_interface.dataReceived.connect(self.callback_data_received)
-        self.main_window.themeChanged.connect(self.callback_update_theme)
+        self.interface.linkReady.connect(self.cb_link_ready)
+        self.interface.linkLost.connect(self.cb_link_lost)
+        self.interface.dataReceived.connect(self.cb_data_received)
+        self.mw.themeChanged.connect(self.cb_update_theme)
 
         # Globals
-        self.icons_dir = self.main_window.icon_path()
+        self.icons_dir = self.mw.icon_path()
         self.data_tab_counter = 0
         self.scroll_locked = True
         self.console_paused = False
@@ -212,10 +201,10 @@ class ConsoleWindow(QWidget):
             if self.data_tab_counter > 0
             else self.win_title
         )
-        self.main_window.update_tab_title(self, new_title)
+        self.mw.update_tab_title(self, new_title)
 
     def check_tab_focus(self):
-        current_widget = self.main_window.tab_widget.currentWidget()
+        current_widget = self.mw.tab_widget.currentWidget()
         return current_widget == self
 
     # Async BLE Functions
@@ -224,32 +213,26 @@ class ConsoleWindow(QWidget):
     async def send_data(self):
         data = self.line_edit_send.text()
         if data:
-            await self.stream_interface.send_data(
-                self.console_index.rx_characteristic, data
-            )
+            await self.interface.send_data(self.index.rxm, data)
             self.line_edit_send.clear()
 
     # Callbacks
 
     # Callback connection success
-    def callback_connection_complete(self, connected):
+    def cb_link_ready(self, connected):
         if connected:
-            self.update_data(
-                f"[ {self.main_window.default_title}: Remote device connected ]\n"
-            )
+            self.update_data(f"[ {self.mw.title}: Remote device connected ]\n")
 
     # Callback device disconnected
-    def callback_disconnected(self, client):
-        self.update_data(
-            f"[ {self.main_window.default_title}: Remote device disconnected ]\n"
-        )
+    def cb_link_lost(self, client):
+        self.update_data(f"[ {self.mw.title}: Remote device disconnected ]\n")
 
     # Callback handle input notification
-    def callback_data_received(self, uuid, data):
+    def cb_data_received(self, uuid, data):
         # Redirect the data to the printf text box
-        if uuid == self.console_index.tx_characteristic:
+        if uuid == self.index.txm:
             self.update_data(data)
-        elif uuid == self.console_index.txs_characteristic:
+        elif uuid == self.index.txs:
             self.update_info(data)
 
     # Window Functions
@@ -261,8 +244,11 @@ class ConsoleWindow(QWidget):
         overlay_height = app_config.globals["gui"]["default_status_ledit_size"][1]
 
         # Center the overlay within text_edit_printf
-        overlay_x = text_edit_geom.x() + (text_edit_geom.width() - overlay_width) // 2
-        overlay_y = text_edit_geom.y() + text_edit_geom.height() - overlay_height
+        geom_width = text_edit_geom.width()
+        geom_height = text_edit_geom.height()
+
+        overlay_x = text_edit_geom.x() + (geom_width - overlay_width) // 2
+        overlay_y = text_edit_geom.y() + geom_height - overlay_height
 
         # Set the geometry for the status overlay
         self.status_overlay.setGeometry(
@@ -287,7 +273,8 @@ class ConsoleWindow(QWidget):
             f"Inputs: {self.total_data_counter} | "
             f"Bytes: {self.total_bytes_received} B | "
             f"Delta: {latency_text} | "
-            f"Last: {self.last_received_timestamp.strftime('%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
+            f"Last: {self.last_received_timestamp.strftime(
+                '%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
         )
 
         self.status_overlay.setText(status_text)
@@ -319,7 +306,7 @@ class ConsoleWindow(QWidget):
                 with open(self.user_log_path, "a") as log_file:
                     log_file.write(data)
             except Exception as e:
-                self.main_window.debug_log(f"Error writing to log file: {e}")
+                self.mw.debug_log(f"Error writing to log file: {e}")
 
         # Limit the number of lines
         text = self.text_edit_printf.toPlainText()
@@ -350,10 +337,10 @@ class ConsoleWindow(QWidget):
     # Update the info text box (singlef)
     def update_info(self, info):
         if "ARCTIC_COMMAND_SHOW" in info:
-            self.main_window.visibility_tab(self, True)
+            self.mw.visibility_tab(self, True)
             return
         if "ARCTIC_COMMAND_HIDE" in info:
-            self.main_window.visibility_tab(self, False)
+            self.mw.visibility_tab(self, False)
             return
         if "ARCTIC_COMMAND_REQ_NAME" in info:
             return
@@ -398,7 +385,7 @@ class ConsoleWindow(QWidget):
             return True
         return False
 
-    def callback_update_theme(self, theme):
+    def cb_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
         self.line_edit_send.setStyleSheet(
             th.get_style("console_send_line_edit_style"))

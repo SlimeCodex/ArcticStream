@@ -30,14 +30,14 @@ class SSCWindowProperties(QMainWindow):
 
     def __init__(self, main_window):
         super().__init__()
-        self.main_window = main_window
-        self.main_window.themeChanged.connect(self.callback_update_theme)
+        self.mw = main_window
+        self.mw.themeChanged.connect(self.cb_update_theme)
 
         # Removes native title bar
         self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Globals
-        self.icons_dir = self.main_window.icon_path()
+        self.icons_dir = self.mw.icon_path()
         self.mouse_pressed = False
         self.resize_direction = None
         self.start_position = None
@@ -203,7 +203,7 @@ class SSCWindowProperties(QMainWindow):
         else:
             self.showFullScreen()
 
-    def callback_update_theme(self, theme):
+    def cb_update_theme(self, theme):
 
         # Reload stylesheets (background for SVG buttons)
         self.custom_bar_widget.setStyleSheet(

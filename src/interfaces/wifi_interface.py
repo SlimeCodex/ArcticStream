@@ -41,13 +41,13 @@ class WiFiHandlerMeta(pyqtWrapperType, ABCMeta):
 
 
 class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
-    connectionCompleted = pyqtSignal(bool)
+    linkReady = pyqtSignal(bool)
     dataReceived = pyqtSignal(str, str)
-    writeCompleted = pyqtSignal(bool)
+    writeReady = pyqtSignal(bool)
 
     # WiFi Signals
-    devicesDiscovered = pyqtSignal(list)
-    deviceDisconnected = pyqtSignal(object)
+    scanReady = pyqtSignal(list)
+    linkLost = pyqtSignal(object)
     dataStreamError = pyqtSignal(str)
     dataStreamClosed = pyqtSignal()
 
@@ -79,7 +79,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             else:
                 print(f"Response from {ip}: {response}")
 
-        self.devicesDiscovered.emit(devices_info)
+        self.scanReady.emit(devices_info)
 
     async def _check_host(self, ip):
         """Checks if a host is up and running."""
@@ -131,7 +131,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         self.dataStreamThread.start()
 
         self.device_address = device_address
-        self.connectionCompleted.emit(True)
+        self.linkReady.emit(True)
 
     def handleDataStream(self, data):
         # Emit the dataReceived signal with appropriate parameters
@@ -167,13 +167,13 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             await writer.drain()
             writer.close()
             await writer.wait_closed()
-            self.writeCompleted.emit(True)
+            self.writeReady.emit(True)
         except asyncio.TimeoutError:
             print("Error: Data write timed out")
-            self.writeCompleted.emit(False)
+            self.writeReady.emit(False)
         except Exception as e:
             print(f"Error: {e}")
-            self.writeCompleted.emit(False)
+            self.writeReady.emit(False)
 
     @qasync.asyncSlot()
     async def send_command(self, command, uuid=""):
@@ -231,7 +231,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
     @qasync.asyncSlot()
     async def disconnect(self):
         """Closes all client sockets and clears the connections."""
-        self.deviceDisconnected.emit(self.device_address)
+        self.linkLost.emit(self.device_address)
         self.device_address = None
         self.stopDataStream()
 

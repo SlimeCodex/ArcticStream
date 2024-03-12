@@ -39,12 +39,12 @@ class BLEHandlerMeta(pyqtWrapperType, ABCMeta):
 class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
 
     # BLE Signals
-    devicesDiscovered = pyqtSignal(list)
-    connectionCompleted = pyqtSignal(bool)
-    deviceDisconnected = pyqtSignal(object)
+    scanReady = pyqtSignal(list)
+    linkReady = pyqtSignal(bool)
+    linkLost = pyqtSignal(object)
     characteristicRead = pyqtSignal(str, bytes)
     dataReceived = pyqtSignal(str, str)
-    writeCompleted = pyqtSignal(bool)
+    writeReady = pyqtSignal(bool)
 
     def __init__(self):
         super().__init__()
@@ -58,7 +58,7 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
         devices = await BleakScanner.discover()
         formatted_devices = [(device.name, device.address)
                              for device in devices]
-        self.devicesDiscovered.emit(formatted_devices)
+        self.scanReady.emit(formatted_devices)
 
     # Connect to device
     @qasync.asyncSlot()
@@ -71,12 +71,12 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
             if connected:
                 self.services = self.client.services  # Store services
                 self.disconnect_event.clear()
-                self.connectionCompleted.emit(True)
+                self.linkReady.emit(True)
             else:
-                self.connectionCompleted.emit(False)
+                self.linkReady.emit(False)
         except Exception as e:
             print(f"Connection failed: {e}")
-            self.connectionCompleted.emit(False)
+            self.linkReady.emit(False)
 
     # Setup notifications for characteristic
     @qasync.asyncSlot()
@@ -99,13 +99,13 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
         try:
             if self.disconnect_event.is_set():
                 print("Operation aborted: Device disconnected.")
-                self.writeCompleted.emit(False)
+                self.writeReady.emit(False)
             else:
                 await self.client.write_gatt_char(characteristic, data, response)
-                self.writeCompleted.emit(True)
+                self.writeReady.emit(True)
         except Exception as e:
             print(f"Write failed: {e}")
-            self.writeCompleted.emit(False)
+            self.writeReady.emit(False)
         
     # Send Command
     @qasync.asyncSlot()
@@ -125,7 +125,7 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
     def on_disconnect(self, client):
         """Callback for disconnection. Emits a signal with the disconnected client."""
         self.disconnect_event.set()
-        self.deviceDisconnected.emit(client)
+        self.linkLost.emit(client)
 
     # Manual retrieve of services
     def get_services(self):

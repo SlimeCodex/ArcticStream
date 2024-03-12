@@ -38,13 +38,13 @@ class UARTHandlerMeta(pyqtWrapperType, ABCMeta):
 
 # Concrete class for handling UART communication
 class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
-    connectionCompleted = pyqtSignal(bool)
+    linkReady = pyqtSignal(bool)
     dataReceived = pyqtSignal(str, str)
-    writeCompleted = pyqtSignal(bool)
+    writeReady = pyqtSignal(bool)
 
     # UART Signals
-    devicesDiscovered = pyqtSignal(list)
-    deviceDisconnected = pyqtSignal(object)
+    scanReady = pyqtSignal(list)
+    linkLost = pyqtSignal(object)
     dataStreamError = pyqtSignal(str)
     dataStreamClosed = pyqtSignal()
 
@@ -78,7 +78,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         for port, desc, hwid in ports:
             formatted_devices.append((desc, port))
 
-        self.devicesDiscovered.emit(formatted_devices)
+        self.scanReady.emit(formatted_devices)
 
     # --- Connection ---
 
@@ -96,7 +96,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
             )
             self.running = True
             self.device_address = device_port
-            self.connectionCompleted.emit(True)
+            self.linkReady.emit(True)
 
             # Start asynchronous data reading task
             asyncio.create_task(self.read_data_stream())
@@ -120,7 +120,6 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
                         line = line.strip()
                         if line:
                             data = line.decode()
-                            # Check if the data contains a colon before unpacking
                             if ":" in data:
                                 uuid, data = data.split(":", 1)
                                 self.dataReceived.emit(uuid, data + "\n")
@@ -129,7 +128,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
                                 print(f"Ignoring malformed data: {data}")
                 else:
                     print("No data received from serial port")
-                    #self.running = False
+                    # self.running = False
             except Exception as e:
                 self.dataStreamError.emit(f"Data stream error: {e}")
                 break
@@ -145,10 +144,10 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
             try:
                 print(f"Sending data: {uuid}:{data}")
                 await self.port_instance.write_async(uuid.encode() + b":" + data.encode() + b"\n")
-                self.writeCompleted.emit(True)
+                self.writeReady.emit(True)
             except Exception as e:
                 print(f"Error writing data: {e}")
-                self.writeCompleted.emit(False)
+                self.writeReady.emit(False)
 
     # --- Command Transmission ---
 
@@ -206,8 +205,8 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
 
     def _parse_services(self, response):
         """Parses services information from the response string."""
-        modules = response.replace(
-            "ARCTIC_COMMAND_GET_SERVICES:", "").split(":")
+        modules = response.replace("ARCTIC_COMMAND_GET_SERVICES:", "")
+        modules = modules.split("\n")
         parsed_services = []
         for module in modules:
             parts = module.split(",")
@@ -248,11 +247,12 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
     @qasync.asyncSlot()
     async def disconnect(self):
         """Closes all client sockets and clears the connections."""
-        self.deviceDisconnected.emit(self.device_address)
+        self.linkLost.emit(self.device_address)
         self.device_address = None
         self.running = False
         if self.port_instance and self.port_instance.is_open:
             self.port_instance.close()
+        self.keepalive_timer.stop()
 
     # --- Destructor ---
 

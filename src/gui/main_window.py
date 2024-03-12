@@ -50,17 +50,17 @@ class MainWindow(SSCWindowProperties):
 
     def __init__(self, app_main=None):
         super().__init__(self)
-        self.stream_interface = None
+        self.interface = None
 
         # Default window properties
-        self.default_title = app_config.globals["app"]["name"]
+        self.title = app_config.globals["app"]["name"]
         self.default_size = app_config.globals["app"]["default_size"]
         self.minimum_size = app_config.globals["app"]["minimum_size"]
         self.app_version = app_config.globals["app"]["version"]
 
         # Window initialization
-        self.setWindowTitle(self.default_title)
-        self.set_custom_title(self.default_title)
+        self.setWindowTitle(self.title)
+        self.set_custom_title(self.title)
         self.resize(*self.default_size)
         self.setMinimumSize(*self.minimum_size)
 
@@ -93,7 +93,7 @@ class MainWindow(SSCWindowProperties):
 
     def setup_layout(self):
         self.tab_widget = QTabWidget(self)
-        self.tab_widget.currentChanged.connect(self.callback_tab_change)
+        self.tab_widget.currentChanged.connect(self.cb_tab_change)
         self.tab_widget.setVisible(False)
 
         # Single line text area for displaying debug info
@@ -266,19 +266,19 @@ class MainWindow(SSCWindowProperties):
 
     # Callbacks ----------------------------------------------------------------------------------------------
 
-    def callback_tab_change(self, index):
+    def cb_tab_change(self, index):
         console = self.tab_widget.widget(index)
         if isinstance(console, ConsoleWindow):
             console.resetCounter()
 
     # Callback connection success
-    def callback_connection_success(self, connected):
+    def cb_connection_success(self, connected):
         if not connected:
             return
         self.set_status_bar("Connected")
 
     # Callback device disconnected
-    def callback_disconnected(self, client):
+    def cb_link_lost(self, client):
         self.set_status_bar("Disconnected")
 
     # Callback toggle theme
@@ -333,49 +333,49 @@ class MainWindow(SSCWindowProperties):
 
     def connect_ble(self):
         self.debug_info("Interface selected: BLE")
-        self.stream_interface = BLEHandler()
+        self.interface = BLEHandler()
         self.connection_tab = BLEConnectionWindow(
-            self, self.stream_interface, "BLE")
+            self, self.interface, "BLE")
         self.connection_tab.signal_closing_complete.connect(
-            self.callback_finalize_close
+            self.cb_finalize_close
         )
-        self.stream_interface.connectionCompleted.connect(
-            self.callback_connection_success
+        self.interface.linkReady.connect(
+            self.cb_connection_success
         )
-        self.stream_interface.deviceDisconnected.connect(
-            self.callback_disconnected)
+        self.interface.linkLost.connect(
+            self.cb_link_lost)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
 
     def connect_wifi(self):
         self.debug_info("Interface selected: WiFi")
-        self.stream_interface = WiFiHandler()
+        self.interface = WiFiHandler()
         self.connection_tab = WiFiConnectionWindow(
-            self, self.stream_interface, "WiFi")
+            self, self.interface, "WiFi")
         self.connection_tab.signal_closing_complete.connect(
-            self.callback_finalize_close
+            self.cb_finalize_close
         )
-        self.stream_interface.connectionCompleted.connect(
-            self.callback_connection_success
+        self.interface.linkReady.connect(
+            self.cb_connection_success
         )
-        self.stream_interface.deviceDisconnected.connect(
-            self.callback_disconnected)
+        self.interface.linkLost.connect(
+            self.cb_link_lost)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
 
     def connect_uart(self):
         self.debug_info("Interface selected: UART")
-        self.stream_interface = UARTHandler()
+        self.interface = UARTHandler()
         self.connection_tab = UARTConnectionWindow(
-            self, self.stream_interface, "UART")
+            self, self.interface, "UART")
         self.connection_tab.signal_closing_complete.connect(
-            self.callback_finalize_close
+            self.cb_finalize_close
         )
-        self.stream_interface.connectionCompleted.connect(
-            self.callback_connection_success
+        self.interface.linkReady.connect(
+            self.cb_connection_success
         )
-        self.stream_interface.deviceDisconnected.connect(
-            self.callback_disconnected)
+        self.interface.linkLost.connect(
+            self.cb_link_lost)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
 
@@ -417,5 +417,5 @@ class MainWindow(SSCWindowProperties):
         else:
             event.accept()
 
-    def callback_finalize_close(self):
+    def cb_finalize_close(self):
         self.close()
