@@ -32,7 +32,7 @@ import resources.patterns as patterns
 
 
 class WiFiConnectionWindow(QWidget):
-    signal_closing_complete = pyqtSignal()
+    closingReady = pyqtSignal()
 
     def __init__(self, main_window, interface: CommunicationInterface, title):
         self.connection_event = asyncio.Event()
@@ -126,14 +126,13 @@ class WiFiConnectionWindow(QWidget):
     # WiFi Reconnection
     @qasync.asyncSlot()
     async def wifi_reconnect(self):
-        max_recon_retries = app_config.globals["wifi"]["reconnection_retries"]
+        max_recon_retries = app_config.globals["wifi"]["con_retries"]
         retries_counter = 1  # Static start value
 
         while retries_counter <= max_recon_retries:
             self.connection_event.clear()
             self.mw.debug_info(
-                f"Attempting reconnection to {self.device_address}. Retry: {
-                    retries_counter}/{max_recon_retries}"
+                f"Attempting reconnection to {self.device_address}. Retry: {retries_counter}/{max_recon_retries}"
             )
             await self.wifi_connect(self.device_address, reconnect=True)
             if self.connection_event.is_set():
@@ -234,7 +233,7 @@ class WiFiConnectionWindow(QWidget):
 
             self.mw.add_updater_tab(window, name)
 
-    # Initialize a new console window
+    # Initialize or reinitialize a console window
     def create_console_window(self, name, uuid):
         # Check if the console window is already open
         if uuid in self.console_ref:
@@ -261,14 +260,16 @@ class WiFiConnectionWindow(QWidget):
     # Stop the WiFi Handler
     @qasync.asyncSlot()
     async def process_close_task(self, close_window=True):
+        print("Closing WiFi Connection")
         self.device_address = None
         if not self.is_closing:
             self.is_closing = True
             await self.wifi_stop()
             self.stop_consoles()
             if close_window:
-                self.signal_closing_complete.emit()
+                self.closingReady.emit()
 
     # Exit triggered from "exit" button
     def exitApplication(self):
+        print("Exit WiFi Connection")
         self.mw.exit_interface()

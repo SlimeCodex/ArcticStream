@@ -108,10 +108,9 @@ class UpdaterWindow(QWidget):
         # Simple folder button
         self.folder_button = SimpleButton(
             self,
-            icon=f"{
-                self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
+            icon=f"{self.icons_dir}/drive_folder_upload_FILL0_wght400_GRAD0_opsz24.svg",
             size=app_config.globals["gui"]["default_button_size"],
-            style=th.get_style("default_button_style"),
+            style=th.get_style("default_button"),
             callback=self.setPath,
         )
 
@@ -127,7 +126,7 @@ class UpdaterWindow(QWidget):
         self.drag_placeholder.setFont(QFont("Inconsolata"))
         self.drag_placeholder.setGeometry(self.text_edit_printf.geometry())
         self.drag_placeholder.setStyleSheet(
-            th.get_style("updater_placeholder_line_edit_style")
+            th.get_style("updater_placeholder_line_edit")
         )
         self.drag_placeholder.setReadOnly(True)
         self.drag_placeholder.setAlignment(Qt.AlignCenter)
@@ -149,7 +148,7 @@ class UpdaterWindow(QWidget):
             app_config.globals["gui"]["default_loading_bar_height"]
         )
         self.progress_bar.setStyleSheet(
-            th.get_style("default_loading_bar_style"))
+            th.get_style("default_loading_bar"))
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
 
@@ -180,28 +179,28 @@ class UpdaterWindow(QWidget):
     def highlight_drag_box(self, highlight):
         if highlight:
             self.text_edit_printf.setStyleSheet(
-                th.get_style("updater_highligh_ptext_edit_style")
+                th.get_style("updater_highligh_ptext_edit")
             )
         else:
             self.text_edit_printf.setStyleSheet(
-                th.get_style("default_text_edit_style"))
+                th.get_style("default_text_edit"))
 
     def cb_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
-        self.folder_button.setStyleSheet(th.get_style("default_button_style"))
+        self.folder_button.setStyleSheet(th.get_style("default_button"))
         self.drag_placeholder.setStyleSheet(
-            th.get_style("updater_placeholder_line_edit_style")
+            th.get_style("updater_placeholder_line_edit")
         )
         self.text_edit_printf.setStyleSheet(
-            th.get_style("default_text_edit_style"))
+            th.get_style("default_text_edit"))
 
         if self.ota_error_status:  # If in error state
             self.progress_bar.setStyleSheet(
-                th.get_style("uploader_loading_bar_fail_style")
+                th.get_style("uploader_loading_bar_fail")
             )
         else:
             self.progress_bar.setStyleSheet(
-                th.get_style("default_loading_bar_style"))
+                th.get_style("default_loading_bar"))
 
         # Update special widgets by theme
         if theme == "dark":
@@ -267,7 +266,7 @@ class UpdaterWindow(QWidget):
         self.ota_error_status = False
         self.clear_events()
         self.progress_bar.setStyleSheet(
-            th.get_style("default_loading_bar_style"))
+            th.get_style("default_loading_bar"))
         self.progress_bar.setValue(0)
 
     def clear_events(self):
@@ -287,8 +286,7 @@ class UpdaterWindow(QWidget):
     async def send_file_info(self, total_size, file_hash):
         await self.interface.writeCharacteristic(
             self.updater_index.rxm.uuid,
-            str(f"ARCTIC_COMMAND_OTA_SETUP -s {
-                total_size} -md5 {file_hash}").encode(),
+            str(f"ARCTIC_COMMAND_OTA_SETUP -s {total_size} -md5 {file_hash}").encode(),
         )
 
     async def wait_for_device_ready(
@@ -309,8 +307,7 @@ class UpdaterWindow(QWidget):
                 return True
             except asyncio.TimeoutError:
                 self.mw.debug_log(
-                    f"Timeout waiting for device to be ready. Retrying {
-                        retries+1}/{max_retries}..."
+                    f"Timeout waiting for device to be ready. Retrying {retries+1}/{max_retries}..."
                 )
                 retries += 1
 
@@ -333,7 +330,7 @@ class UpdaterWindow(QWidget):
             if self.disconnect_event.is_set():
                 self.mw.debug_log("OTA update aborted due to disconnection.")
                 self.progress_bar.setStyleSheet(
-                    th.get_style("uploader_loading_bar_fail_style")
+                    th.get_style("uploader_loading_bar_fail")
                 )
                 self.ota_error_status = True
                 self.ota_running = False
@@ -357,8 +354,7 @@ class UpdaterWindow(QWidget):
         self.elapsed_str = str(elapsed_time).split(".")[0]
         kbytes_per_second = (transferred / elapsed_time.total_seconds()) / 1024
         self.update_info(
-            f"[{self.elapsed_str}] OTA Loading Progress: {
-                progress}% ({transferred}/{total_size} bytes, {kbytes_per_second:.2f} kb/s)"
+            f"[{self.elapsed_str}] OTA Loading Progress: {progress}% ({transferred}/{total_size} bytes, {kbytes_per_second:.2f} kb/s)"
         )
 
     async def send_chunk_with_retries(
@@ -369,7 +365,7 @@ class UpdaterWindow(QWidget):
             if self.disconnect_event.is_set():
                 self.mw.debug_log("OTA update aborted due to disconnection.")
                 self.progress_bar.setStyleSheet(
-                    th.get_style("uploader_loading_bar_fail_style")
+                    th.get_style("uploader_loading_bar_fail")
                 )
                 self.ota_error_status = True
                 self.ota_running = False
@@ -382,7 +378,7 @@ class UpdaterWindow(QWidget):
 
         self.mw.debug_log("Maximum retries reached, stopping OTA")
         self.progress_bar.setStyleSheet(
-            th.get_style("uploader_loading_bar_fail_style"))
+            th.get_style("uploader_loading_bar_fail"))
         self.ota_error_status = True
         self.ota_running = False
         return False
@@ -419,22 +415,22 @@ class UpdaterWindow(QWidget):
         if self.success_event.is_set():
             self.update_info(f"[{self.elapsed_str}] OTA Loading completed")
             self.progress_bar.setStyleSheet(
-                th.get_style("default_loading_bar_style"))
+                th.get_style("default_loading_bar"))
         elif self.error_event.is_set():
             self.progress_bar.setStyleSheet(
-                th.get_style("uploader_loading_bar_fail_style")
+                th.get_style("uploader_loading_bar_fail")
             )
             self.update_info(f"[{self.elapsed_str}] OTA Error received")
             self.ota_error_status = True
         elif self.disconnect_event.is_set():
             self.progress_bar.setStyleSheet(
-                th.get_style("uploader_loading_bar_fail_style")
+                th.get_style("uploader_loading_bar_fail")
             )
             self.update_info(f"[{self.elapsed_str}] OTA Device disconnected")
             self.ota_error_status = True
         else:
             self.progress_bar.setStyleSheet(
-                th.get_style("uploader_loading_bar_fail_style")
+                th.get_style("uploader_loading_bar_fail")
             )
             self.update_info(f"[{self.elapsed_str}] OTA Loading aborted")
             self.ota_error_status = True

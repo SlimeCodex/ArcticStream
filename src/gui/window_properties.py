@@ -53,7 +53,7 @@ class SSCWindowProperties(QMainWindow):
             app_config.globals["gui"]["custom_bar_height"]
         )
         self.custom_bar_widget.setStyleSheet(
-            th.get_style("custom_bar_widget_style"))
+            th.get_style("custom_bar_widget"))
 
         custom_bar_layout = QHBoxLayout()
         custom_bar_layout.setContentsMargins(0, 0, 0, 0)
@@ -64,7 +64,7 @@ class SSCWindowProperties(QMainWindow):
             self,
             icon=f"{self.icons_dir}/chevron_right_FILL0_wght400_GRAD0_opsz24.svg",
             size=app_config.globals["gui"]["custom_bar_button_size"],
-            style=th.get_style("custom_bar_button_style"),
+            style=th.get_style("custom_bar_button"),
             callback=self.toggle_debug,
         )
 
@@ -80,7 +80,7 @@ class SSCWindowProperties(QMainWindow):
                 f"{self.icons_dir}/light_mode_FILL0_wght400_GRAD0_opsz24.svg",
             ),
             size=app_config.globals["gui"]["custom_bar_button_size"],
-            style=th.get_style("custom_bar_button_style"),
+            style=th.get_style("custom_bar_button"),
             callback=self.toggle_theme,
             toggled=False,
         )
@@ -93,7 +93,7 @@ class SSCWindowProperties(QMainWindow):
                 f"{self.icons_dir}/move_up_FILL0_wght400_GRAD0_opsz24.svg",
             ),
             size=app_config.globals["gui"]["custom_bar_button_size"],
-            style=th.get_style("custom_bar_button_style"),
+            style=th.get_style("custom_bar_button"),
             callback=self.toggle_hint,
             toggled=False,
         )
@@ -110,7 +110,7 @@ class SSCWindowProperties(QMainWindow):
             self,
             icon=f"{self.icons_dir}/minimize_FILL0_wght400_GRAD0_opsz24.svg",
             size=app_config.globals["gui"]["custom_bar_button_size"],
-            style=th.get_style("custom_bar_button_style"),
+            style=th.get_style("custom_bar_button"),
             callback=self.toggle_minimize,
         )
 
@@ -122,7 +122,7 @@ class SSCWindowProperties(QMainWindow):
                 f"{self.icons_dir}/collapse_content_FILL0_wght400_GRAD0_opsz24.svg",
             ),
             size=app_config.globals["gui"]["custom_bar_button_size"],
-            style=th.get_style("custom_bar_button_style"),
+            style=th.get_style("custom_bar_button"),
             callback=self.fullscreen,
             toggled=False,
         )
@@ -132,7 +132,7 @@ class SSCWindowProperties(QMainWindow):
             self,
             icon=f"{self.icons_dir}/close_FILL0_wght400_GRAD0_opsz24.svg",
             size=app_config.globals["gui"]["custom_bar_button_size"],
-            style=th.get_style("custom_bar_close_button_style"),
+            style=th.get_style("custom_bar_close_button"),
             callback=self.close_window,
         )
 
@@ -207,19 +207,19 @@ class SSCWindowProperties(QMainWindow):
 
         # Reload stylesheets (background for SVG buttons)
         self.custom_bar_widget.setStyleSheet(
-            th.get_style("custom_bar_widget_style"))
-        self.logo_button.setStyleSheet(th.get_style("custom_bar_button_style"))
-        self.title_label.setStyleSheet(th.get_style("custom_bar_button_style"))
+            th.get_style("custom_bar_widget"))
+        self.logo_button.setStyleSheet(th.get_style("custom_bar_button"))
+        self.title_label.setStyleSheet(th.get_style("custom_bar_button"))
         self.color_mode_button.setStyleSheet(
-            th.get_style("custom_bar_button_style"))
+            th.get_style("custom_bar_button"))
         self.top_hint_button.setStyleSheet(
-            th.get_style("custom_bar_button_style"))
+            th.get_style("custom_bar_button"))
         self.minimize_button.setStyleSheet(
-            th.get_style("custom_bar_button_style"))
+            th.get_style("custom_bar_button"))
         self.fullscreen_button.setStyleSheet(
-            th.get_style("custom_bar_button_style"))
+            th.get_style("custom_bar_button"))
         self.close_button.setStyleSheet(
-            th.get_style("custom_bar_close_button_style"))
+            th.get_style("custom_bar_close_button"))
 
         # Update special widgets by theme
         if theme == "dark":

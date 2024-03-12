@@ -32,7 +32,7 @@ import resources.patterns as patterns
 
 
 class UARTConnectionWindow(QWidget):
-    signal_closing_complete = pyqtSignal()
+    closingReady = pyqtSignal()
 
     def __init__(self, main_window, interface: CommunicationInterface, title):
         self.connection_event = asyncio.Event()
@@ -124,14 +124,14 @@ class UARTConnectionWindow(QWidget):
     # UART Automatic Reconnection
     @qasync.asyncSlot()
     async def uart_reconnect(self):
-        max_recon_retries = app_config.globals["wifi"]["reconnection_retries"]
+        max_recon_retries = app_config.globals["wifi"]["con_retries"]
         retries_counter = 1  # Static start value
 
         while retries_counter <= max_recon_retries:
             self.connection_event.clear()
             self.mw.debug_info(
-                f"Attempting reconnection to {self.device_port}. Retry: {
-                    retries_counter}/{max_recon_retries}"
+                f"Attempting reconnection to {self.device_port}. "
+                f"Retry: {retries_counter}/{max_recon_retries}"
             )
             await self.uart_connect(self.device_port, reconnect=True)
             if self.connection_event.is_set():
@@ -174,7 +174,7 @@ class UARTConnectionWindow(QWidget):
 
     # Stop UART Threads and processes
     @qasync.asyncSlot()
-    async def uart_stop(self):  # Renamed for clarity
+    async def uart_stop(self):
         self.mw.debug_info("Disconnecting UART device ...")
         await self.interface.disconnect()
 
@@ -266,7 +266,7 @@ class UARTConnectionWindow(QWidget):
             await self.uart_stop()
             self.stop_consoles()
             if close_window:
-                self.signal_closing_complete.emit()
+                self.closingReady.emit()
 
     # Exit triggered from "exit" button
     def exitApplication(self):

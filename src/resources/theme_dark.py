@@ -1,7 +1,7 @@
 # Desc: Styles for the GUI
 # This file is part of ArcticStream Library.
 
-default_app_style = """
+default_app = """
     QMainWindow {
         background-color: #1e1e1e;
     }
@@ -24,7 +24,7 @@ default_app_style = """
 
 # QWidgets --------------------------------
 
-custom_bar_widget_style = """
+custom_bar_widget = """
     QWidget {
         background-color: #333333;
     }
@@ -32,7 +32,7 @@ custom_bar_widget_style = """
 
 # Push buttons ----------------------------
 
-default_button_style = """
+default_button = """
     QPushButton {
         background-color: #333333;
         color: #ffffff;
@@ -49,7 +49,7 @@ default_button_style = """
     }
 """
 
-custom_bar_button_style = """
+custom_bar_button = """
     QPushButton {
         background-color: #333333;
         color: #ffffff;
@@ -63,7 +63,7 @@ custom_bar_button_style = """
     }
 """
 
-custom_bar_close_button_style = """
+custom_bar_close_button = """
     QPushButton {
         background-color: #333333;
         color: #ffffff;
@@ -77,7 +77,7 @@ custom_bar_close_button_style = """
     }
 """
 
-connectors_button_style = """
+connectors_button = """
     QPushButton {
         background-color: #333333;
         color: #ffffff;
@@ -96,7 +96,7 @@ connectors_button_style = """
     }
 """
 
-connectors_desc_button_style = """
+connectors_desc_button = """
     QPushButton {
         background-color: #333333;
         color: #ffffff;
@@ -116,7 +116,7 @@ connectors_desc_button_style = """
 
 # QLineEdit ----------------------------
 
-default_line_edit_style = """
+default_line_edit = """
     QLineEdit {
         background-color: #1e1e1e;
         color: #dcdcdc;
@@ -130,7 +130,7 @@ default_line_edit_style = """
     }
 """
 
-console_send_line_edit_style = """
+console_send_line_edit = """
     QLineEdit {
         background-color: #555555;
         color: #ffffff;
@@ -138,7 +138,7 @@ console_send_line_edit_style = """
     }
 """
 
-console_status_line_edit_style = """
+console_status_line_edit = """
     QLineEdit {
         background-color: rgba(50, 50, 50, 128);
         color: #ffffff;
@@ -152,7 +152,7 @@ console_status_line_edit_style = """
     }
 """
 
-updater_placeholder_line_edit_style = """
+updater_placeholder_line_edit = """
     QLineEdit {
         background: transparent;
         color: gray;
@@ -161,7 +161,7 @@ updater_placeholder_line_edit_style = """
     }
 """
 
-debug_bar_line_edit_style = """
+debug_bar_line_edit = """
     QLineEdit {
         background-color: #2b2b2b;
         color: #dcdcdc;
@@ -171,7 +171,7 @@ debug_bar_line_edit_style = """
 
 # QTextEdit ----------------------------
 
-default_text_edit_style = """
+default_text_edit = """
     QTextEdit {
         background-color: #1e1e1e;
         color: #dcdcdc;
@@ -185,7 +185,7 @@ default_text_edit_style = """
     }
 """
 
-default_ptext_edit_style = """
+default_ptext_edit = """
     QPlainTextEdit {
         background-color: #1e1e1e;
         color: #dcdcdc;
@@ -199,7 +199,7 @@ default_ptext_edit_style = """
     }
 """
 
-updater_highligh_ptext_edit_style = """
+updater_highligh_ptext_edit = """
     QPlainTextEdit {
         background-color: rgba(150, 150, 150, 0.5);
     }
@@ -207,7 +207,7 @@ updater_highligh_ptext_edit_style = """
 
 # QTabWidget ----------------------------
 
-default_tab_style = """
+default_tab = """
     QTabWidget::pane {
         background-color: #2b2b2b;
         
@@ -256,7 +256,7 @@ default_tab_style = """
 
 # Scroll bars ----------------------------
 
-default_scroll_style = """
+default_scroll = """
     QScrollBar:vertical {
         border: none;
         background-color: #2b2b2b;
@@ -302,7 +302,7 @@ default_scroll_style = """
 
 # Loading bar ----------------------------
 
-default_loading_bar_style = """
+default_loading_bar = """
     QProgressBar {
         background-color: #555555;
         color: #ffffff;
@@ -320,7 +320,7 @@ default_loading_bar_style = """
     }
 """
 
-uploader_loading_bar_fail_style = """
+uploader_loading_bar_fail = """
     QProgressBar {
         background-color: #555555;
         color: #ffffff;

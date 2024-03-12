@@ -106,7 +106,7 @@ class ConsoleWindow(QWidget):
                 f"{self.icons_dir}/lock_FILL0_wght400_GRAD0_opsz24.svg",
             ),
             size=app_config.globals["gui"]["default_button_size"],
-            style=th.get_style("default_button_style"),
+            style=th.get_style("default_button"),
             callback=self.toggle_lock,
             toggled=True,
         )
@@ -121,7 +121,7 @@ class ConsoleWindow(QWidget):
         self.status_overlay = QLineEdit(self)
         self.status_overlay.setFont(QFont("Inconsolata"))
         self.status_overlay.setStyleSheet(
-            th.get_style("console_status_line_edit_style")
+            th.get_style("console_status_line_edit")
         )
         self.status_overlay.setGeometry(self.text_edit_printf.geometry())
         self.status_overlay.setReadOnly(True)
@@ -154,7 +154,7 @@ class ConsoleWindow(QWidget):
             app_config.globals["gui"]["default_line_edit_height"]
         )
         self.line_edit_send.setStyleSheet(
-            th.get_style("console_send_line_edit_style"))
+            th.get_style("console_send_line_edit"))
         self.line_edit_send.setPlaceholderText("Insert data to send ...")
 
         # Simple send button
@@ -162,7 +162,7 @@ class ConsoleWindow(QWidget):
             self,
             icon=f"{self.icons_dir}/play_arrow_FILL0_wght400_GRAD0_opsz24.svg",
             size=app_config.globals["gui"]["default_button_size"],
-            style=th.get_style("default_button_style"),
+            style=th.get_style("default_button"),
             callback=self.send_data,
         )
 
@@ -273,8 +273,7 @@ class ConsoleWindow(QWidget):
             f"Inputs: {self.total_data_counter} | "
             f"Bytes: {self.total_bytes_received} B | "
             f"Delta: {latency_text} | "
-            f"Last: {self.last_received_timestamp.strftime(
-                '%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
+            f"Last: {self.last_received_timestamp.strftime('%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
         )
 
         self.status_overlay.setText(status_text)
@@ -373,7 +372,7 @@ class ConsoleWindow(QWidget):
                 )
         else:
             self.logging_enabled = False
-            self.log_button.setStyleSheet(th.get_style("default_button_style"))
+            self.log_button.setStyleSheet(th.get_style("default_button"))
 
     def select_log_file(self):
         # Use the native file dialog
@@ -388,13 +387,13 @@ class ConsoleWindow(QWidget):
     def cb_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
         self.line_edit_send.setStyleSheet(
-            th.get_style("console_send_line_edit_style"))
+            th.get_style("console_send_line_edit"))
         if not self.logging_enabled:
-            self.log_button.setStyleSheet(th.get_style("default_button_style"))
-        self.lock_button.setStyleSheet(th.get_style("default_button_style"))
-        self.send_button.setStyleSheet(th.get_style("default_button_style"))
+            self.log_button.setStyleSheet(th.get_style("default_button"))
+        self.lock_button.setStyleSheet(th.get_style("default_button"))
+        self.send_button.setStyleSheet(th.get_style("default_button"))
         self.status_overlay.setStyleSheet(
-            th.get_style("console_status_line_edit_style")
+            th.get_style("console_status_line_edit")
         )
 
         # Update special widgets by theme
