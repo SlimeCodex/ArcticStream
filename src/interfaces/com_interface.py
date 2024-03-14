@@ -41,11 +41,6 @@ class CommunicationInterface(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def get_services(self):
-        """Retrieves services information from the connected device (if applicable)."""
-        pass
-
-    @abstractmethod
     async def disconnect(self):
         """Disconnects from the connected device."""
         pass

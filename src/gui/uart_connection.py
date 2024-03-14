@@ -53,6 +53,7 @@ class UARTConnectionWindow(QWidget):
         self.interface.scanReady.connect(self.cb_scan_ready)
         self.interface.linkReady.connect(self.cb_link_ready)
         self.interface.linkLost.connect(self.cb_link_lost)
+        self.interface.dataReceived.connect(self.cb_data_received)
         self.interface.writeReady.connect(self.cb_write_ready)
 
         # Console Handling Variables
@@ -117,14 +118,14 @@ class UARTConnectionWindow(QWidget):
         self.device_port = device_port
 
         if not reconnect:
-            self.mw.debug_info(f"Connecting to {device_port} ...")
+            self.mw.debug_info(f"Connecting to {self.device_port} ...")
 
-        await self.interface.connect_to_device(device_port)
+        await self.interface.connect_to_device(self.device_port)
 
     # UART Automatic Reconnection
     @qasync.asyncSlot()
     async def uart_reconnect(self):
-        max_recon_retries = app_config.globals["wifi"]["con_retries"]
+        max_recon_retries = app_config.globals["uart"]["con_retries"]
         retries_counter = 1  # Static start value
 
         while retries_counter <= max_recon_retries:
@@ -134,6 +135,7 @@ class UARTConnectionWindow(QWidget):
                 f"Retry: {retries_counter}/{max_recon_retries}"
             )
             await self.uart_connect(self.device_port, reconnect=True)
+            await asyncio.sleep(3)
             if self.connection_event.is_set():
                 break
             else:
@@ -142,11 +144,30 @@ class UARTConnectionWindow(QWidget):
         if retries_counter > max_recon_retries:
             self.mw.debug_info(f"Reconnection to {self.device_port} failed")
 
-    # Retrieve Services Information
+    # Retrieve Services from the connected device
     @qasync.asyncSlot()
-    async def register_services(self):
+    async def get_services(self):
+        uuid = patterns.UUID_UART_BACKEND_RX
+        await self.interface.send_command("ARCTIC_COMMAND_GET_SERVICES", uuid)
+
+    # Stop UART Threads and processes
+    @qasync.asyncSlot()
+    async def uart_stop(self):
+        self.interface.disconnect()
+
+    # Clear connection
+    @qasync.asyncSlot()
+    async def uart_clear_connection(self):
+        self.mw.debug_info("Clearing UART connection ...")
+        self.device_port = None
+        if not self.is_closing:
+            asyncio.ensure_future(self.process_close_task(close_window=False))
+
+    # --- Device Interaction ---
+
+    # Services Information
+    def register_services(self, retrieved_services):
         """Retrieves services information from the connected device."""
-        retrieved_services = await self.interface.get_services()
 
         for service in retrieved_services:
             service_uuid = service["ats"]
@@ -172,19 +193,36 @@ class UARTConnectionWindow(QWidget):
             # Add the console to the main window
             self.mw.add_console_tab(console, console_name)
 
-    # Stop UART Threads and processes
-    @qasync.asyncSlot()
-    async def uart_stop(self):
-        self.mw.debug_info("Disconnecting UART device ...")
-        await self.interface.disconnect()
+        # Enable data uplink
+        self.enable_device_uplink()
 
-    # Clear connection
+    def parse_services(self, response):
+        """Parses services information from the response string."""
+        modules = response.replace("ARCTIC_COMMAND_GET_SERVICES:", "")
+        modules = modules.split(":")
+        parsed_services = []
+        for module in modules:
+            parts = module.split(",")
+            if len(parts) >= 5:
+                module_info = {
+                    "name": parts[0],
+                    "ats": parts[1],
+                    "txm": parts[2],
+                    "txs": parts[3],
+                    "rxm": parts[4],
+                }
+                parsed_services.append(module_info)
+        return parsed_services
+
     @qasync.asyncSlot()
-    async def uart_clear_connection(self):
-        self.mw.debug_info("Clearing UART connection ...")
-        self.device_port = None
-        if not self.is_closing:
-            asyncio.ensure_future(self.process_close_task(close_window=False))
+    async def enable_device_uplink(self):
+        uuid = patterns.UUID_UART_BACKEND_RX
+        await self.interface.send_command("ARCTIC_COMMAND_ENABLE_UPLINK", uuid)
+
+    @qasync.asyncSlot()
+    async def disable_device_uplink(self):
+        uuid = patterns.UUID_UART_BACKEND_RX
+        await self.interface.send_command("ARCTIC_COMMAND_DISABLE_UPLINK", uuid)
 
     # --- Callbacks ---
 
@@ -199,7 +237,7 @@ class UARTConnectionWindow(QWidget):
         if connected:
             self.connection_event.set()
             self.mw.debug_info(f"Connected to {self.device_port}")
-            self.register_services()
+            self.get_services()
         else:
             self.connection_event.clear()
 
@@ -211,6 +249,13 @@ class UARTConnectionWindow(QWidget):
         if self.device_port:
             self.uart_reconnect()
 
+    # Data Received
+    def cb_data_received(self, uuid, data):
+        if uuid == patterns.UUID_UART_BACKEND_TX:
+            if "ARCTIC_COMMAND_GET_SERVICES" in data:
+                services = self.parse_services(data)
+                self.register_services(services)
+
     # Write Complete
     def cb_write_ready(self, success):
         if not success:
@@ -220,32 +265,24 @@ class UARTConnectionWindow(QWidget):
 
     # Initialize a new updater window (OTA)
     def create_updater_window(self, name, uuid):
-
         # Check if the console window is already open
         if self.updater_ref:
             window = self.updater_ref
         else:
             # Console window is not open, create a new one
-            window = UpdaterWindow(
-                self.mw, self.interface, name, self.updater_service)
+            window = UpdaterWindow(self.mw, self.interface, name, self.updater_service)
             self.updater_ref = window
 
             self.mw.add_updater_tab(window, name)
 
     # Initialize or reinitialize a console window
     def create_console_window(self, name, uuid):
-
         # Check if the console window is already open
         if uuid in self.console_ref:
             console = self.console_ref[uuid]
         else:
             # Console window is not open, create a new one
-            console = ConsoleWindow(
-                self.mw,
-                self.interface,
-                name,
-                self.console[uuid]
-            )
+            console = ConsoleWindow(self.mw, self.interface, name, self.console[uuid])
             self.console_ref[uuid] = console
 
             self.mw.add_console_tab(console, name)

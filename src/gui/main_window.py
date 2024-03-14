@@ -74,7 +74,6 @@ class MainWindow(SSCWindowProperties):
 
         # Set the status label
         self.set_status_bar("Disconnected")
-        self.setContentsMargins(2, 2, 2, 2)
 
         # Globals
         self.connection_tab = None
@@ -227,17 +226,35 @@ class MainWindow(SSCWindowProperties):
 
     def set_status_bar(self, mode):
         if mode == "Connected":
-            self.setStyleSheet("MainWindow {border: 2px solid rgba(0, 100, 0, 128);}")
+            self.set_marging("rgba(0, 100, 0, 128)", 3)
             self.con_status_button.setStyleSheet(
-                "font-size: 13px; color: white; background-color: rgba(0, 100, 0, 128); border-radius: 0px;"
+                """
+                font-size: 12px;
+                color: white;
+                background-color: rgba(0, 139, 0, 128);
+                border-radius: 10px;
+                margin-right: 10px;
+                margin-left: 10px;
+                """
             )
             self.con_status_button.setText("Connected")
         elif mode == "Disconnected":
-            self.setStyleSheet("MainWindow {border: 2px solid rgba(139, 0, 0, 128);}")
+            self.set_marging("rgba(255, 255, 255, 128)", 3)
             self.con_status_button.setStyleSheet(
-                "font-size: 13px; color: white; background-color: rgba(139, 0, 0, 128); border-radius: 0px;"
+                """
+                font-size: 12px;
+                color: white;
+                background-color: rgba(139, 0, 0, 128);
+                border-radius: 10px;
+                margin-right: 10px;
+                margin-left: 10px;
+                """
             )
             self.con_status_button.setText("Disconnected")
+
+    def set_marging(self, color, size):
+        self.setStyleSheet(f"MainWindow {{border: {size}px solid {color};}}")
+        self.setContentsMargins(size, size, size, size)
 
     # Get the icon path
     def icon_path(self):

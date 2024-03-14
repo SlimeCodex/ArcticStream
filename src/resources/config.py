@@ -28,6 +28,7 @@ globals = {
         "keepalive": 400,  # Keepalive interval for UART
         "con_retries": 5,  # Number of retries for UART reconnection
         "keepalive_com": 0xA5,  # Keepalive command for UART
+        "act_timeout": 500,  # Timeout to declare UART connection lost in ms
     },
     "wifi": {
         "network": "192.168.0.0/24",  # Network IP range for WiFi

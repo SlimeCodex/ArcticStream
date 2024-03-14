@@ -17,7 +17,7 @@
 #
 
 from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal
-from PyQt5.QtWidgets import QMainWindow, QLabel, QPushButton, QWidget, QHBoxLayout
+from PyQt5.QtWidgets import QMainWindow, QLabel, QWidget, QHBoxLayout
 from PyQt5.QtGui import QPainter, QPolygon, QColor
 
 import resources.config as app_config
@@ -43,17 +43,15 @@ class SSCWindowProperties(QMainWindow):
         self.start_position = None
         self.window_rect = None
 
-    # GUI Functions ------------------------------------------------------------------------------------------
+    # GUI Functions
 
     # Set the custom title bar
     def set_custom_title(self, title):
-
         self.custom_bar_widget = QWidget(self)
         self.custom_bar_widget.setFixedHeight(
             app_config.globals["gui"]["custom_bar_height"]
         )
-        self.custom_bar_widget.setStyleSheet(
-            th.get_style("custom_bar_widget"))
+        self.custom_bar_widget.setStyleSheet(th.get_style("custom_bar_widget"))
 
         custom_bar_layout = QHBoxLayout()
         custom_bar_layout.setContentsMargins(0, 0, 0, 0)
@@ -98,12 +96,29 @@ class SSCWindowProperties(QMainWindow):
             toggled=False,
         )
 
-        # Status text with colored background
-        self.con_status_button = TriangleButton()
-        self.con_status_button.setTriangleColor("#333333")
-        self.con_status_button.setFixedSize(
-            150, app_config.globals["gui"]["custom_bar_height"]
+        # Autosync button
+        self.autosync_button = ToggleButton(
+            self,
+            icons=(
+                f"{self.icons_dir}/sync_disabled_FILL0_wght400_GRAD0_opsz24.svg",
+                f"{self.icons_dir}/sync_FILL0_wght400_GRAD0_opsz24.svg",
+            ),
+            size=app_config.globals["gui"]["custom_bar_button_size"],
+            style=th.get_style("custom_bar_button"),
+            callback=self.toggle_autosync,
+            toggled=True,
         )
+
+        # Status text with colored background
+        self.con_status_button = SimpleButton(
+            self,
+            icon=None,
+            size=app_config.globals["gui"]["custom_bar_button_size"],
+            style=th.get_style("custom_bar_button"),
+            callback=None,
+        )
+        # Size adjustment for the connect/disconnect label
+        self.con_status_button.setFixedSize(130, 20)
 
         # Simple minimize button
         self.minimize_button = SimpleButton(
@@ -141,6 +156,7 @@ class SSCWindowProperties(QMainWindow):
         custom_bar_layout.addWidget(self.title_label)
         custom_bar_layout.addWidget(self.color_mode_button)
         custom_bar_layout.addWidget(self.top_hint_button)
+        custom_bar_layout.addWidget(self.autosync_button)
         custom_bar_layout.addWidget(self.con_status_button)
         custom_bar_layout.addWidget(self.minimize_button)
         custom_bar_layout.addWidget(self.fullscreen_button)
@@ -149,7 +165,7 @@ class SSCWindowProperties(QMainWindow):
         self.custom_bar_widget.setLayout(custom_bar_layout)
         self.setMenuWidget(self.custom_bar_widget)
 
-    # Window Functions ------------------------------------------------------------------------------------------
+    # Window Functions
 
     def get_resize_direction(self, position):
         rect = self.rect()
@@ -190,12 +206,16 @@ class SSCWindowProperties(QMainWindow):
 
     def toggle_hint(self, status):
         if status:
-            self.setWindowFlags(Qt.FramelessWindowHint |
-                                Qt.WindowStaysOnTopHint)
-            self.show()
+            self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         else:
             self.setWindowFlags(Qt.FramelessWindowHint)
-            self.show()
+        self.show()
+
+    def toggle_autosync(self, status):
+        if status:
+            print("Autosync enabled")
+        else:
+            print("Autosync disabled")
 
     def fullscreen(self, status):
         if self.isFullScreen():
@@ -204,44 +224,36 @@ class SSCWindowProperties(QMainWindow):
             self.showFullScreen()
 
     def cb_update_theme(self, theme):
-
         # Reload stylesheets (background for SVG buttons)
-        self.custom_bar_widget.setStyleSheet(
-            th.get_style("custom_bar_widget"))
+        self.custom_bar_widget.setStyleSheet(th.get_style("custom_bar_widget"))
         self.logo_button.setStyleSheet(th.get_style("custom_bar_button"))
         self.title_label.setStyleSheet(th.get_style("custom_bar_button"))
-        self.color_mode_button.setStyleSheet(
-            th.get_style("custom_bar_button"))
-        self.top_hint_button.setStyleSheet(
-            th.get_style("custom_bar_button"))
-        self.minimize_button.setStyleSheet(
-            th.get_style("custom_bar_button"))
-        self.fullscreen_button.setStyleSheet(
-            th.get_style("custom_bar_button"))
-        self.close_button.setStyleSheet(
-            th.get_style("custom_bar_close_button"))
+        self.color_mode_button.setStyleSheet(th.get_style("custom_bar_button"))
+        self.top_hint_button.setStyleSheet(th.get_style("custom_bar_button"))
+        self.autosync_button.setStyleSheet(th.get_style("custom_bar_button"))
+        self.minimize_button.setStyleSheet(th.get_style("custom_bar_button"))
+        self.fullscreen_button.setStyleSheet(th.get_style("custom_bar_button"))
+        self.close_button.setStyleSheet(th.get_style("custom_bar_close_button"))
 
         # Update special widgets by theme
         if theme == "dark":
             self.logo_button.changeIconColor("#ffffff")
             self.color_mode_button.changeIconColor("#ffffff")
             self.top_hint_button.changeIconColor("#ffffff")
+            self.autosync_button.changeIconColor("#ffffff")
             self.minimize_button.changeIconColor("#ffffff")
             self.fullscreen_button.changeIconColor("#ffffff")
             self.close_button.changeIconColor("#ffffff")
-            self.con_status_button.setTriangleColor(
-                "#333333")  # Same as bar background
         elif theme == "light":
             self.logo_button.changeIconColor("#303030")
             self.color_mode_button.changeIconColor("#303030")
             self.top_hint_button.changeIconColor("#303030")
+            self.autosync_button.changeIconColor("#303030")
             self.minimize_button.changeIconColor("#303030")
             self.fullscreen_button.changeIconColor("#303030")
             self.close_button.changeIconColor("#303030")
-            self.con_status_button.setTriangleColor(
-                "#e0e0e0")  # Same as bar background
 
-    # Qt event ------------------------------------------------------------------------------------------
+    # Qt event
 
     # Qt function
     def mousePressEvent(self, event):
@@ -302,22 +314,20 @@ class SSCWindowProperties(QMainWindow):
 
     # Qt function
     def paintEvent(self, event):
-        if not self.isFullScreen():  # Paint not allowed in fullscreen
+        if not self.isFullScreen():
             painter = QPainter(self)
             orangeColor = QColor(255, 165, 0)
             painter.setBrush(orangeColor)
             triangle = QPolygon(
                 [
                     QPoint(
-                        self.width() -
-                        app_config.globals["gui"]["resize_corner_size"],
+                        self.width() - app_config.globals["gui"]["resize_corner_size"],
                         self.height(),
                     ),
                     QPoint(self.width(), self.height()),
                     QPoint(
                         self.width(),
-                        self.height() -
-                        app_config.globals["gui"]["resize_corner_size"],
+                        self.height() - app_config.globals["gui"]["resize_corner_size"],
                     ),
                 ]
             )
@@ -338,40 +348,3 @@ class SSCWindowProperties(QMainWindow):
     def closeEvent(self, event):
         self.signal_window_close.emit()
         super().closeEvent(event)
-
-
-# Little -maybe not the best- trick to adjust the shape of connect/disconnect label
-class TriangleButton(QPushButton):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def setTriangleColor(self, color):
-        self.triangle_color = QColor(color)
-        self.update()  # Trigger a repaint
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        painter = QPainter(self)
-        painter.setBrush(self.triangle_color)
-        painter.setPen(Qt.NoPen)  # Remove borders
-
-        # Left Triangle
-        left_triangle = QPolygon(
-            [
-                QPoint(0, 0),
-                QPoint(int(self.height()), int(self.height())),
-                QPoint(0, self.height()),
-            ]
-        )
-
-        # Right Triangle
-        right_triangle = QPolygon(
-            [
-                QPoint(self.width(), 0),
-                QPoint(self.width() - int(self.height()), int(self.height())),
-                QPoint(self.width(), self.height()),
-            ]
-        )
-
-        painter.drawPolygon(left_triangle)
-        painter.drawPolygon(right_triangle)
