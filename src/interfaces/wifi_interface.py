@@ -16,7 +16,13 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
-import time
+# The WiFi interface is used to communicate with devices using the WiFi protocol.
+# It is a subclass of the CommunicationInterface class and uses the asyncio library
+# to handle the asynchronous communication.
+
+# The WiFi interface uses a network socket to communicate with the device
+# and emits signals to notify the user interface of the connection status and data received.
+
 import errno
 import select
 import socket
@@ -26,10 +32,11 @@ from abc import ABCMeta
 
 import qasync
 import asyncio
-from PyQt5.QtCore import QObject, pyqtSignal, QThread
+from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 
 import resources.config as app_config
 from interfaces.com_interface import CommunicationInterface
+import resources.patterns as patterns
 
 # PyQt wrapper type
 pyqtWrapperType = type(QObject)
@@ -41,46 +48,56 @@ class WiFiHandlerMeta(pyqtWrapperType, ABCMeta):
 
 
 class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
-    linkReady = pyqtSignal(bool)
-    dataReceived = pyqtSignal(str, str)
-    writeReady = pyqtSignal(bool)
-
     # WiFi Signals
-    scanReady = pyqtSignal(list)
-    linkLost = pyqtSignal(object)
-    dataStreamError = pyqtSignal(str)
-    dataStreamClosed = pyqtSignal()
+    scanReady = pyqtSignal(list)  # List of available devices
+    linkReady = pyqtSignal(bool)  # Device is ready to receive commands
+    linkLost = pyqtSignal(object)  # Device is not responding
+    dataReceived = pyqtSignal(str, str)  # Data received from the device
+    writeReady = pyqtSignal(bool)  # Data was sent successfully
+    taskHalted = pyqtSignal()  # Interface task was halted
+
+    # Data stream subprocess signals
+    dataStreamError = pyqtSignal(str)  # Data stream error
+    dataStreamClosed = pyqtSignal()  # Data stream was closed
 
     def __init__(self):
         super().__init__()
         self.device_address = None
+        self.socket_instance = None
         self.network = app_config.globals["wifi"]["network"]
         self.port_uplink = app_config.globals["wifi"]["port_uplink"]
         self.port_downlink = app_config.globals["wifi"]["port_downlink"]
+        self.running = False
 
-    # --- Network Scanning ---
-
+    # Network scanning method
     @qasync.asyncSlot()
     async def scan_for_devices(self):
         """Scans the network for devices and emits the discovered devices."""
+
+        # Check all potential valid IP addresses in the network
         ip_net = ipaddress.ip_network(self.network)
         all_hosts = [str(host) for host in ip_net.hosts()]
         tasks = [self._check_host(ip) for ip in all_hosts]
         results = await asyncio.gather(*tasks)
         filtered_ips = [ip for ip in results if ip]
 
-        devices_info = []
+        # Get device information from the retrieved IPs
+        # Unlike the read data stream, this method is synchronous
+        # Scan is replied from the same port is requested
         for ip in filtered_ips:
             self.device_address = ip
-            response = await self.send_command("ARCTIC_COMMAND_GET_DEVICE")
-            if "Error:" not in response:
-                name, mac = self._parse_device_info(response)
+            scan_response = await self.send_data(
+                patterns.UUID_WIFI_BACKEND_RX, "ARCTIC_COMMAND_GET_DEVICE", scan=True
+            )
+            devices_info = []
+            if "Error:" not in scan_response:
+                name, mac = self._parse_device_info(scan_response)
                 devices_info.append((name, mac, ip))
             else:
-                print(f"Response from {ip}: {response}")
+                print(f"Response from {ip}: {scan_response}")
+            self.scanReady.emit(devices_info)
 
-        self.scanReady.emit(devices_info)
-
+    # Helper method to check if a host is up and running
     async def _check_host(self, ip):
         """Checks if a host is up and running."""
         param = "-n" if platform.system().lower() == "windows" else "-c"
@@ -105,10 +122,12 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
                 pass
         return None
 
+    # Device information parsing method
     def _parse_device_info(self, response):
         """Parses device information from the response string."""
-        response = response.replace(
-            "ARCTIC_COMMAND_GET_DEVICE:", "").split(",")
+        response = response.replace(patterns.UUID_WIFI_BACKEND_TX + ":", "")
+        response = response.replace("ARCTIC_COMMAND_GET_DEVICE:", "")
+        response = response.split(",")
         if len(response) == 2:
             name = response[0].strip()
             mac = response[1].strip()
@@ -122,174 +141,124 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
     @qasync.asyncSlot()
     async def connect_to_device(self, device_address):
         """Connects to a device and starts the data stream."""
-        self.dataStreamThread = DataStreamThread(
-            device_address, self.port_uplink)
-        self.dataStreamThread.dataReceived.connect(self.handleDataStream)
-        self.dataStreamThread.errorOccurred.connect(self.handleDataStreamError)
-        self.dataStreamThread.connectionClosed.connect(
-            self.handleDataStreamClosed)
-        self.dataStreamThread.start()
-
         self.device_address = device_address
-        self.linkReady.emit(True)
-
-    def handleDataStream(self, data):
-        # Emit the dataReceived signal with appropriate parameters
-        # Assuming the data format includes UUID and data separated by ':'
-        uuid, data = data.split(":", 1)
-        self.dataReceived.emit(uuid, data)
-
-    def handleDataStreamError(self, error_message):
-        print(f"Error in data stream: {error_message}")
-        self.dataStreamError.emit(error_message)
-
-    def handleDataStreamClosed(self):
-        self.dataStreamClosed.emit()
-
-    def stopDataStream(self):
-        if self.dataStreamThread:
-            self.dataStreamThread.stop()  # Properly signal the thread to stop
-
-    # --- Communication ---
-
-    @qasync.asyncSlot()
-    async def send_data(self, uuid, data):
-        """Sends data to a device."""
-        try:
-            # Unpack reader and writer from open_connection
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(
-                    self.device_address, self.port_downlink),
-                timeout=3,
-            )
-            print(f"Sending data to {self.device_address}: {uuid} - {data}")
-            writer.write(uuid.encode() + b":" + data.encode() + b"\n")
-            await writer.drain()
-            writer.close()
-            await writer.wait_closed()
-            self.writeReady.emit(True)
-        except asyncio.TimeoutError:
-            print("Error: Data write timed out")
-            self.writeReady.emit(False)
-        except Exception as e:
-            print(f"Error: {e}")
-            self.writeReady.emit(False)
-
-    @qasync.asyncSlot()
-    async def send_command(self, command, uuid=""):
-        """Sends a command to a device and returns the response."""
-        try:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(
-                    self.device_address, self.port_downlink),
-                timeout=3,
-            )
-            if uuid:
-                uuid = ":" + uuid  # Add separator if UUID is provided
-            command_output = uuid + command
-            writer.write(command_output.encode() + b"\n")
-            await writer.drain()
-            response = await asyncio.wait_for(reader.read(2048), timeout=3)
-            writer.close()
-            await writer.wait_closed()
-            return response.decode().strip()
-        except asyncio.TimeoutError:
-            return "Error: Command response timed out"
-        except Exception as e:
-            return f"Error: {e}"
-
-    @qasync.asyncSlot()
-    async def get_services(self):
-        """Retrieves services information from the connected device."""
-        response = await self.send_command("ARCTIC_COMMAND_GET_SERVICES")
-        if "Error:" not in response:
-            return self._parse_services(response)
-        else:
-            print(f"Error in response from {self.device_address}: {response}")
-            return []
-
-    def _parse_services(self, response):
-        """Parses services information from the response string."""
-        modules = response.replace(
-            "ARCTIC_COMMAND_GET_SERVICES:", "").split(":")
-        parsed_services = []
-        for module in modules:
-            parts = module.split(",")
-            if len(parts) >= 5:
-                module_info = {
-                    "name": parts[0],
-                    "ats": parts[1],
-                    "txm": parts[2],
-                    "txs": parts[3],
-                    "rxm": parts[4],
-                }
-                parsed_services.append(module_info)
-        return parsed_services
-
-    # --- Device Management ---
-
-    @qasync.asyncSlot()
-    async def disconnect(self):
-        """Closes all client sockets and clears the connections."""
-        self.linkLost.emit(self.device_address)
-        self.device_address = None
-        self.stopDataStream()
-
-    def __del__(self):
-        self.stopDataStream()
-
-
-class DataStreamThread(QThread):
-    dataReceived = pyqtSignal(str)
-    errorOccurred = pyqtSignal(str)
-    connectionClosed = pyqtSignal()
-
-    def __init__(self, host, port):
-        super().__init__()
-        self.host = host
-        self.port = port
         self.running = True
 
-    def run(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setblocking(False)
+        # Activity timer
+        self.activity_timer = QTimer()
+        self.activity_timer.timeout.connect(self.handle_timeout)
+        activity_timeout = app_config.globals["wifi"]["act_timeout"]
+        self.activity_timer.setInterval(activity_timeout)
+
+        # Start asynchronous data reading task
+        asyncio.create_task(self.read_data_stream())
+
+    # Data reading task
+    async def read_data_stream(self):
+        """Reads data from the serial port asynchronously."""
+        self.socket_instance = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket_instance.setblocking(False)
 
         try:
-            s.connect((self.host, self.port))
+            self.socket_instance.connect((self.device_address, self.port_uplink))
         except socket.error as err:
             if err.errno != errno.WSAEWOULDBLOCK:
-                self.errorOccurred.emit(f"Connection failed: {err}")
+                print(f"Socket error: {err}")
+                self.linkReady.emit(False)
                 return
 
         # Wait for the socket to be ready
-        _, ready_to_write, _ = select.select([], [s], [], 5)
-
+        _, ready_to_write, _ = select.select([], [self.socket_instance], [], 5)
         if ready_to_write:
-            self.errorOccurred.emit("Connection established")
-
             data_buffer = b""
             while self.running:
                 try:
-                    data = s.recv(2048)
+                    data = self.socket_instance.recv(2048)
                     if data:
+                        # Reset activity timer
+                        self.activity_timer.start()
+
+                        # Process the data
                         data_buffer += data
                         while b"\n" in data_buffer:
                             line, data_buffer = data_buffer.split(b"\n", 1)
                             line = line.strip()
                             if line:
-                                self.dataReceived.emit(line.decode() + "\n")
-                    else:
-                        self.connectionClosed.emit()
-                        break
+                                data = line.decode()
+                                if ":" in data:
+                                    uuid, data = data.split(":", 1)
+                                    self.process_packet(uuid, data)
                 except socket.error as e:
                     if e.errno != errno.WSAEWOULDBLOCK:
-                        self.errorOccurred.emit(f"Socket error: {e}")
+                        print(f"Socket error: {e}")
                         break
                     else:
-                        time.sleep(0.001)
+                        await asyncio.sleep(0.1)
                         continue
+        self.dataStreamClosed.emit()
 
-    def stop(self):
+    # Process received packet as uuid:data
+    def process_packet(self, uuid, data):
+        """Processes the received packet."""
+
+        # Device is ready to receive commands
+        if "ARCTIC_COMMAND_INTERFACE_READY" in data:
+            self.linkReady.emit(True)
+            return
+        
+        self.dataReceived.emit(uuid, data + "\n")
+
+    # --- Communication ---
+
+    @qasync.asyncSlot()
+    async def send_data(self, uuid, data, scan=False):
+        """Sends data to a device."""
+        try:
+            # Unpack reader and writer from open_connection
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(self.device_address, self.port_downlink),
+                timeout=3,
+            )
+            writer.write(uuid.encode() + b":" + data.encode() + b"\n")
+            await writer.drain()
+            if scan:  # If scanning, wait for the response
+                response = await asyncio.wait_for(reader.read(2048), timeout=3)
+            writer.close()
+            await writer.wait_closed()
+            if scan:  # If scanning, return the response
+                return response.decode().strip()
+            self.writeReady.emit(True)
+        except asyncio.TimeoutError:
+            print("Error: Data write timed out")
+            self.writeReady.emit(False)
+            return None
+        except Exception as e:
+            print(f"Error: {e}")
+            self.writeReady.emit(False)
+            return None
+        return None
+
+    # Timeout handler for activity with the device
+    def handle_timeout(self):
+        """Handles the activity timeout."""
+        self.linkLost.emit(self.device_address)
+
+    # Finalize the connection
+    def disconnect(self):
+        """Closes all client sockets and clears the connections."""
+
+        # Clears connection information
+        self.device_address = None
         self.running = False
-        self.quit()  # Ask the thread to quit
-        self.wait()  # Wait for the thread to actually finish
+
+        # Closes the socket
+        if self.socket_instance and self.socket_instance.fileno() != -1:
+            self.socket_instance.close()
+            self.socket_instance = None
+
+        # Stops the activity timer
+        if self.activity_timer.isActive():
+            self.activity_timer.stop()
+
+        # Emits the link lost signal
+        self.taskHalted.emit()

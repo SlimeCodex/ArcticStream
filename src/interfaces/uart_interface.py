@@ -16,7 +16,16 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+# The UART interface is used to communicate with devices using a serial connection
+# It is a subclass of the CommunicationInterface class and uses the aioserial library
+# to handle the asynchronous serial communication.
+
+# The UART interface uses a keepalive and activity timeout mechanism to ensure the device is
+# still connected and responding. It also emits signals to notify the user interface
+# of the connection status and data received.
+
 import asyncio
+import platform
 from abc import ABCMeta
 import serial.tools.list_ports
 
@@ -63,10 +72,11 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
     async def scan_for_devices(self):
         """Scans for available devices on the interface."""
 
-        # Windows:
-        ports = serial.tools.list_ports.comports()
-        # macOS and Linux:
-        # ports = serial.tools.list_ports_posix.comports()
+        # Get available ports and format them
+        if platform.system() == "Windows":
+            ports = serial.tools.list_ports.comports()
+        else:
+            ports = serial.tools.list_ports_posix.comports()
 
         formatted_devices = []
         for port, desc, hwid in ports:
@@ -145,7 +155,6 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         # Device is ready to receive commands
         if "ARCTIC_COMMAND_INTERFACE_READY" in data:
             self.linkReady.emit(True)
-            self.activity_timer.start()
             return
 
         self.dataReceived.emit(uuid, data + "\n")
@@ -191,6 +200,8 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         # Clears connection information
         self.device_address = None
         self.running = False
+
+        # Closes the port
         if self.port_instance and self.port_instance.is_open:
             self.port_instance.close()
 

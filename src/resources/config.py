@@ -31,10 +31,11 @@ globals = {
         "act_timeout": 500,  # Timeout to declare UART connection lost in ms
     },
     "wifi": {
-        "network": "192.168.0.0/24",  # Network IP range for WiFi
+        "network": "192.168.1.0/24",  # Network IP range for WiFi
         "port_uplink": 56320,  # Uplink port number for WiFi
         "port_downlink": 56321,  # Downlink port number for WiFi
         "con_retries": 5,  # Number of retries for WiFi reconnection
+        "act_timeout": 2000,  # Timeout to declare WiFi connection lost in ms
     },
     "console": {
         "line_limit": 1000  # Maximum number of lines in the console log

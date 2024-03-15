@@ -130,13 +130,13 @@ class UARTConnectionWindow(QWidget):
         self.mw.debug_info(f"Connecting to {self.device_port} ...")
         await self.interface.connect_to_device(self.device_port)
 
+    # --- Device Interaction ---
+
     # Retrieve Services from the connected device
     @qasync.asyncSlot()
     async def get_services(self):
         uuid = patterns.UUID_UART_BACKEND_RX
         await self.interface.send_data(uuid, "ARCTIC_COMMAND_GET_SERVICES")
-
-    # --- Device Interaction ---
 
     # Services Information
     def register_services(self, retrieved_services):
