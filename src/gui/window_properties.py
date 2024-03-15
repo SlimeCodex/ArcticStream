@@ -26,7 +26,8 @@ import helpers.theme_helper as th
 
 
 class SSCWindowProperties(QMainWindow):
-    signal_window_close = pyqtSignal()
+    windowClose = pyqtSignal()
+
 
     def __init__(self, main_window):
         super().__init__()
@@ -211,12 +212,6 @@ class SSCWindowProperties(QMainWindow):
             self.setWindowFlags(Qt.FramelessWindowHint)
         self.show()
 
-    def toggle_autosync(self, status):
-        if status:
-            print("Autosync enabled")
-        else:
-            print("Autosync disabled")
-
     def fullscreen(self, status):
         if self.isFullScreen():
             self.showNormal()
@@ -342,9 +337,9 @@ class SSCWindowProperties(QMainWindow):
         event.accept()
 
     def close_window(self):
-        self.signal_window_close.emit()
+        self.windowClose.emit()
         self.close()
 
     def closeEvent(self, event):
-        self.signal_window_close.emit()
+        self.windowClose.emit()
         super().closeEvent(event)

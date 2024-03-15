@@ -3,18 +3,19 @@
 
 
 class BackendIndex:
-    def __init__(self, service):
-        self.service = service
+    def __init__(self):
+        self.service = None
         self.txm = None
         self.rxm = None
 
 
 class UpdaterIndex:
-    def __init__(self, service):
+    def __init__(self):
         self.name = None
-        self.service = service
+        self.service = None
         self.txm = None
         self.rxm = None
+        self.instance = None
 
 
 class ConsoleIndex:
@@ -24,3 +25,4 @@ class ConsoleIndex:
         self.txm = None
         self.txs = None
         self.rxm = None
+        self.instance = None

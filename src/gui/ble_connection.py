@@ -46,7 +46,7 @@ class BLEConnectionWindow(QWidget):
         self.mw.add_connection_tab(self, title)
 
         # Window Signals & Flags
-        self.mw.signal_window_close.connect(self.process_close_task)
+        self.mw.windowClose.connect(self.process_close_task)
         self.is_closing = False
 
         # Async BLE Signals

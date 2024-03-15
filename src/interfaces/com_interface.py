@@ -31,13 +31,8 @@ class CommunicationInterface(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    async def send_data(self, uuid, data, response=False):
+    async def send_data(self, uuid, data):
         """Sends data to the specified characteristic or equivalent on the interface."""
-        pass
-
-    @abstractmethod
-    async def send_command(self, command, uuid=""):
-        """Sends a command to the specified characteristic or equivalent on the interface."""
         pass
 
     @abstractmethod

@@ -47,6 +47,7 @@ import helpers.theme_helper as th
 
 class MainWindow(SSCWindowProperties):
     themeChanged = pyqtSignal(str)
+    autoSyncStatus = pyqtSignal(bool)
 
     def __init__(self, app_main=None):
         super().__init__(self)
@@ -76,6 +77,7 @@ class MainWindow(SSCWindowProperties):
         self.set_status_bar("Disconnected")
 
         # Globals
+        self.auto_sync_status = True
         self.connection_tab = None
         self.debug_show = False
         self.start_time = time.time()
@@ -336,6 +338,11 @@ class MainWindow(SSCWindowProperties):
             self.line_edit_debug.setVisible(True)
             self.line_edit_version.setVisible(True)
 
+    def toggle_autosync(self, status):
+        self.debug_info(f"Auto sync status: {status}")
+        self.auto_sync_status = status
+        self.autoSyncStatus.emit(self.auto_sync_status)
+
     def connect_ble(self):
         self.debug_info("Interface selected: BLE")
         self.interface = BLEHandler()
@@ -345,6 +352,7 @@ class MainWindow(SSCWindowProperties):
         self.interface.linkLost.connect(self.cb_link_lost)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
+        self.autoSyncStatus.emit(self.auto_sync_status)
 
     def connect_wifi(self):
         self.debug_info("Interface selected: WiFi")
@@ -355,6 +363,7 @@ class MainWindow(SSCWindowProperties):
         self.interface.linkLost.connect(self.cb_link_lost)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
+        self.autoSyncStatus.emit(self.auto_sync_status)
 
     def connect_uart(self):
         self.debug_info("Interface selected: UART")
@@ -365,6 +374,7 @@ class MainWindow(SSCWindowProperties):
         self.interface.linkLost.connect(self.cb_link_lost)
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
+        self.autoSyncStatus.emit(self.auto_sync_status)
 
     def exit_interface(self):
         # Clear the current tab
@@ -399,11 +409,10 @@ class MainWindow(SSCWindowProperties):
 
     def closeEvent(self, event):
         if self.connection_tab is not None and not self.connection_tab.is_closing:
-            self.signal_window_close.emit()
+            self.windowClose.emit()
             event.ignore()
         else:
             event.accept()
 
     def cb_finalize_close(self):
-        print("Finalize close")
         self.close()

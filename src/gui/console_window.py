@@ -53,13 +53,13 @@ class ConsoleWindow(QWidget):
         self.win_title = title  # Original title of the tab
         self.index = index  # Console information
 
-        self.mw.debug_log("ConsoleWindow: Initializing ...")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.name}")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.service}")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.txm}")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.txs}")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.rxm}")
-        self.mw.debug_log("--------------------------------")
+        #self.mw.debug_log("ConsoleWindow: Initializing ...")
+        #self.mw.debug_log(f"ConsoleWindow: {self.index.name}")
+        #self.mw.debug_log(f"ConsoleWindow: {self.index.service}")
+        #self.mw.debug_log(f"ConsoleWindow: {self.index.txm}")
+        #self.mw.debug_log(f"ConsoleWindow: {self.index.txs}")
+        #self.mw.debug_log(f"ConsoleWindow: {self.index.rxm}")
+        #self.mw.debug_log("--------------------------------")
 
         # Async BLE Signals
         self.interface.linkReady.connect(self.cb_link_ready)

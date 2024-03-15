@@ -26,7 +26,6 @@ from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 
 import resources.config as app_config
 from interfaces.com_interface import CommunicationInterface
-import resources.patterns as patterns
 
 # PyQt wrapper type
 pyqtWrapperType = type(QObject)
@@ -39,15 +38,18 @@ class UARTHandlerMeta(pyqtWrapperType, ABCMeta):
 
 # Concrete class for handling UART communication
 class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
-    linkReady = pyqtSignal(bool)
-    dataReceived = pyqtSignal(str, str)
-    writeReady = pyqtSignal(bool)
-
     # UART Signals
-    scanReady = pyqtSignal(list)
-    linkLost = pyqtSignal(object)
-    dataStreamError = pyqtSignal(str)
-    dataStreamClosed = pyqtSignal()
+    scanReady = pyqtSignal(list)  # List of available devices
+    linkReady = pyqtSignal(bool)  # Device is ready to receive commands
+    linkReadyCOM = pyqtSignal(bool)  # COM port connected
+    linkLost = pyqtSignal(str)  # Device is not responding
+    writeReady = pyqtSignal(bool)  # Data was sent successfully
+    dataReceived = pyqtSignal(str, str)  # Data received from the device
+    taskHalted = pyqtSignal()  # Interface task was halted
+
+    # Data stream subprocess signals
+    dataStreamError = pyqtSignal(str)  # Data stream error
+    dataStreamClosed = pyqtSignal()  # Data stream was closed
 
     def __init__(self):
         super().__init__()
@@ -56,27 +58,13 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         self.port_instance = None
         self.running = False
 
-        # Timer for keepalive
-        self.keepalive_timer = QTimer()
-        self.keepalive_timer.timeout.connect(self.send_keepalive)
-        keepalive_interval = app_config.globals["uart"]["keepalive"]
-        self.keepalive_timer.start(keepalive_interval)
-
-        # Activity timer
-        self.activity_timer = QTimer()
-        self.activity_timer.timeout.connect(self.handle_timeout)
-        activity_timeout = app_config.globals["uart"]["act_timeout"]
-        self.activity_timer.setInterval(activity_timeout)
-
-    # --- Network Scanning ---
-
+    # Network scanning method
     @qasync.asyncSlot()
     async def scan_for_devices(self):
         """Scans for available devices on the interface."""
-        # --- Platform-specific device discovery ---
+
         # Windows:
         ports = serial.tools.list_ports.comports()
-
         # macOS and Linux:
         # ports = serial.tools.list_ports_posix.comports()
 
@@ -86,8 +74,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
 
         self.scanReady.emit(formatted_devices)
 
-    # --- Connection ---
-
+    # Device connection method
     @qasync.asyncSlot()
     async def connect_to_device(self, device_port):
         """Connects to a device and starts the data stream."""
@@ -99,18 +86,31 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
                 stopbits=aioserial.STOPBITS_ONE,
                 bytesize=aioserial.EIGHTBITS,
                 timeout=0.1,
-                dsrdtr=True,  # Prevents MCU Reset when init port
             )
-            self.running = True
             self.device_address = device_port
+            self.running = True
+
+            # Timer for keepalive
+            self.keepalive_timer = QTimer()
+            self.keepalive_timer.timeout.connect(self.send_keepalive)
+            keepalive_interval = app_config.globals["uart"]["keepalive"]
+            self.keepalive_timer.start(keepalive_interval)
+
+            # Activity timer
+            self.activity_timer = QTimer()
+            self.activity_timer.timeout.connect(self.handle_timeout)
+            activity_timeout = app_config.globals["uart"]["act_timeout"]
+            self.activity_timer.setInterval(activity_timeout)
 
             # Start asynchronous data reading task
             asyncio.create_task(self.read_data_stream())
+            self.linkReadyCOM.emit(True)
+
         except Exception as e:
-            print(f"Error opening UART port: {e}")
+            print(f"UART Interface: Error connecting to device: {e}")
+            self.linkReadyCOM.emit(False)
 
-    # --- Data Digester ---
-
+    # Data reading task
     async def read_data_stream(self):
         """Reads data from the serial port asynchronously."""
         data_buffer = b""
@@ -138,9 +138,11 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
 
         self.dataStreamClosed.emit()
 
+    # Process received packet as uuid:data
     def process_packet(self, uuid, data):
         """Processes the received packet."""
 
+        # Device is ready to receive commands
         if "ARCTIC_COMMAND_INTERFACE_READY" in data:
             self.linkReady.emit(True)
             self.activity_timer.start()
@@ -148,40 +150,26 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
 
         self.dataReceived.emit(uuid, data + "\n")
 
-    # --- Data Transmission ---
-
+    # Send data to the device
     @qasync.asyncSlot()
     async def send_data(self, uuid, data):
         """Sends data to a device."""
         if self.port_instance is not None:
             try:
-                print(f"Sending data: {uuid}:{data}")
                 data_output = f"{uuid}:{data}\n"
                 await self.port_instance.write_async(data_output.encode())
                 self.writeReady.emit(True)
-            except Exception as e:
-                print(f"Error writing data: {e}")
-                self.writeReady.emit(False)
-
-    # --- Command Transmission ---
-
-    @qasync.asyncSlot()
-    async def send_command(self, command, uuid):
-        """Sends a command to a device and returns the response."""
-        if self.port_instance is not None:
-            try:
-                data_output = f"{uuid}:{command}\n"
-                print(f"Sending command: {data_output}")
-                await self.port_instance.write_async(data_output.encode())
             except asyncio.TimeoutError:
                 print("Timeout error")
+                self.writeReady.emit(False)
             except Exception as e:
                 print(f"Error writing command: {e}")
+                self.writeReady.emit(False)
         else:
             print("Port not open to send command")
+            self.writeReady.emit(False)
 
-    # --- Keepalive ---
-
+    # Send simple byte keepalive message to the device
     @qasync.asyncSlot()
     async def send_keepalive(self):
         """Sends a keepalive message to the device."""
@@ -191,30 +179,26 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
             except Exception as e:
                 print(f"Error sending keepalive: {e}")
 
-    # --- Activity Timeout ---
-
+    # Timeout handler for activity with the device
     def handle_timeout(self):
         """Handles the activity timeout."""
-        self.disconnect()
+        self.linkLost.emit(self.device_address)
 
-    # --- Disconnection ---
-
+    # Finalize the connection
     def disconnect(self):
-        """Closes all client sockets and clears the connections."""
-        print("Disconnecting UART interface")
+        """Disconnects from the connected device."""
 
         # Clears connection information
         self.device_address = None
         self.running = False
         if self.port_instance and self.port_instance.is_open:
             self.port_instance.close()
-        self.keepalive_timer.stop()
-        self.activity_timer.stop()
+
+        # Stops the timers
+        if self.keepalive_timer and self.keepalive_timer.isActive():
+            self.keepalive_timer.stop()
+        if self.activity_timer and self.activity_timer.isActive():
+            self.activity_timer.stop()
 
         # Emits the link lost signal
-        self.linkLost.emit(self.device_address)
-
-    # --- Destructor ---
-
-    def __del__(self):
-        self.disconnect()
+        self.taskHalted.emit()
