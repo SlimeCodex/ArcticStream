@@ -35,8 +35,6 @@ class WiFiConnectionWindow(QWidget):
     closingReady = pyqtSignal()
 
     def __init__(self, main_window, interface: CommunicationInterface, title):
-        self.connection_event = asyncio.Event()
-        self.reconnection_event = asyncio.Event()
         super().__init__()
 
         self.mw = main_window  # MainWindow Reference
@@ -49,6 +47,10 @@ class WiFiConnectionWindow(QWidget):
         self.mw.windowClose.connect(self.process_close_task)
         self.is_closing = False
 
+        # Connection Events
+        self.connection_event = asyncio.Event()
+        self.reconnection_event = asyncio.Event()
+
         # Async WiFi Signals
         self.interface.scanReady.connect(self.cb_scan_ready)
         self.interface.linkReady.connect(self.cb_link_ready)
@@ -58,10 +60,8 @@ class WiFiConnectionWindow(QWidget):
 
         # Console Handling Variables
         self.device_address = None
-        self.updater_service = None
-        self.console = {}
-        self.updater_ref = None
-        self.console_ref = {}
+        self.updater = None  # Updater Index
+        self.console = {}  # Console Index and Instance Storage
 
         # Reconnection variables
         self.auto_sync_enabled = True
@@ -131,8 +131,6 @@ class WiFiConnectionWindow(QWidget):
         self.mw.debug_info(f"Connecting to {self.device_address} ...")
         await self.interface.connect_to_device(self.device_address)
 
-    # --- Device Interaction ---
-
     # Retrieve Services from the connected device
     @qasync.asyncSlot()
     async def get_services(self):
@@ -150,11 +148,11 @@ class WiFiConnectionWindow(QWidget):
         self.backend.rxm = patterns.UUID_WIFI_BACKEND_RX
 
         # Register OTA Services
-        self.updater_service = UpdaterIndex()
-        self.updater_service.name = "OTA"
-        self.updater_service.service = patterns.UUID_WIFI_OTA_ATS
-        self.updater_service.txm = patterns.UUID_WIFI_OTA_TX
-        self.updater_service.rxm = patterns.UUID_WIFI_OTA_RX
+        self.updater = UpdaterIndex()
+        self.updater.name = "OTA"
+        self.updater.service = patterns.UUID_WIFI_OTA_ATS
+        self.updater.txm = patterns.UUID_WIFI_OTA_TX
+        self.updater.rxm = patterns.UUID_WIFI_OTA_RX
 
         # Register each console service in the console index
         for service in retrieved_services:
@@ -257,13 +255,12 @@ class WiFiConnectionWindow(QWidget):
     # Initialize a new updater window (OTA)
     def create_updater_window(self, name, uuid):
         # Check if the console window is already open
-        if self.updater_ref:
-            window = self.updater_ref
+        if self.updater.instance:
+            window = self.updater.instance
         else:
             # Console window is not open, create a new one
-            window = UpdaterWindow(self.mw, self.interface, name, self.updater_service)
-            self.updater_ref = window
-
+            window = UpdaterWindow(self.mw, self.interface, name, self.updater)
+            self.updater = window
             self.mw.add_updater_tab(window, name)
 
     # Initialize or reinitialize a console window

@@ -19,7 +19,7 @@
 import asyncio
 
 import qasync
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import pyqtSignal, QTimer
 from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget, QHBoxLayout
 from PyQt5.QtGui import QFont
 
@@ -35,8 +35,6 @@ class BLEConnectionWindow(QWidget):
     closingReady = pyqtSignal()
 
     def __init__(self, main_window, interface: CommunicationInterface, title):
-        self.connection_event = asyncio.Event()
-        self.reconnection_event = asyncio.Event()
         super().__init__()
 
         self.mw = main_window  # MainWindow Reference
@@ -47,38 +45,45 @@ class BLEConnectionWindow(QWidget):
 
         # Window Signals & Flags
         self.mw.windowClose.connect(self.process_close_task)
+        self.mw.autoSyncStatus.connect(self.auto_sync_status)
         self.is_closing = False
+
+        # Connection Events
+        self.connection_event = asyncio.Event()
+        self.reconnection_event = asyncio.Event()
+        self.get_name_event = asyncio.Event()
 
         # Async BLE Signals
         self.interface.scanReady.connect(self.cb_scan_ready)
         self.interface.linkReady.connect(self.cb_link_ready)
         self.interface.linkLost.connect(self.cb_link_lost)
-        self.interface.characteristicRead.connect(self.cb_handle_char_read)
-        self.interface.dataReceived.connect(self.cb_handle_notification)
-
-        # Async Events from the device
-        self.get_name_event = asyncio.Event()
+        self.interface.dataReceived.connect(self.cb_data_received)
+        self.interface.taskHalted.connect(self.cb_task_halted)
 
         # Console Handling Variables
-        self.background_service = None
-        self.updater_service = None
-        self.console = {}
-        self.updater_ref = None
-        self.console_ref = {}
         self.device_address = None
+        self.updater = None  # Updater Index
+        self.console = {}  # Console Index and Instance Storage
+
+        # Reconnection variables
+        self.auto_sync_enabled = True
+        self.reconnection_attempts = 0
+        self.max_reconnection_attempts = app_config.globals["bluetooth"]["con_retries"]
+        self.reconnection_timer = QTimer()
+        self.reconnection_timer.timeout.connect(self.attempt_reconnection)
 
         # Draw the layout
         self.setup_layout()
 
-    # GUI Functions
+    # --- GUI Functions ---
 
     # Layout and Widgets
     def setup_layout(self):
         connect_button = QPushButton("Connect")
         connect_button.clicked.connect(self.ble_connect)
 
-        disconnect_button = QPushButton("Disconnect")
-        disconnect_button.clicked.connect(self.ble_clear_connection)
+        disconnect_button = QPushButton("Disconnect && Clear")
+        disconnect_button.clicked.connect(self.manual_disconnect)
 
         self.scan_device_list = QListWidget()
         self.scan_device_list.setFont(QFont("Inconsolata"))
@@ -113,232 +118,273 @@ class BLEConnectionWindow(QWidget):
 
     # BLE Connection
     @qasync.asyncSlot()
-    async def ble_connect(self, reconnect=False):
-        selected_items = self.scan_device_list.selectedItems()
-        if not selected_items:
-            self.mw.debug_info("No device selected")
-            return
+    async def ble_connect(self):
+        # In case of first connection, select the device from the list
+        if not self.reconnection_event.is_set():
+            selected_items = self.scan_device_list.selectedItems()
+            if not selected_items:
+                self.mw.debug_info("No device selected")
+                return
 
-        # Select the BLE MAC from the list [name - MAC]
-        device_address = selected_items[0].text().split(" - ")[1]
-        self.device_address = device_address
+            # Select the BLE MAC from the list [name - MAC]
+            device_address = selected_items[0].text().split(" - ")[1]
+            self.device_address = device_address
 
-        if not reconnect:
-            self.mw.debug_info(f"Connecting to {device_address} ...")
+        self.mw.debug_info(f"Connecting to {self.device_address} ...")
+        await self.interface.connect_to_device(self.device_address)
 
-        await self.interface.connect_to_device(device_address)
-
-    # BLE Reconnection
+    # Retrieve Services names from the connected device
     @qasync.asyncSlot()
-    async def ble_reconnect(self):
-        max_recon_retries = app_config.globals["bluetooth"]["con_retries"]
-        retries_counter = 1  # Static start value
+    async def get_services_names(self):
+        uuid = patterns.UUID_BLE_BACKEND_RX
+        await self.interface.send_data(uuid, "ARCTIC_COMMAND_GET_SERVICES_NAME")
 
-        while retries_counter <= max_recon_retries:
-            self.connection_event.clear()
-            self.mw.debug_info(
-                f"Attempting reconnection to {self.device_address}. "
-                f"Retry: {retries_counter}/{max_recon_retries}"
-            )
-            await self.ble_connect(self.device_address, reconnect=True)
-            if self.connection_event.is_set():
-                break
-            else:
-                retries_counter += 1
+    # Services Information
+    def register_services(self, retrieved_services):
+        """Retrieves services information from the connected device."""
 
-        if retries_counter > max_recon_retries:
-            self.mw.debug_info(f"Reconnection to {self.device_address} failed")
+        # Register Backend Services
+        self.backend = BackendIndex()
+        self.backend.service = patterns.UUID_BLE_BACKEND_ATS
+        self.backend.txm = patterns.UUID_BLE_BACKEND_TX
+        self.backend.rxm = patterns.UUID_BLE_BACKEND_RX
 
-    ################################################
+        # Register OTA Services if not already registered
+        if self.updater is None:
+            self.updater = UpdaterIndex()
+            self.updater.name = "OTA"
+            self.updater.service = patterns.UUID_BLE_OTA_ATS
+            self.updater.txm = patterns.UUID_BLE_OTA_TX
+            self.updater.rxm = patterns.UUID_BLE_OTA_RX
+
+        # Add the updater to the main window
+        self.create_updater_window(self.updater.name, self.updater.service)
+
+        # Register each console service in the console index
+        for service in retrieved_services:
+            service_uuid = service["ats"]
+            console_name = service["name"]
+
+            # Save the service information if it's not already in the index
+            if self.console.get(service_uuid) is None:
+                self.console[service_uuid] = ConsoleIndex()
+                self.console[service_uuid].name = console_name
+                self.console[service_uuid].service = service_uuid
+                self.console[service_uuid].txm = service["txm"]
+                self.console[service_uuid].txs = service["txs"]
+                self.console[service_uuid].rxm = service["rxm"]
+
+            # Add the console to the main window
+            self.create_console_window(console_name, service_uuid)
+
+        # Enable data uplink
+        self.enable_device_uplink()
+
+    def format_services(self, response, unformatted_services):
+        """Parses services information from the response string."""
+
+        # Process the name
+        service_names = response.replace("ARCTIC_COMMAND_GET_SERVICES_NAME:", "")
+        service_names = service_names.replace("\n", "")
+        service_names = service_names.split(",")
+
+        # Process each service name
+        services_info = []
+        for service_name in service_names:
+            # Initialize UUIDs for each service type
+            ats_uuid = txm_uuid = txs_uuid = rxm_uuid = None
+
+            # Find UUIDs for each service type
+            for uuid in unformatted_services:
+                if patterns.UUID_BLE_CONSOLE_ATS.match(uuid):
+                    ats_uuid = uuid
+                elif patterns.UUID_BLE_CONSOLE_TX.match(uuid):
+                    txm_uuid = uuid
+                elif patterns.UUID_BLE_CONSOLE_TXS.match(uuid):
+                    txs_uuid = uuid
+                elif patterns.UUID_BLE_CONSOLE_RX.match(uuid):
+                    rxm_uuid = uuid
+
+                # Once all UUIDs for a service are found, break the loop
+                if ats_uuid and txm_uuid and txs_uuid and rxm_uuid:
+                    break
+
+            # Remove found UUIDs from the list to avoid duplication
+            unformatted_services = [
+                uuid
+                for uuid in unformatted_services
+                if uuid not in [ats_uuid, txm_uuid, txs_uuid, rxm_uuid]
+            ]
+
+            # Create service info dictionary
+            service_info = {
+                "name": service_name,
+                "ats": ats_uuid,
+                "txm": txm_uuid,
+                "txs": txs_uuid,
+                "rxm": rxm_uuid,
+            }
+
+            # Add the dictionary to the list
+            services_info.append(service_info)
+        return services_info
+
     @qasync.asyncSlot()
-    async def setup_consoles(self):
-        # Load OTA window
-        if self.updater_service:
-            self.mw.debug_log("OTA service found")
-            if self.updater_service.txm:
-                await self.interface.start_notifications(self.updater_service.txm)
-            self.create_updater_window(
-                self.updater_service.name, self.updater_service.service.uuid
-            )
+    async def enable_device_uplink(self):
+        uuid = patterns.UUID_BLE_BACKEND_RX
+        await self.interface.send_data(uuid, "ARCTIC_COMMAND_ENABLE_UPLINK")
 
-        # Load consoles windows
-        for service_uuid, indexer in self.console.items():
-            # Start notifications
-            if indexer.txm:
-                await self.interface.start_notifications(indexer.txm)
-            if indexer.txs:
-                await self.interface.start_notifications(indexer.txs)
-
-            # Retreive console name from device
-            self.get_name_event.clear()
-            await self.interface.send_command(
-                str("ARCTIC_COMMAND_GET_NAME").encode(), indexer.rxm.uuid
-            )
-            await self.get_name_event.wait()
-            self.create_console_window(indexer.name, service_uuid)
-
-    # Stop BLE Threads and processes
     @qasync.asyncSlot()
-    async def ble_stop(self):
-        self.mw.debug_info("Disconnecting BLE device ...")
-        await self.interface.disconnect()
-
-    # Clear connection
-    @qasync.asyncSlot()
-    async def ble_clear_connection(self):
-        self.mw.debug_info("Clearing connection ...")
-        self.device_address = None
-        if not self.is_closing:
-            asyncio.ensure_future(self.process_close_task(close_window=False))
+    async def disable_device_uplink(self):
+        uuid = patterns.UUID_BLE_BACKEND_RX
+        await self.interface.send_data(uuid, "ARCTIC_COMMAND_DISABLE_UPLINK")
 
     # --- Callbacks ---
 
     # Scan List Update
     def cb_scan_ready(self, devices):
         self.scan_device_list.clear()
+
+        if devices is None:
+            self.mw.debug_info("No devices found")
+            return
+
         for name, address in devices:
             self.scan_device_list.addItem(f"{name} - {address}")
 
     # Connection Complete
     def cb_link_ready(self, connected):
         if connected:
+            self.mw.debug_info(
+                f"Device {self.device_address} is ready to receive commands"
+            )
             self.connection_event.set()
-            self.mw.debug_info(f"Connected to {self.device_address}")
-            self.register_services()
-        else:
-            self.connection_event.clear()
+            self.reconnection_attempts = 0
 
-    ################################################
-    def cb_handle_char_read(self, uuid, value):
-        pass
+            # Start notifications for each TXM and TXS characteristic
+            services = self.interface.get_services()
+            for service in services:
+                if service == patterns.UUID_BLE_BACKEND_TX:  # Not regex
+                    self.interface.start_notifications(service)
+                if service == patterns.UUID_BLE_OTA_TX:  # Not regex
+                    self.interface.start_notifications(service)
+                if patterns.UUID_BLE_CONSOLE_TX.match(service):  # Regex
+                    self.interface.start_notifications(service)
+                if patterns.UUID_BLE_CONSOLE_TXS.match(service):  # Regex
+                    self.interface.start_notifications(service)
+
+            # Get the services names through the backend (notify)
+            self.get_services_names()
 
     # Disconnected
-    def cb_link_lost(self, client):
-        self.mw.debug_info(f"Device {client.address} disconnected")
+    def cb_link_lost(self, device_address):
+        self.mw.debug_info(f"Device on {device_address} stopped responding.")
 
-        # Manual disconnect are not handled
-        if self.device_address:
-            self.ble_reconnect()
+        # Reset the interface
+        self.interface.disconnect()
+        self.connection_event.clear()
 
-    ################################################
-    def cb_handle_notification(self, uuid, value):
-        for service_uuid, indexer in self.console.items():
-            if indexer.txs.uuid == uuid:
-                value = value.replace(
-                    "ARCTIC_COMMAND_REQ_NAME:", "")  # Remove command
-                self.console[service_uuid].name = value
-                self.get_name_event.set()
+        # Autosync enabled. Try to reconnect
+        if self.device_address and self.auto_sync_enabled:
+            self.mw.debug_info("Attempting reconnection ...")
+            self.reconnection_timer.start(5000)
+
+    # Data Received to handle backend commands
+    def cb_data_received(self, uuid, data):
+        if uuid == patterns.UUID_BLE_BACKEND_TX:
+            if "ARCTIC_COMMAND_GET_SERVICES_NAME" in data:
+                unformatted_services = self.interface.get_services()
+                services = self.format_services(data, unformatted_services)
+                self.register_services(services)
+
+    # Task Halted
+    def cb_task_halted(self):
+        self.mw.debug_info("BLE Interface task was halted")
 
     # --- Window Functions ---
-
-    ################################################
-    # Retrieve Services Information
-    def register_services(self):
-        registered_services = self.interface.get_services()  # Not async
-        for service in registered_services:
-            service_uuid = str(service.uuid)
-            self.mw.debug_log(f"Service found: {service_uuid}")
-
-            # Register background services
-            if service_uuid == patterns.uuid_ble_backend_ats:
-                self.mw.debug_log("Background service found")
-                temp_indexer = BackendIndex(service)
-
-                # Loop through characteristics
-                for characteristic in service.characteristics:
-                    char_uuid = str(characteristic.uuid)
-                    if char_uuid == patterns.uuid_ble_backend_tx:  # TX
-                        temp_indexer.txm = characteristic
-                    if char_uuid == patterns.uuid_ble_backend_rx:  # RX
-                        temp_indexer.rxm = characteristic
-
-                # Register the temp_indexer
-                self.background_service = temp_indexer
-
-            # Register OTA services
-            if service_uuid == patterns.uuid_ble_ota_ats:
-                self.mw.debug_log("OTA service found")
-                temp_indexer = UpdaterIndex(service)
-
-                # Loop through characteristics
-                for characteristic in service.characteristics:
-                    char_uuid = str(characteristic.uuid)
-                    if char_uuid == patterns.uuid_ble_ota_tx:  # TX
-                        temp_indexer.txm = characteristic
-                    if char_uuid == patterns.uuid_ble_ota_rx:  # RX
-                        temp_indexer.rxm = characteristic
-
-                # Register the temp_indexer
-                temp_indexer.name = "OTA"
-                self.updater_service = temp_indexer
-
-            # Register console services
-            if patterns.uuid_ble_console_ats.match(service_uuid):
-                self.mw.debug_log("Console service found")
-
-                # Check if the service is already registered and reuse it
-                if service_uuid in self.console:
-                    temp_indexer = self.console[service_uuid]
-                else:
-                    temp_indexer = ConsoleIndex()
-                    temp_indexer.service = service
-
-                # Loop through characteristics
-                for characteristic in service.characteristics:
-                    char_uuid = str(characteristic.uuid)
-
-                    # Check and update or set characteristics
-                    if patterns.uuid_ble_console_tx.match(char_uuid):
-                        # TODO: CHECK HANDLER FOR THIS, SHOULD BE ONLY UUID, NOT COMPLETE CHARACTERISTIC
-                        temp_indexer.txm = characteristic
-                    elif patterns.uuid_ble_console_txs.match(char_uuid):
-                        temp_indexer.txs = characteristic
-                    elif patterns.uuid_ble_console_rx.match(char_uuid):
-                        temp_indexer.rxm = characteristic
-
-                # Register the temp_indexer
-                temp_indexer.name = "<arctic>"
-                self.console[service_uuid] = temp_indexer
-
-        # Setup notification and read name characteristic
-        self.setup_consoles()
 
     # Initialize a new updater window (OTA)
     def create_updater_window(self, name, uuid):
         # Check if the console window is already open
-        if self.updater_ref:
-            window = self.updater_ref
+        print(self.updater.instance)
+        if self.updater.instance:
+            window = self.updater.instance
         else:
             # Console window is not open, create a new one
-            window = UpdaterWindow(
-                self.mw, self.interface, name, self.updater_service)
-            self.updater_ref = window
-
+            window = UpdaterWindow(self.mw, self.interface, name, self.updater)
+            self.updater.instance = window
             self.mw.add_updater_tab(window, name)
 
     # Initialize or reinitialize a console window
     def create_console_window(self, name, uuid):
-        # Check if the console window is already open
-        if uuid in self.console_ref:
-            console = self.console_ref[uuid]
+        # Reuse the console window if it's already open
+        if self.console[uuid].instance:
+            window = self.console[uuid].instance
         else:
             # Console window is not open, create a new one
-            console = ConsoleWindow(
-                self.mw,
-                self.interface,
-                name,
-                self.console[uuid],
-            )
-            self.console_ref[uuid] = console
+            window = ConsoleWindow(self.mw, self.interface, name, self.console[uuid])
+            self.console[uuid].instance = window
+            self.mw.add_console_tab(window, name)
 
-            self.mw.add_console_tab(console, name)
+    def auto_sync_status(self, status):
+        self.auto_sync_enabled = status
+
+    # --- Reconnection Functions ---
+
+    # Reconnection logic triggered by timeout
+    @qasync.asyncSlot()
+    async def attempt_reconnection(self):
+        if self.connection_event.is_set():
+            self.reconnection_timer.stop()
+            return
+
+        if self.reconnection_attempts < self.max_reconnection_attempts:
+            self.interface.disconnect()
+            self.reconnection_event.set()
+            self.reconnection_attempts += 1
+            self.mw.debug_info(
+                f"Attempting reconnection to {self.device_address} "
+                f"(attempt {self.reconnection_attempts}/{self.max_reconnection_attempts})"
+            )
+            await self.ble_connect()
+        else:
+            self.mw.debug_info("Maximum reconnection attempts reached. Giving up.")
+            self.reconnection_attempts = 0
+            self.reconnection_timer.stop()
+
+            self.reconnection_event.clear()
+            self.connection_event.clear()
 
     # --- Stop Functions ---
 
+    # Manual Disconnect/Clear from button
+    @qasync.asyncSlot()
+    async def manual_disconnect(self):
+        self.reconnection_attempts = 0
+        self.reconnection_timer.stop()
+
+        self.mw.debug_info("Clearing BLE connection ...")
+
+        # 2. Disconnect from the device
+        self.interface.disconnect()
+
+        # 1. Stop consoles and clear references
+        self.stop_consoles()
+
+        # 3. Clear device port and connection events
+        self.device_address = None
+        self.connection_event.clear()
+        self.reconnection_event.clear()
+
+        # 4. Optionally clear the scan device list (if desired)
+        self.scan_device_list.clear()
+
     # Stop the remaining consoles
     def stop_consoles(self):
-        for uuid, console in self.console_ref.items():
-            console.close()
+        self.console = {}  # Clear console index
+        for uuid, console_index in self.console.items():
+            if console_index.instance:
+                console_index.instance.close()
 
     # Stop the BLE Handler
     @qasync.asyncSlot()
@@ -346,7 +392,7 @@ class BLEConnectionWindow(QWidget):
         self.device_address = None
         if not self.is_closing:
             self.is_closing = True
-            await self.ble_stop()
+            self.interface.disconnect()
             self.stop_consoles()
             if close_window:
                 self.closingReady.emit()

@@ -35,8 +35,6 @@ class UARTConnectionWindow(QWidget):
     closingReady = pyqtSignal()
 
     def __init__(self, main_window, interface: CommunicationInterface, title):
-        self.connection_event = asyncio.Event()
-        self.reconnection_event = asyncio.Event()
         super().__init__()
 
         self.mw = main_window  # MainWindow Reference
@@ -50,6 +48,10 @@ class UARTConnectionWindow(QWidget):
         self.mw.autoSyncStatus.connect(self.auto_sync_status)
         self.is_closing = False
 
+        # Connection Events
+        self.connection_event = asyncio.Event()
+        self.reconnection_event = asyncio.Event()
+
         # Async UART Signals
         self.interface.scanReady.connect(self.cb_scan_ready)
         self.interface.linkReady.connect(self.cb_link_ready)
@@ -60,6 +62,7 @@ class UARTConnectionWindow(QWidget):
 
         # Console Handling Variables
         self.device_port = None
+        self.updater = None  # Updater Instance
         self.console = {}  # Console Index and Instance Storage
 
         # Reconnection variables
@@ -149,11 +152,11 @@ class UARTConnectionWindow(QWidget):
         self.backend.rxm = patterns.UUID_UART_BACKEND_RX
 
         # Register OTA Services
-        self.updater_service = UpdaterIndex()
-        self.updater_service.name = "OTA"
-        self.updater_service.service = patterns.UUID_UART_OTA_ATS
-        self.updater_service.txm = patterns.UUID_UART_OTA_TX
-        self.updater_service.rxm = patterns.UUID_UART_OTA_RX
+        self.updater = UpdaterIndex()
+        self.updater.name = "OTA"
+        self.updater.service = patterns.UUID_UART_OTA_ATS
+        self.updater.txm = patterns.UUID_UART_OTA_TX
+        self.updater.rxm = patterns.UUID_UART_OTA_RX
 
         # Register each console service in the console index
         for service in retrieved_services:
@@ -258,13 +261,12 @@ class UARTConnectionWindow(QWidget):
     # Initialize a new updater window (OTA)
     def create_updater_window(self, name, uuid):
         # Check if the console window is already open
-        if self.updater_ref:
-            window = self.updater_ref
+        if self.updater.instance:
+            window = self.updater.instance
         else:
             # Console window is not open, create a new one
-            window = UpdaterWindow(self.mw, self.interface, name, self.updater_service)
-            self.updater_ref = window
-
+            window = UpdaterWindow(self.mw, self.interface, name, self.updater)
+            self.updater = window
             self.mw.add_updater_tab(window, name)
 
     # Initialize or reinitialize a console window

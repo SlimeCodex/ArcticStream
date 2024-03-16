@@ -136,8 +136,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             mac = ""
         return name, mac
 
-    # --- Connection ---
-
+    # Connect to device
     @qasync.asyncSlot()
     async def connect_to_device(self, device_address):
         """Connects to a device and starts the data stream."""
@@ -205,7 +204,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         if "ARCTIC_COMMAND_INTERFACE_READY" in data:
             self.linkReady.emit(True)
             return
-        
+
         self.dataReceived.emit(uuid, data + "\n")
 
     # --- Communication ---

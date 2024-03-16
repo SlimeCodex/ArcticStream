@@ -55,17 +55,17 @@ class UpdaterWindow(QWidget):
         self.mw = main_window  # MainWindow Reference
         self.interface = interface  # BLE Reference
         self.win_title = title  # Original title of the tab
-        self.updater_index = updater_index  # Console information
+        self.index = updater_index  # Console information
 
         self.mw.debug_log("UpdaterWindow: Initializing ...")
-        self.mw.debug_log(f"UpdaterWindow: {self.updater_index.name}")
-        self.mw.debug_log(f"UpdaterWindow: {self.updater_index.service.uuid}")
-        self.mw.debug_log(f"UpdaterWindow: {self.updater_index.txm.uuid}")
-        self.mw.debug_log(f"UpdaterWindow: {self.updater_index.rxm.uuid}")
-        self.mw.debug_log("------------------------------------------")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.name}")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.service}")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.txm}")
+        self.mw.debug_log(f"ConsoleWindow: {self.index.rxm}")
+        self.mw.debug_log("--------------------------------")
 
         # Async BLE Signals
-        self.interface.dataReceived.connect(self.cb_handle_notification)
+        self.interface.dataReceived.connect(self.cb_data_received)
         self.interface.linkLost.connect(self.cb_link_lost)
         self.mw.themeChanged.connect(self.cb_update_theme)
 
@@ -147,8 +147,7 @@ class UpdaterWindow(QWidget):
         self.progress_bar.setFixedHeight(
             app_config.globals["gui"]["default_loading_bar_height"]
         )
-        self.progress_bar.setStyleSheet(
-            th.get_style("default_loading_bar"))
+        self.progress_bar.setStyleSheet(th.get_style("default_loading_bar"))
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
 
@@ -182,8 +181,7 @@ class UpdaterWindow(QWidget):
                 th.get_style("updater_highligh_ptext_edit")
             )
         else:
-            self.text_edit_printf.setStyleSheet(
-                th.get_style("default_text_edit"))
+            self.text_edit_printf.setStyleSheet(th.get_style("default_text_edit"))
 
     def cb_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
@@ -191,16 +189,12 @@ class UpdaterWindow(QWidget):
         self.drag_placeholder.setStyleSheet(
             th.get_style("updater_placeholder_line_edit")
         )
-        self.text_edit_printf.setStyleSheet(
-            th.get_style("default_text_edit"))
+        self.text_edit_printf.setStyleSheet(th.get_style("default_text_edit"))
 
         if self.ota_error_status:  # If in error state
-            self.progress_bar.setStyleSheet(
-                th.get_style("uploader_loading_bar_fail")
-            )
+            self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail"))
         else:
-            self.progress_bar.setStyleSheet(
-                th.get_style("default_loading_bar"))
+            self.progress_bar.setStyleSheet(th.get_style("default_loading_bar"))
 
         # Update special widgets by theme
         if theme == "dark":
@@ -265,8 +259,7 @@ class UpdaterWindow(QWidget):
         self.ota_running = True
         self.ota_error_status = False
         self.clear_events()
-        self.progress_bar.setStyleSheet(
-            th.get_style("default_loading_bar"))
+        self.progress_bar.setStyleSheet(th.get_style("default_loading_bar"))
         self.progress_bar.setValue(0)
 
     def clear_events(self):
@@ -284,9 +277,9 @@ class UpdaterWindow(QWidget):
         return os.path.getsize(file_path)
 
     async def send_file_info(self, total_size, file_hash):
-        await self.interface.writeCharacteristic(
-            self.updater_index.rxm.uuid,
-            str(f"ARCTIC_COMMAND_OTA_SETUP -s {total_size} -md5 {file_hash}").encode(),
+        await self.interface.send_data(
+            self.index.rxm,
+            str(f"ARCTIC_COMMAND_OTA_SETUP -s {total_size} -md5 {file_hash}"),
         )
 
     async def wait_for_device_ready(
@@ -311,8 +304,7 @@ class UpdaterWindow(QWidget):
                 )
                 retries += 1
 
-        self.mw.debug_log(
-            "Device not ready after maximum retries. OTA update aborted.")
+        self.mw.debug_log("Device not ready after maximum retries. OTA update aborted.")
         self.ota_running = False
         return False
 
@@ -377,8 +369,7 @@ class UpdaterWindow(QWidget):
             retries += 1
 
         self.mw.debug_log("Maximum retries reached, stopping OTA")
-        self.progress_bar.setStyleSheet(
-            th.get_style("uploader_loading_bar_fail"))
+        self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail"))
         self.ota_error_status = True
         self.ota_running = False
         return False
@@ -387,7 +378,7 @@ class UpdaterWindow(QWidget):
         self.ack_event.clear()
         if app_config.globals["updater"]["enable_output_debug"]:
             self.mw.debug_log(f"Sending chunk of {len(dataChunk)} bytes")
-        await self.interface.writeCharacteristic(self.updater_index.rxm.uuid, dataChunk)
+        await self.interface.send_data(self.index.rxm, dataChunk)
         return await self.wait_for_ack_or_stop()
 
     async def wait_for_ack_or_stop(self):
@@ -414,24 +405,17 @@ class UpdaterWindow(QWidget):
     def handle_stop_event(self):
         if self.success_event.is_set():
             self.update_info(f"[{self.elapsed_str}] OTA Loading completed")
-            self.progress_bar.setStyleSheet(
-                th.get_style("default_loading_bar"))
+            self.progress_bar.setStyleSheet(th.get_style("default_loading_bar"))
         elif self.error_event.is_set():
-            self.progress_bar.setStyleSheet(
-                th.get_style("uploader_loading_bar_fail")
-            )
+            self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail"))
             self.update_info(f"[{self.elapsed_str}] OTA Error received")
             self.ota_error_status = True
         elif self.disconnect_event.is_set():
-            self.progress_bar.setStyleSheet(
-                th.get_style("uploader_loading_bar_fail")
-            )
+            self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail"))
             self.update_info(f"[{self.elapsed_str}] OTA Device disconnected")
             self.ota_error_status = True
         else:
-            self.progress_bar.setStyleSheet(
-                th.get_style("uploader_loading_bar_fail")
-            )
+            self.progress_bar.setStyleSheet(th.get_style("uploader_loading_bar_fail"))
             self.update_info(f"[{self.elapsed_str}] OTA Loading aborted")
             self.ota_error_status = True
 
@@ -444,9 +428,9 @@ class UpdaterWindow(QWidget):
     # Callbacks -----
 
     # Callback handle input notification
-    def cb_handle_notification(self, sender, data):
+    def cb_data_received(self, sender, data):
         # Redirect the data to the printf text box
-        if sender == self.updater_index.txm.uuid:
+        if sender == self.index.txm:
             self.update_info(data)
 
     def cb_link_lost(self, client):

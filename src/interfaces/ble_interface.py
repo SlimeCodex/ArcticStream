@@ -16,6 +16,11 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+# The BLE interface is used to handle communication with Bluetooth Low Energy devices.
+# It uses the Bleak library to handle the communication with the devices.
+
+# The BLE interface uses the bleak callbacks to handle notifications and disconnections.
+
 import asyncio
 from abc import ABCMeta
 
@@ -37,39 +42,44 @@ class BLEHandlerMeta(pyqtWrapperType, ABCMeta):
 
 # Concrete class for handling BLE communication
 class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
-
     # BLE Signals
-    scanReady = pyqtSignal(list)
-    linkReady = pyqtSignal(bool)
-    linkLost = pyqtSignal(object)
-    characteristicRead = pyqtSignal(str, bytes)
-    dataReceived = pyqtSignal(str, str)
-    writeReady = pyqtSignal(bool)
+    scanReady = pyqtSignal(list)  # List of available devices
+    linkReady = pyqtSignal(bool)  # Device is ready to receive commands
+    linkLost = pyqtSignal(object)  # Device has been disconnected
+    characteristicRead = pyqtSignal(str, bytes)  # Read characteristic data
+    dataReceived = pyqtSignal(str, str)  # Received data from notifications
+    writeReady = pyqtSignal(bool)  # Write operation status
+    taskHalted = pyqtSignal()  # Interface task was halted
 
     def __init__(self):
         super().__init__()
-        self.client = None  # Internal client reference
+        self.ble_client = None  # Internal client reference
         self.disconnect_event = asyncio.Event()
+        self.services = None
 
     # Scan for devices
     @qasync.asyncSlot()
     async def scan_for_devices(self):
         """Scans for available devices on the interface."""
         devices = await BleakScanner.discover()
-        formatted_devices = [(device.name, device.address)
-                             for device in devices]
+        formatted_devices = [(device.name, device.address) for device in devices]
         self.scanReady.emit(formatted_devices)
 
     # Connect to device
     @qasync.asyncSlot()
     async def connect_to_device(self, device_address):
         """Connects to a device on the interface."""
-        self.client = BleakClient(device_address, disconnected_callback=self.on_disconnect,
-                                  timeout=app_config.globals["bluetooth"]["connection_timeout"])
+        self.ble_client = BleakClient(
+            device_address,
+            disconnected_callback=self.cb_disconnect,
+            timeout=app_config.globals["bluetooth"]["connection_timeout"],
+        )
+
+        # Retreive services list right after connection
         try:
-            connected = await self.client.connect()
+            connected = await self.ble_client.connect()
             if connected:
-                self.services = self.client.services  # Store services
+                self.services = self.ble_client.services
                 self.disconnect_event.clear()
                 self.linkReady.emit(True)
             else:
@@ -78,64 +88,101 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
             print(f"Connection failed: {e}")
             self.linkReady.emit(False)
 
-    # Setup notifications for characteristic
-    @qasync.asyncSlot()
-    async def start_notifications(self, characteristic):
-        """Starts notifications for a characteristic."""
-        if "notify" in characteristic.properties:
-            await self.client.start_notify(characteristic, self.notification_callback)
-
-    # Read data from characteristic
+    # Read data from characteristic (manual reading)
     @qasync.asyncSlot()
     async def read_characteristic(self, characteristic):
         """Reads data from a characteristic."""
-        value = await self.client.read_gatt_char(characteristic)
+        value = await self.ble_client.read_gatt_char(characteristic)
         self.characteristicRead.emit(str(characteristic.uuid), bytes(value))
 
-    # Write data to characteristic
+    # Write data to characteristic (downlinks)
     @qasync.asyncSlot()
-    async def send_data(self, characteristic, data, response=False):
+    async def send_data(self, uuid, data, response=False):
         """Sends data to the specified characteristic."""
         try:
             if self.disconnect_event.is_set():
                 print("Operation aborted: Device disconnected.")
                 self.writeReady.emit(False)
             else:
-                await self.client.write_gatt_char(characteristic, data, response)
-                self.writeReady.emit(True)
+                characteristic = self.get_char_from_uuid(uuid)
+                if characteristic is None:
+                    self.writeReady.emit(False)
+                else:
+                    await self.ble_client.write_gatt_char(
+                        characteristic, data.encode(), response
+                    )
+                    self.writeReady.emit(True)
         except Exception as e:
             print(f"Write failed: {e}")
             self.writeReady.emit(False)
-        
-    # Send Command
+
+    # Setup notifications for uplink characteristic
     @qasync.asyncSlot()
-    async def send_command(self, command, uuid=""):
-        """Sends a command to the specified characteristic."""
-        self.send_data(uuid, command)
+    async def start_notifications(self, uuid):
+        """Starts notifications for a characteristic."""
+
+        # Find the characteristic from the uuid
+        characteristic = self.get_char_from_uuid(uuid)
+        if characteristic is None:
+            print(f"Characteristic {uuid} not found.")
+            return
+
+        if "notify" in characteristic.properties:
+            await self.ble_client.start_notify(
+                characteristic, self.notification_callback
+            )
 
     # Callback for notifications
     def notification_callback(self, sender, data):
         """Callback for notifications. Emits a signal with the received data."""
-        sender_info = sender.uuid if hasattr(sender, 'uuid') else str(sender)
-        decoded_data = data.decode(
-            'utf-8', errors='replace') if isinstance(data, (bytearray, bytes)) else str(data)
-        self.dataReceived.emit(sender_info, decoded_data)
+        sender_uuid = sender.uuid if hasattr(sender, "uuid") else str(sender)
+        decoded_data = (
+            data.decode("utf-8", errors="replace")
+            if isinstance(data, (bytearray, bytes))
+            else str(data)
+        )
+        self.dataReceived.emit(sender_uuid, decoded_data)
 
     # Callback disconnected
-    def on_disconnect(self, client):
+    def cb_disconnect(self, client):
         """Callback for disconnection. Emits a signal with the disconnected client."""
         self.disconnect_event.set()
         self.linkLost.emit(client)
 
-    # Manual retrieve of services
+    # Retreive list of services acquired from the connected device
     def get_services(self):
-        """Retrieves services information from the connected device (if applicable)."""
-        return self.services if hasattr(self, 'services') else None
+        """Retrieves services information from the connected device and formats it as a list."""
+        services_list = []
+        if hasattr(self, "services"):
+            for service in self.services:
+                services_list.append(service.uuid)  # Add the service UUID
+                for characteristic in service.characteristics:
+                    services_list.append(
+                        characteristic.uuid
+                    )  # Add each characteristic UUID
+        return services_list
+
+    # Find characteristic by UUID
+    def get_char_from_uuid(self, uuid):
+        """Finds a characteristic by its UUID."""
+        for service in self.services:
+            for characteristic in service.characteristics:
+                if characteristic.uuid == uuid:
+                    return characteristic
+        return None
 
     # Manual disconnect
     @qasync.asyncSlot()
     async def disconnect(self):
         """Disconnects from the connected device."""
-        if self.client and self.client.is_connected:
+
+        # Disconnects the client
+        if self.ble_client and self.ble_client.is_connected:
             self.disconnect_event.set()
-            await self.client.disconnect()
+            await self.ble_client.disconnect()
+
+        # Clears connection information
+        self.ble_client = None
+
+        # Emits the link lost signal
+        self.taskHalted.emit()
