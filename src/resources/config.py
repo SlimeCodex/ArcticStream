@@ -3,7 +3,7 @@ globals = {
         "name": "ArcticStream",  # Name of the application
         "version": "v1.1.0",  # Version of the application
         "default_size": (800, 420),  # Default size of the application window
-        "minimum_size": (550, 350),  # Minimum size of the application window
+        "minimum_size": (620, 350),  # Minimum size of the application window
         "debug_mode": False,  # Indicates if the application is in debug mode
     },
     "gui": {
@@ -15,7 +15,7 @@ globals = {
         "default_line_edit_height": 30,  # Default height of line edit fields in the GUI
         "default_loading_bar_height": 30,  # Default height of loading bars in the GUI
         "debug_line_edit_height": 25,  # Height of line edit fields in debug mode
-        "default_status_ledit_size": (500, 25),  # Size of the status line edit
+        "default_status_ledit_size": (520, 25),  # Size of the status line edit
         "connectors_icon_size": (150, 150),  # Size of connector icons in the GUI
     },
     "bluetooth": {

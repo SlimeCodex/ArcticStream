@@ -103,6 +103,19 @@ class ConsoleWindow(QWidget):
         self.log_button = QPushButton("Log", self)
         self.log_button.clicked.connect(self.log_text)
 
+        # Toggle text wrap
+        self.wrap_button = ToggleButton(
+            self,
+            icons=(
+                f"{self.icons_dir}/format_text_clip_FILL0_wght400_GRAD0_opsz24.svg",
+                f"{self.icons_dir}/format_text_wrap_FILL0_wght400_GRAD0_opsz24.svg",
+            ),
+            size=app_config.globals["gui"]["default_button_size"],
+            style=th.get_style("default_button"),
+            callback=self.toggle_wrap,
+            toggled=True,
+        )
+
         # Toggle lock button
         self.lock_button = ToggleButton(
             self,
@@ -150,6 +163,7 @@ class ConsoleWindow(QWidget):
         buttons_layout.addWidget(clear_button)
         buttons_layout.addWidget(copy_button)
         buttons_layout.addWidget(self.log_button)
+        buttons_layout.addWidget(self.wrap_button)
         buttons_layout.addWidget(self.lock_button)
 
         # Input text box for sending data
@@ -189,6 +203,12 @@ class ConsoleWindow(QWidget):
 
     def pause_console(self):
         self.console_paused = True
+
+    # Toggle text wrap
+    def toggle_wrap(self, status):
+        self.text_edit_printf.setLineWrapMode(
+            QPlainTextEdit.WidgetWidth if status else QPlainTextEdit.NoWrap
+        )
 
     # Lock and unlock the scrollbar
     def toggle_lock(self, status):
@@ -398,6 +418,7 @@ class ConsoleWindow(QWidget):
             th.get_style("console_send_line_edit"))
         if not self.logging_enabled:
             self.log_button.setStyleSheet(th.get_style("default_button"))
+        self.wrap_button.setStyleSheet(th.get_style("default_button"))
         self.lock_button.setStyleSheet(th.get_style("default_button"))
         self.send_button.setStyleSheet(th.get_style("default_button"))
         self.status_overlay.setStyleSheet(
@@ -406,9 +427,11 @@ class ConsoleWindow(QWidget):
 
         # Update special widgets by theme
         if theme == "dark":
+            self.wrap_button.changeIconColor("#ffffff")
             self.lock_button.changeIconColor("#ffffff")
             self.send_button.changeIconColor("#ffffff")
         elif theme == "light":
+            self.wrap_button.changeIconColor("#000000")
             self.lock_button.changeIconColor("#000000")
             self.send_button.changeIconColor("#000000")
 

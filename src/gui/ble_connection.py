@@ -363,7 +363,6 @@ class BLEConnectionWindow(QWidget):
     # Initialize a new updater window (OTA)
     def create_updater_window(self, name, uuid):
         # Check if the console window is already open
-        print(self.updater.instance)
         if self.updater.instance:
             window = self.updater.instance
         else:
