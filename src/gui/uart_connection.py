@@ -19,15 +19,23 @@
 import asyncio
 
 import qasync
-from PyQt5.QtCore import pyqtSignal, QTimer
-from PyQt5.QtWidgets import QVBoxLayout, QWidget, QPushButton, QListWidget, QHBoxLayout
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import pyqtSignal, QTimer, Qt
+from PyQt5.QtWidgets import (
+    QVBoxLayout,
+    QWidget,
+    QPushButton,
+    QListWidget,
+    QHBoxLayout,
+    QLabel,
+    QStackedWidget,
+)
+from PyQt5.QtGui import QFont, QMovie
 
 import resources.config as app_config
 from interfaces.com_interface import CommunicationInterface
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
-from resources.indexer import BackendIndex, UpdaterIndex, ConsoleIndex
+from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex
 import resources.patterns as patterns
 
 
@@ -46,6 +54,7 @@ class UARTConnectionWindow(QWidget):
         # Window Signals & Flags
         self.mw.windowClose.connect(self.process_close_task)
         self.mw.autoSyncStatus.connect(self.auto_sync_status)
+        self.mw.themeChanged.connect(self.cb_update_theme)
         self.is_closing = False
 
         # Connection Events
@@ -79,19 +88,26 @@ class UARTConnectionWindow(QWidget):
 
     # Layout and Widgets
     def setup_layout(self):
+        scan_button = QPushButton("Scan Bluetooth")
+        scan_button.clicked.connect(self.uart_scan)
+
         connect_button = QPushButton("Connect")
         connect_button.clicked.connect(self.uart_connect)
-
-        disconnect_button = QPushButton("Disconnect && Clear")
-        disconnect_button.clicked.connect(self.manual_disconnect)
 
         self.scan_device_list = QListWidget()
         self.scan_device_list.setFont(QFont("Inconsolata"))
         self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
         self.scan_device_list.itemDoubleClicked.connect(self.uart_connect)
+        
+        self.movie_dark = QMovie("src/resources/video/loading_scan_dark.gif")
+        self.movie_light = QMovie("src/resources/video/loading_scan_light.gif")
 
-        scan_button = QPushButton("Scan UART Devices")
-        scan_button.clicked.connect(self.uart_scan)
+        self.animation_label = QLabel(self)
+        self.animation_label.setAlignment(Qt.AlignCenter)
+        self.animation_label.setGeometry(0, 0, 120, 120)
+
+        disconnect_button = QPushButton("Disconnect")
+        disconnect_button.clicked.connect(self.manual_disconnect)
 
         exit_button = QPushButton("Exit")
         exit_button.clicked.connect(self.exitApplication)
@@ -100,20 +116,62 @@ class UARTConnectionWindow(QWidget):
         buttons_layout.addWidget(connect_button)
         buttons_layout.addWidget(disconnect_button)
 
+        self.stacked_widget = QStackedWidget(self)
+        self.stacked_widget.addWidget(self.scan_device_list)
+
         connection_layout = QVBoxLayout()
-        connection_layout.addLayout(buttons_layout)
-        connection_layout.addWidget(self.scan_device_list)
         connection_layout.addWidget(scan_button)
+        connection_layout.addWidget(self.stacked_widget)
+        connection_layout.addLayout(buttons_layout)
         connection_layout.addWidget(exit_button)
         self.setLayout(connection_layout)
+
+    # Position the animation label
+    def position_animation(self):
+        list_geometry = self.scan_device_list.geometry()
+        animation_width = self.animation_label.width()
+        animation_height = self.animation_label.height()
+        x = list_geometry.x() + ((list_geometry.width() - animation_width) // 2)
+        y = list_geometry.y() + ((list_geometry.height() - animation_height) // 2) + 45
+        self.animation_label.setGeometry(x, y, animation_width, animation_height)
+        self.animation_label.raise_()
+    
+    # Update the theme of the loading animation
+    def cb_update_theme(self, theme):
+        if theme == "dark":
+            self.animation_label.setMovie(self.movie_dark)
+        if theme == "light":
+            self.animation_label.setMovie(self.movie_light)
+    
+    # Show or hide the loading animation
+    def show_loading_animation(self, status):
+        if status:
+            self.animation_label.setVisible(True)
+            self.movie_dark.start()
+            self.movie_light.start()
+        else:
+            self.animation_label.setVisible(False)
+            self.movie_dark.stop()
+            self.movie_light.stop()
+
+    # --- Qt Events ---
+
+    # Reimplement the resizeEvent
+    def resizeEvent(self, event):
+        self.position_animation()
+        super().resizeEvent(event)
 
     # --- Async UART Functions ---
 
     # UART Scanning
     @qasync.asyncSlot()
     async def uart_scan(self):
+        self.scan_device_list.clear()
         self.mw.debug_info("Scanning for UART devices ...")
+        self.show_loading_animation(True)
+        await asyncio.sleep(1)
         await self.interface.scan_for_devices()
+        self.show_loading_animation(False)
         self.mw.debug_info("Scanning complete")
 
     # UART Connection
@@ -314,6 +372,12 @@ class UARTConnectionWindow(QWidget):
     # Manual Disconnect/Clear from button
     @qasync.asyncSlot()
     async def manual_disconnect(self):
+        
+        # Check if already disconnected
+        if not self.connection_event.is_set():
+            self.mw.debug_info("Not connected to any device")
+            return
+        
         self.reconnection_attempts = 0
         self.reconnection_timer.stop()
 

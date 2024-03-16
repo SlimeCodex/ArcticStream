@@ -246,6 +246,10 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
     def disconnect(self):
         """Closes all client sockets and clears the connections."""
 
+        # Client already disconnected
+        if self.device_address is None:
+            return
+
         # Clears connection information
         self.device_address = None
         self.running = False

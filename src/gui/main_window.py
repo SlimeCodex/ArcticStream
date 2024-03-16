@@ -353,6 +353,7 @@ class MainWindow(SSCWindowProperties):
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
         self.autoSyncStatus.emit(self.auto_sync_status)
+        self.themeChanged.emit(self.theme_status)
 
     def connect_wifi(self):
         self.debug_info("Interface selected: WiFi")
@@ -364,6 +365,7 @@ class MainWindow(SSCWindowProperties):
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
         self.autoSyncStatus.emit(self.auto_sync_status)
+        self.themeChanged.emit(self.theme_status)
 
     def connect_uart(self):
         self.debug_info("Interface selected: UART")
@@ -375,6 +377,7 @@ class MainWindow(SSCWindowProperties):
         self.tab_widget.setVisible(True)
         self.hide_interfaces()
         self.autoSyncStatus.emit(self.auto_sync_status)
+        self.themeChanged.emit(self.theme_status)
 
     def exit_interface(self):
         # Clear the current tab
@@ -401,7 +404,7 @@ class MainWindow(SSCWindowProperties):
         self.usb_descriptor.setVisible(True)
         self.wifi_descriptor.setVisible(True)
 
-    # Qt Events-------
+    # --- Qt Events ---
 
     # Reimplement the resizeEvent
     def resizeEvent(self, event):

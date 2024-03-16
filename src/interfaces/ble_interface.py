@@ -176,6 +176,10 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
     async def disconnect(self):
         """Disconnects from the connected device."""
 
+        # Client already disconnected
+        if self.ble_client is None:
+            return
+
         # Disconnects the client
         if self.ble_client and self.ble_client.is_connected:
             self.disconnect_event.set()

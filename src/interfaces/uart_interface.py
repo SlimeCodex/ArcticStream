@@ -197,6 +197,10 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
     def disconnect(self):
         """Disconnects from the connected device."""
 
+        # Client already disconnected
+        if self.device_address is None:
+            return
+
         # Clears connection information
         self.device_address = None
         self.running = False

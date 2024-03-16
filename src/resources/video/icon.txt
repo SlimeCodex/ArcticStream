@@ -1,0 +1,10 @@
+light
+icon: d6d6d6
+back: f0f0f0
+
+dark:
+icon: 2b2b2b
+back: d6d6d6
+
+size: 120
+stroke: 8
