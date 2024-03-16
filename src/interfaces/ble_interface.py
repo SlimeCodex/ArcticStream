@@ -97,7 +97,7 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
 
     # Write data to characteristic (downlinks)
     @qasync.asyncSlot()
-    async def send_data(self, uuid, data, response=False):
+    async def send_data(self, uuid, data, response=False, encoded=False):
         """Sends data to the specified characteristic."""
         try:
             if self.disconnect_event.is_set():
@@ -109,7 +109,7 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
                     self.writeReady.emit(False)
                 else:
                     await self.ble_client.write_gatt_char(
-                        characteristic, data.encode(), response
+                        characteristic, data.encode() if not encoded else data, response
                     )
                     self.writeReady.emit(True)
         except Exception as e:

@@ -378,7 +378,7 @@ class UpdaterWindow(QWidget):
         self.ack_event.clear()
         if app_config.globals["updater"]["enable_output_debug"]:
             self.mw.debug_log(f"Sending chunk of {len(dataChunk)} bytes")
-        await self.interface.send_data(self.index.rxm, dataChunk)
+        await self.interface.send_data(self.index.rxm, dataChunk, encoded=True)
         return await self.wait_for_ack_or_stop()
 
     async def wait_for_ack_or_stop(self):

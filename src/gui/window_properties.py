@@ -84,6 +84,19 @@ class SSCWindowProperties(QMainWindow):
             toggled=False,
         )
 
+        # Toggle accumulator button
+        self.accumulator_button = ToggleButton(
+            self,
+            icons=(
+                f"{self.icons_dir}/variables_FILL0_wght400_GRAD0_opsz24.svg",
+                f"{self.icons_dir}/variable_add_FILL0_wght400_GRAD0_opsz24.svg",
+            ),
+            size=app_config.globals["gui"]["custom_bar_button_size"],
+            style=th.get_style("custom_bar_button"),
+            callback=self.toggle_accumulator,
+            toggled=False,
+        )
+
         # Toggle hint button
         self.top_hint_button = ToggleButton(
             self,
@@ -156,6 +169,7 @@ class SSCWindowProperties(QMainWindow):
         custom_bar_layout.addWidget(self.logo_button)
         custom_bar_layout.addWidget(self.title_label)
         custom_bar_layout.addWidget(self.color_mode_button)
+        custom_bar_layout.addWidget(self.accumulator_button)
         custom_bar_layout.addWidget(self.top_hint_button)
         custom_bar_layout.addWidget(self.autosync_button)
         custom_bar_layout.addWidget(self.con_status_button)
@@ -204,6 +218,9 @@ class SSCWindowProperties(QMainWindow):
     # Compact the window to just show the title bar
     def toggle_minimize(self):
         self.showMinimized()
+    
+    def toggle_accumulator(self, status):
+        self.mw.accumulatorChanged.emit(status)
 
     def toggle_hint(self, status):
         if status:
@@ -224,6 +241,7 @@ class SSCWindowProperties(QMainWindow):
         self.logo_button.setStyleSheet(th.get_style("custom_bar_button"))
         self.title_label.setStyleSheet(th.get_style("custom_bar_button"))
         self.color_mode_button.setStyleSheet(th.get_style("custom_bar_button"))
+        self.accumulator_button.setStyleSheet(th.get_style("custom_bar_button"))
         self.top_hint_button.setStyleSheet(th.get_style("custom_bar_button"))
         self.autosync_button.setStyleSheet(th.get_style("custom_bar_button"))
         self.minimize_button.setStyleSheet(th.get_style("custom_bar_button"))
@@ -234,6 +252,7 @@ class SSCWindowProperties(QMainWindow):
         if theme == "dark":
             self.logo_button.changeIconColor("#ffffff")
             self.color_mode_button.changeIconColor("#ffffff")
+            self.accumulator_button.changeIconColor("#ffffff")
             self.top_hint_button.changeIconColor("#ffffff")
             self.autosync_button.changeIconColor("#ffffff")
             self.minimize_button.changeIconColor("#ffffff")
@@ -242,6 +261,7 @@ class SSCWindowProperties(QMainWindow):
         elif theme == "light":
             self.logo_button.changeIconColor("#303030")
             self.color_mode_button.changeIconColor("#303030")
+            self.accumulator_button.changeIconColor("#303030")
             self.top_hint_button.changeIconColor("#303030")
             self.autosync_button.changeIconColor("#303030")
             self.minimize_button.changeIconColor("#303030")

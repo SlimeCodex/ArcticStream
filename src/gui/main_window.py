@@ -48,6 +48,7 @@ import helpers.theme_helper as th
 class MainWindow(SSCWindowProperties):
     themeChanged = pyqtSignal(str)
     autoSyncStatus = pyqtSignal(bool)
+    accumulatorChanged = pyqtSignal(bool)
 
     def __init__(self, app_main=None):
         super().__init__(self)
@@ -337,6 +338,11 @@ class MainWindow(SSCWindowProperties):
             self.debug_show = True
             self.line_edit_debug.setVisible(True)
             self.line_edit_version.setVisible(True)
+    
+    def toggle_accumulator(self, status):
+        self.debug_info(f"Accumulator status: {status}")
+        self.accumulator_status = status
+        self.accumulatorChanged.emit(status)
 
     def toggle_autosync(self, status):
         self.debug_info(f"Auto sync status: {status}")

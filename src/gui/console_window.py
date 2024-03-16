@@ -61,6 +61,9 @@ class ConsoleWindow(QWidget):
         self.mw.debug_log(f"ConsoleWindow: {self.index.rxm}")
         self.mw.debug_log("--------------------------------")
 
+        # Async window signals
+        self.mw.accumulatorChanged.connect(self.toggle_accumulator)
+
         # Async BLE Signals
         self.interface.linkReady.connect(self.cb_link_ready)
         self.interface.linkLost.connect(self.cb_link_lost)
@@ -79,6 +82,8 @@ class ConsoleWindow(QWidget):
         self.total_bytes_received = 0
         self.last_received_timestamp = 0
         self.total_data_counter = 0
+
+        self.acumulator_status = False
 
         self.setup_layout()
 
@@ -196,12 +201,15 @@ class ConsoleWindow(QWidget):
 
     # Update the tab title
     def update_tab_title(self):
-        new_title = (
-            f"{self.win_title} ({self.data_tab_counter})"
-            if self.data_tab_counter > 0
-            else self.win_title
-        )
-        self.mw.update_tab_title(self, new_title)
+        if self.acumulator_status:
+            new_title = (
+                f"{self.win_title} ({self.data_tab_counter})"
+                if self.data_tab_counter > 0
+                else self.win_title
+            )
+            self.mw.update_tab_title(self, new_title)
+        else:
+            self.mw.update_tab_title(self, self.win_title)
 
     def check_tab_focus(self):
         current_widget = self.mw.tab_widget.currentWidget()
@@ -403,6 +411,10 @@ class ConsoleWindow(QWidget):
         elif theme == "light":
             self.lock_button.changeIconColor("#000000")
             self.send_button.changeIconColor("#000000")
+
+    def toggle_accumulator(self, status):
+        self.acumulator_status = status
+        self.update_tab_title()
 
     # Qt Functions
 
