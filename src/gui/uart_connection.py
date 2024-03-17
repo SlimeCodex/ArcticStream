@@ -99,8 +99,11 @@ class UARTConnectionWindow(QWidget):
         self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
         self.scan_device_list.itemDoubleClicked.connect(self.uart_connect)
         
-        self.movie_dark = QMovie("src/resources/video/loading_scan_dark.gif")
-        self.movie_light = QMovie("src/resources/video/loading_scan_light.gif")
+        self.movies_dir = str(self.mw.movie_path())
+        self.loading_dark_path = self.movies_dir + "/loading_scan_dark.gif"
+        self.loading_light_path = self.movies_dir + "/loading_scan_light.gif"
+        self.movie_dark = QMovie(self.loading_dark_path)
+        self.movie_light = QMovie(self.loading_light_path)
 
         self.animation_label = QLabel(self)
         self.animation_label.setAlignment(Qt.AlignCenter)

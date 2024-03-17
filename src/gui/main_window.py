@@ -284,6 +284,15 @@ class MainWindow(SSCWindowProperties):
             application_path = Path(__file__).resolve().parent.parent
         font_dir = application_path / "resources" / "fonts"
         return font_dir
+    
+    # Get de videos path
+    def movie_path(self):
+        if getattr(sys, "frozen", False):
+            application_path = Path(sys._MEIPASS)
+        else:
+            application_path = Path(__file__).resolve().parent.parent
+        movies_dir = application_path / "resources" / "videos"
+        return movies_dir
 
     # --- Callbacks ---
 

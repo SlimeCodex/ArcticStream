@@ -13,9 +13,9 @@ del /q build\console\ArcticStream.exe
 del /q ArcticStream.spec
 
 :: Build the standalone (no console) version
-pyinstaller --onefile --noconsole --name=ArcticStream_standalone --add-data "src/resources/icons;resources/icons" --add-data "src/resources/fonts;resources/fonts" --hidden-import=winrt.windows.foundation.collections --icon=src/resources/icons/main_icon.ico --distpath build\standalone --workpath build\standalone src/main.py
+pyinstaller --onefile --noconsole --name=ArcticStream_standalone --add-data "src/resources/icons;resources/icons" --add-data "src/resources/fonts;resources/fonts" --add-data "src/resources/videos;resources/videos" --hidden-import=winrt.windows.foundation.collections --icon=src/resources/icons/main_icon.ico --distpath build\standalone --workpath build\standalone src/main.py
 :: Build the console version
-pyinstaller --onefile --console --name=ArcticStream_console --add-data "src/resources/icons;resources/icons" --add-data "src/resources/fonts;resources/fonts" --hidden-import=winrt.windows.foundation.collections --icon=src/resources/icons/main_icon.ico --distpath build\console --workpath build\console src/main.py
+pyinstaller --onefile --console --name=ArcticStream_console --add-data "src/resources/icons;resources/icons" --add-data "src/resources/fonts;resources/fonts" --add-data "src/resources/videos;resources/videos" --hidden-import=winrt.windows.foundation.collections --icon=src/resources/icons/main_icon.ico --distpath build\console --workpath build\console src/main.py
 
 :: Move executables to the correct locations and clean up PyInstaller generated directories
 move /Y build\standalone\ArcticStream_standalone.exe build\standalone\ArcticStream.exe

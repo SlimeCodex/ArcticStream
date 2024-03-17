@@ -28,6 +28,7 @@ import select
 import socket
 import platform
 import ipaddress
+import subprocess
 from abc import ABCMeta
 
 import qasync
@@ -68,6 +69,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         self.port_uplink = app_config.globals["wifi"]["port_uplink"]
         self.port_downlink = app_config.globals["wifi"]["port_downlink"]
         self.running = False
+        self.activity_timer = None
 
     # Network scanning method
     async def scan_for_devices(self):
@@ -108,6 +110,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             ip,
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW,
         )
         await process.wait()
         if process.returncode == 0:

@@ -96,9 +96,12 @@ class WiFiConnectionWindow(QWidget):
         self.scan_device_list.setFont(QFont("Inconsolata"))
         self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
         self.scan_device_list.itemDoubleClicked.connect(self.wifi_connect)
-        
-        self.movie_dark = QMovie("src/resources/video/loading_scan_dark.gif")
-        self.movie_light = QMovie("src/resources/video/loading_scan_light.gif")
+
+        self.movies_dir = str(self.mw.movie_path())
+        self.loading_dark_path = self.movies_dir + "/loading_scan_dark.gif"
+        self.loading_light_path = self.movies_dir + "/loading_scan_light.gif"
+        self.movie_dark = QMovie(self.loading_dark_path)
+        self.movie_light = QMovie(self.loading_light_path)
 
         self.animation_label = QLabel(self)
         self.animation_label.setAlignment(Qt.AlignCenter)
@@ -133,14 +136,14 @@ class WiFiConnectionWindow(QWidget):
         y = list_geometry.y() + ((list_geometry.height() - animation_height) // 2) + 45
         self.animation_label.setGeometry(x, y, animation_width, animation_height)
         self.animation_label.raise_()
-    
+
     # Update the theme of the loading animation
     def cb_update_theme(self, theme):
         if theme == "dark":
             self.animation_label.setMovie(self.movie_dark)
         if theme == "light":
             self.animation_label.setMovie(self.movie_light)
-    
+
     # Show or hide the loading animation
     def show_loading_animation(self, status):
         if status:
@@ -265,11 +268,11 @@ class WiFiConnectionWindow(QWidget):
     # Scan List Update
     def cb_scan_ready(self, devices):
         self.scan_device_list.clear()
-        
+
         if devices is None:
             self.mw.debug_info("No devices found")
             return
-        
+
         for name, address, ip in devices:
             self.scan_device_list.addItem(f"{name} - {address} - {ip}")
 
@@ -366,12 +369,11 @@ class WiFiConnectionWindow(QWidget):
     # Manual Disconnect/Clear from button
     @qasync.asyncSlot()
     async def manual_disconnect(self):
-        
         # Check if already disconnected
         if not self.connection_event.is_set():
             self.mw.debug_info("Not connected to any device")
             return
-        
+
         self.reconnection_attempts = 0
         self.reconnection_timer.stop()
 
