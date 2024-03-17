@@ -61,6 +61,7 @@ class BLEConnectionWindow(QWidget):
         self.connection_event = asyncio.Event()
         self.reconnection_event = asyncio.Event()
         self.get_name_event = asyncio.Event()
+        self.scanning_event = asyncio.Event()
 
         # Async BLE Signals
         self.interface.scanReady.connect(self.cb_scan_ready)
@@ -98,7 +99,7 @@ class BLEConnectionWindow(QWidget):
         self.scan_device_list.setFont(QFont("Inconsolata"))
         self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
         self.scan_device_list.itemDoubleClicked.connect(self.ble_connect)
-        
+
         self.movies_dir = str(self.mw.movie_path())
         self.loading_dark_path = self.movies_dir + "/loading_scan_dark.gif"
         self.loading_light_path = self.movies_dir + "/loading_scan_light.gif"
@@ -138,14 +139,14 @@ class BLEConnectionWindow(QWidget):
         y = list_geometry.y() + ((list_geometry.height() - animation_height) // 2) + 45
         self.animation_label.setGeometry(x, y, animation_width, animation_height)
         self.animation_label.raise_()
-    
+
     # Update the theme of the loading animation
     def cb_update_theme(self, theme):
         if theme == "dark":
             self.animation_label.setMovie(self.movie_dark)
         if theme == "light":
             self.animation_label.setMovie(self.movie_light)
-    
+
     # Show or hide the loading animation
     def show_loading_animation(self, status):
         if status:
@@ -169,11 +170,16 @@ class BLEConnectionWindow(QWidget):
     # BLE Scanning
     @qasync.asyncSlot()
     async def ble_scan(self):
+        if self.scanning_event.is_set():
+            self.mw.debug_info("Scanning already in progress")
+            return
+        self.scanning_event.set()
         self.scan_device_list.clear()
         self.mw.debug_info("Scanning for Bluetooth devices ...")
         self.show_loading_animation(True)
         await self.interface.scan_for_devices()
         self.show_loading_animation(False)
+        self.scanning_event.clear()
         self.mw.debug_info("Scanning complete")
 
     # BLE Connection
@@ -313,7 +319,8 @@ class BLEConnectionWindow(QWidget):
             self.scan_device_list.addItem(f"{name} - {address}")
 
     # Connection Complete
-    def cb_link_ready(self, connected):
+    @qasync.asyncSlot(bool)
+    async def cb_link_ready(self, connected):
         if connected:
             self.mw.debug_info(
                 f"Device {self.device_address} is ready to receive commands"
@@ -325,13 +332,13 @@ class BLEConnectionWindow(QWidget):
             services = self.interface.get_services()
             for service in services:
                 if service == patterns.UUID_BLE_BACKEND_TX:  # Not regex
-                    self.interface.start_notifications(service)
+                    await self.interface.start_notifications(service)
                 if service == patterns.UUID_BLE_OTA_TX:  # Not regex
-                    self.interface.start_notifications(service)
+                    await self.interface.start_notifications(service)
                 if patterns.UUID_BLE_CONSOLE_TX.match(service):  # Regex
-                    self.interface.start_notifications(service)
+                    await self.interface.start_notifications(service)
                 if patterns.UUID_BLE_CONSOLE_TXS.match(service):  # Regex
-                    self.interface.start_notifications(service)
+                    await self.interface.start_notifications(service)
 
             # Get the services names through the backend (notify)
             self.get_services_names()
@@ -424,37 +431,43 @@ class BLEConnectionWindow(QWidget):
         if not self.connection_event.is_set():
             self.mw.debug_info("Not connected to any device")
             return
-        
-        #
+
+        # Disconnect from the device and clear the connection
+        self.mw.debug_info("Clearing BLE connection ...")
         await self.interface.disconnect()
 
-        self.reconnection_attempts = 0
-        self.reconnection_timer.stop()
-
-        self.mw.debug_info("Clearing BLE connection ...")
-
-
+        # Stop and close the remaining consoles
         self.stop_consoles()
 
+        # Clear the scan list
+        self.scan_device_list.clear()
+
+        # Reset globals
         self.device_address = None
         self.connection_event.clear()
         self.reconnection_event.clear()
-
-        self.scan_device_list.clear()
+        self.reconnection_attempts = 0
+        self.reconnection_timer.stop()
 
     # Stop the remaining consoles
     def stop_consoles(self):
-        for console_index in self.console:
-            if console_index.instance:
-                console_index.instance.close()
-                del console_index.instance
-                self.mw.remove_tab(console_index.tab_index)
-        
-        if self.updater.instance:
+        # Convert the console dictionary to a list of (uuid, console_index) tuples
+        console_items = list(self.console.items())
+
+        # Remove the consoles in reverse order to avoid index issues
+        for uuid, console in reversed(console_items):
+            if console.instance:
+                console.instance.close()
+                del console.instance
+                self.mw.remove_tab(console.tab_index)
+
+        # Remove the updater window if it's open
+        if self.updater and self.updater.instance:
             self.updater.instance.close()
             del self.updater.instance
             self.mw.remove_tab(self.updater.tab_index)
-            
+
+        self.updater = None
         self.console = {}
 
     # Stop the BLE Handler

@@ -60,6 +60,7 @@ class UARTConnectionWindow(QWidget):
         # Connection Events
         self.connection_event = asyncio.Event()
         self.reconnection_event = asyncio.Event()
+        self.scanning_event = asyncio.Event()
 
         # Async UART Signals
         self.interface.scanReady.connect(self.cb_scan_ready)
@@ -98,7 +99,7 @@ class UARTConnectionWindow(QWidget):
         self.scan_device_list.setFont(QFont("Inconsolata"))
         self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
         self.scan_device_list.itemDoubleClicked.connect(self.uart_connect)
-        
+
         self.movies_dir = str(self.mw.movie_path())
         self.loading_dark_path = self.movies_dir + "/loading_scan_dark.gif"
         self.loading_light_path = self.movies_dir + "/loading_scan_light.gif"
@@ -138,14 +139,14 @@ class UARTConnectionWindow(QWidget):
         y = list_geometry.y() + ((list_geometry.height() - animation_height) // 2) + 45
         self.animation_label.setGeometry(x, y, animation_width, animation_height)
         self.animation_label.raise_()
-    
+
     # Update the theme of the loading animation
     def cb_update_theme(self, theme):
         if theme == "dark":
             self.animation_label.setMovie(self.movie_dark)
         if theme == "light":
             self.animation_label.setMovie(self.movie_light)
-    
+
     # Show or hide the loading animation
     def show_loading_animation(self, status):
         if status:
@@ -169,12 +170,17 @@ class UARTConnectionWindow(QWidget):
     # UART Scanning
     @qasync.asyncSlot()
     async def uart_scan(self):
+        if self.scanning_event.is_set():
+            self.mw.debug_info("Scanning already in progress")
+            return
+        self.scanning_event.set()
         self.scan_device_list.clear()
         self.mw.debug_info("Scanning for UART devices ...")
         self.show_loading_animation(True)
         await asyncio.sleep(1)
         await self.interface.scan_for_devices()
         self.show_loading_animation(False)
+        self.scanning_event.clear()
         self.mw.debug_info("Scanning complete")
 
     # UART Connection
@@ -353,7 +359,7 @@ class UARTConnectionWindow(QWidget):
         if self.connection_event.is_set():
             self.reconnection_timer.stop()
             return
-        
+
         if self.reconnection_attempts < self.max_reconnection_attempts:
             await self.interface.disconnect()
             self.reconnection_event.set()
@@ -376,42 +382,53 @@ class UARTConnectionWindow(QWidget):
     # Manual Disconnect/Clear from button
     @qasync.asyncSlot()
     async def manual_disconnect(self):
-        
         # Check if already disconnected
         if not self.connection_event.is_set():
             self.mw.debug_info("Not connected to any device")
             return
-        
+
+        # Disconnect from the device and clear the connection
+        self.mw.debug_info("Clearing UART connection ...")
+        await self.interface.disconnect()
+
+        # Stop and close the remaining consoles
+        self.stop_consoles()
+
+        # Clear the scan list
+        self.scan_device_list.clear()
+
+        # Reset globals
+        self.device_address = None
+        self.connection_event.clear()
+        self.reconnection_event.clear()
         self.reconnection_attempts = 0
         self.reconnection_timer.stop()
 
-        self.mw.debug_info("Clearing UART connection ...")
-
-        # 2. Disconnect from the device
-        await self.interface.disconnect()
-
-        # 1. Stop consoles and clear references
-        self.stop_consoles()
-
-        # 3. Clear device port and connection events
-        self.device_port = None
-        self.connection_event.clear()
-        self.reconnection_event.clear()
-
-        # 4. Optionally clear the scan device list (if desired)
-        self.scan_device_list.clear()
-
     # Stop the remaining consoles
     def stop_consoles(self):
-        self.console = {}  # Clear console index
-        for uuid, console_index in self.console.items():
-            if console_index.instance:
-                console_index.instance.close()
+        # Convert the console dictionary to a list of (uuid, console_index) tuples
+        console_items = list(self.console.items())
 
-    # Stop the UART Handler
+        # Remove the consoles in reverse order to avoid index issues
+        for uuid, console in reversed(console_items):
+            if console.instance:
+                console.instance.close()
+                del console.instance
+                self.mw.remove_tab(console.tab_index)
+
+        # Remove the updater window if it's open
+        if self.updater and self.updater.instance:
+            self.updater.instance.close()
+            del self.updater.instance
+            self.mw.remove_tab(self.updater.tab_index)
+
+        self.updater = None
+        self.console = {}
+
+    # Stop the BLE Handler
     @qasync.asyncSlot()
     async def process_close_task(self, close_window=True):
-        self.device_port = None
+        self.device_address = None
         if not self.is_closing:
             self.is_closing = True
             await self.interface.disconnect()
@@ -420,5 +437,9 @@ class UARTConnectionWindow(QWidget):
                 self.closingReady.emit()
 
     # Exit triggered from "exit" button
-    def exitApplication(self):
+    @qasync.asyncSlot()
+    async def exitApplication(self):
+        if self.connection_event.is_set():
+            self.mw.debug_info("Disconnecting from the interface ...")
+            await self.manual_disconnect()
         self.mw.exit_interface()

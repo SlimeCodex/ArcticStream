@@ -59,6 +59,7 @@ class WiFiConnectionWindow(QWidget):
         # Connection Events
         self.connection_event = asyncio.Event()
         self.reconnection_event = asyncio.Event()
+        self.scanning_event = asyncio.Event()
 
         # Async WiFi Signals
         self.interface.scanReady.connect(self.cb_scan_ready)
@@ -167,11 +168,16 @@ class WiFiConnectionWindow(QWidget):
     # WiFi Scanning
     @qasync.asyncSlot()
     async def wifi_scan(self):
+        if self.scanning_event.is_set():
+            self.mw.debug_info("Scanning already in progress")
+            return
+        self.scanning_event.set()
         self.scan_device_list.clear()
         self.mw.debug_info("Scanning for WiFi devices ...")
         self.show_loading_animation(True)
         await self.interface.scan_for_devices()
         self.show_loading_animation(False)
+        self.scanning_event.clear()
         self.mw.debug_info("Scanning complete")
 
     # WiFi Connection
@@ -374,33 +380,45 @@ class WiFiConnectionWindow(QWidget):
             self.mw.debug_info("Not connected to any device")
             return
 
-        self.reconnection_attempts = 0
-        self.reconnection_timer.stop()
-
-        self.mw.debug_info("Clearing WIFI connection ...")
-
-        # 2. Disconnect from the device
+        # Disconnect from the device and clear the connection
+        self.mw.debug_info("Clearing WiFi connection ...")
         await self.interface.disconnect()
 
-        # 1. Stop consoles and clear references
+        # Stop and close the remaining consoles
         self.stop_consoles()
 
-        # 3. Clear device port and connection events
+        # Clear the scan list
+        self.scan_device_list.clear()
+
+        # Reset globals
         self.device_address = None
         self.connection_event.clear()
         self.reconnection_event.clear()
-
-        # 4. Optionally clear the scan device list (if desired)
-        self.scan_device_list.clear()
+        self.reconnection_attempts = 0
+        self.reconnection_timer.stop()
 
     # Stop the remaining consoles
     def stop_consoles(self):
-        self.console = {}  # Clear console index
-        for uuid, console_index in self.console.items():
-            if console_index.instance:
-                console_index.instance.close()
+        # Convert the console dictionary to a list of (uuid, console_index) tuples
+        console_items = list(self.console.items())
 
-    # Stop the WiFi Handler
+        # Remove the consoles in reverse order to avoid index issues
+        for uuid, console in reversed(console_items):
+            if console.instance:
+                console.instance.close()
+                del console.instance
+                self.mw.remove_tab(console.tab_index)
+
+        # Remove the updater window if it's open
+        if self.updater and self.updater.instance:
+            self.updater.instance.close()
+            del self.updater.instance
+            self.mw.remove_tab(self.updater.tab_index)
+
+        self.updater = None
+        self.console = {}
+
+    # Stop the BLE Handler
     @qasync.asyncSlot()
     async def process_close_task(self, close_window=True):
         self.device_address = None
@@ -412,5 +430,9 @@ class WiFiConnectionWindow(QWidget):
                 self.closingReady.emit()
 
     # Exit triggered from "exit" button
-    def exitApplication(self):
+    @qasync.asyncSlot()
+    async def exitApplication(self):
+        if self.connection_event.is_set():
+            self.mw.debug_info("Disconnecting from the interface ...")
+            await self.manual_disconnect()
         self.mw.exit_interface()
