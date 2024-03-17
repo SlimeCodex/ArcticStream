@@ -29,7 +29,6 @@ import platform
 from abc import ABCMeta
 import serial.tools.list_ports
 
-import qasync
 import aioserial
 from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 
@@ -68,7 +67,6 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         self.running = False
 
     # Network scanning method
-    @qasync.asyncSlot()
     async def scan_for_devices(self):
         """Scans for available devices on the interface."""
 
@@ -85,7 +83,6 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         self.scanReady.emit(formatted_devices)
 
     # Device connection method
-    @qasync.asyncSlot()
     async def connect_to_device(self, device_port):
         """Connects to a device and starts the data stream."""
         try:
@@ -160,7 +157,6 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         self.dataReceived.emit(uuid, data + "\n")
 
     # Send data to the device
-    @qasync.asyncSlot()
     async def send_data(self, uuid, data):
         """Sends data to a device."""
         if self.port_instance is not None:
@@ -179,7 +175,6 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
             self.writeReady.emit(False)
 
     # Send simple byte keepalive message to the device
-    @qasync.asyncSlot()
     async def send_keepalive(self):
         """Sends a keepalive message to the device."""
         if self.port_instance is not None:
@@ -194,7 +189,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         self.linkLost.emit(self.device_address)
 
     # Finalize the connection
-    def disconnect(self):
+    async def disconnect(self):
         """Disconnects from the connected device."""
 
         # Client already disconnected

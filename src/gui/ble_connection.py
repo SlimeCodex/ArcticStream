@@ -334,11 +334,12 @@ class BLEConnectionWindow(QWidget):
             self.get_services_names()
 
     # Disconnected
-    def cb_link_lost(self, device_address):
+    @qasync.asyncSlot(str)
+    async def cb_link_lost(self, device_address):
         self.mw.debug_info(f"Device on {device_address} stopped responding.")
 
         # Reset the interface
-        self.interface.disconnect()
+        await self.interface.disconnect()
         self.connection_event.clear()
 
         # Autosync enabled. Try to reconnect
@@ -369,7 +370,7 @@ class BLEConnectionWindow(QWidget):
             # Console window is not open, create a new one
             window = UpdaterWindow(self.mw, self.interface, name, self.updater)
             self.updater.instance = window
-            self.mw.add_updater_tab(window, name)
+            self.updater.tab_index = self.mw.add_updater_tab(window, name)
 
     # Initialize or reinitialize a console window
     def create_console_window(self, name, uuid):
@@ -380,7 +381,7 @@ class BLEConnectionWindow(QWidget):
             # Console window is not open, create a new one
             window = ConsoleWindow(self.mw, self.interface, name, self.console[uuid])
             self.console[uuid].instance = window
-            self.mw.add_console_tab(window, name)
+            self.console[uuid].tab_index = self.mw.add_console_tab(window, name)
 
     def auto_sync_status(self, status):
         self.auto_sync_enabled = status
@@ -395,7 +396,7 @@ class BLEConnectionWindow(QWidget):
             return
 
         if self.reconnection_attempts < self.max_reconnection_attempts:
-            self.interface.disconnect()
+            await self.interface.disconnect()
             self.reconnection_event.set()
             self.reconnection_attempts += 1
             self.mw.debug_info(
@@ -420,32 +421,38 @@ class BLEConnectionWindow(QWidget):
         if not self.connection_event.is_set():
             self.mw.debug_info("Not connected to any device")
             return
+        
+        #
+        await self.interface.disconnect()
 
         self.reconnection_attempts = 0
         self.reconnection_timer.stop()
 
         self.mw.debug_info("Clearing BLE connection ...")
 
-        # 2. Disconnect from the device
-        self.interface.disconnect()
 
-        # 1. Stop consoles and clear references
         self.stop_consoles()
 
-        # 3. Clear device port and connection events
         self.device_address = None
         self.connection_event.clear()
         self.reconnection_event.clear()
 
-        # 4. Optionally clear the scan device list (if desired)
         self.scan_device_list.clear()
 
     # Stop the remaining consoles
     def stop_consoles(self):
-        self.console = {}  # Clear console index
-        for uuid, console_index in self.console.items():
+        for console_index in self.console:
             if console_index.instance:
                 console_index.instance.close()
+                del console_index.instance
+                self.mw.remove_tab(console_index.tab_index)
+        
+        if self.updater.instance:
+            self.updater.instance.close()
+            del self.updater.instance
+            self.mw.remove_tab(self.updater.tab_index)
+            
+        self.console = {}
 
     # Stop the BLE Handler
     @qasync.asyncSlot()
@@ -453,11 +460,15 @@ class BLEConnectionWindow(QWidget):
         self.device_address = None
         if not self.is_closing:
             self.is_closing = True
-            self.interface.disconnect()
+            await self.interface.disconnect()
             self.stop_consoles()
             if close_window:
                 self.closingReady.emit()
 
     # Exit triggered from "exit" button
-    def exitApplication(self):
+    @qasync.asyncSlot()
+    async def exitApplication(self):
+        if self.connection_event.is_set():
+            self.mw.debug_info("Disconnecting from the interface ...")
+            await self.manual_disconnect()
         self.mw.exit_interface()

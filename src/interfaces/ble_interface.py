@@ -24,7 +24,6 @@
 import asyncio
 from abc import ABCMeta
 
-import qasync
 from bleak import BleakScanner, BleakClient
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -45,7 +44,7 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
     # BLE Signals
     scanReady = pyqtSignal(list)  # List of available devices
     linkReady = pyqtSignal(bool)  # Device is ready to receive commands
-    linkLost = pyqtSignal(object)  # Device has been disconnected
+    linkLost = pyqtSignal(str)  # Device has been disconnected
     characteristicRead = pyqtSignal(str, bytes)  # Read characteristic data
     dataReceived = pyqtSignal(str, str)  # Received data from notifications
     writeReady = pyqtSignal(bool)  # Write operation status
@@ -58,7 +57,6 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
         self.services = None
 
     # Scan for devices
-    @qasync.asyncSlot()
     async def scan_for_devices(self):
         """Scans for available devices on the interface."""
         devices = await BleakScanner.discover()
@@ -66,7 +64,6 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
         self.scanReady.emit(formatted_devices)
 
     # Connect to device
-    @qasync.asyncSlot()
     async def connect_to_device(self, device_address):
         """Connects to a device on the interface."""
         self.ble_client = BleakClient(
@@ -89,14 +86,12 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
             self.linkReady.emit(False)
 
     # Read data from characteristic (manual reading)
-    @qasync.asyncSlot()
     async def read_characteristic(self, characteristic):
         """Reads data from a characteristic."""
         value = await self.ble_client.read_gatt_char(characteristic)
         self.characteristicRead.emit(str(characteristic.uuid), bytes(value))
 
     # Write data to characteristic (downlinks)
-    @qasync.asyncSlot()
     async def send_data(self, uuid, data, response=False, encoded=False):
         """Sends data to the specified characteristic."""
         try:
@@ -117,7 +112,6 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
             self.writeReady.emit(False)
 
     # Setup notifications for uplink characteristic
-    @qasync.asyncSlot()
     async def start_notifications(self, uuid):
         """Starts notifications for a characteristic."""
 
@@ -147,7 +141,8 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
     def cb_disconnect(self, client):
         """Callback for disconnection. Emits a signal with the disconnected client."""
         self.disconnect_event.set()
-        self.linkLost.emit(client)
+        address = client.address
+        self.linkLost.emit(address)
 
     # Retreive list of services acquired from the connected device
     def get_services(self):
@@ -172,7 +167,6 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
         return None
 
     # Manual disconnect
-    @qasync.asyncSlot()
     async def disconnect(self):
         """Disconnects from the connected device."""
 

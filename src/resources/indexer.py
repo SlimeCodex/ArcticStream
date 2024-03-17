@@ -16,6 +16,7 @@ class UpdaterIndex:
         self.txm = None
         self.rxm = None
         self.instance = None
+        self.tab_index = None
 
 
 class ConsoleIndex:
@@ -26,3 +27,4 @@ class ConsoleIndex:
         self.txs = None
         self.rxm = None
         self.instance = None
+        self.tab_index = None

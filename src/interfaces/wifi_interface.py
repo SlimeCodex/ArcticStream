@@ -51,7 +51,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
     # WiFi Signals
     scanReady = pyqtSignal(list)  # List of available devices
     linkReady = pyqtSignal(bool)  # Device is ready to receive commands
-    linkLost = pyqtSignal(object)  # Device is not responding
+    linkLost = pyqtSignal(str)  # Device is not responding
     dataReceived = pyqtSignal(str, str)  # Data received from the device
     writeReady = pyqtSignal(bool)  # Data was sent successfully
     taskHalted = pyqtSignal()  # Interface task was halted
@@ -70,7 +70,6 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         self.running = False
 
     # Network scanning method
-    @qasync.asyncSlot()
     async def scan_for_devices(self):
         """Scans the network for devices and emits the discovered devices."""
 
@@ -90,11 +89,12 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
                 patterns.UUID_WIFI_BACKEND_RX, "ARCTIC_COMMAND_GET_DEVICE", scan=True
             )
             devices_info = []
-            if "Error:" not in scan_response:
-                name, mac = self._parse_device_info(scan_response)
-                devices_info.append((name, mac, ip))
-            else:
-                print(f"Response from {ip}: {scan_response}")
+            if scan_response is not None:
+                if "Error:" not in scan_response:
+                    name, mac = self._parse_device_info(scan_response)
+                    devices_info.append((name, mac, ip))
+                else:
+                    print(f"Response from {ip}: {scan_response}")
             self.scanReady.emit(devices_info)
 
     # Helper method to check if a host is up and running
@@ -137,7 +137,6 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         return name, mac
 
     # Connect to device
-    @qasync.asyncSlot()
     async def connect_to_device(self, device_address):
         """Connects to a device and starts the data stream."""
         self.device_address = device_address
@@ -209,7 +208,6 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
 
     # --- Communication ---
 
-    @qasync.asyncSlot()
     async def send_data(self, uuid, data, scan=False):
         """Sends data to a device."""
         try:
@@ -243,7 +241,8 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         self.linkLost.emit(self.device_address)
 
     # Finalize the connection
-    def disconnect(self):
+    @qasync.asyncSlot()
+    async def disconnect(self):
         """Closes all client sockets and clears the connections."""
 
         # Client already disconnected
@@ -260,7 +259,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             self.socket_instance = None
 
         # Stops the activity timer
-        if self.activity_timer.isActive():
+        if self.activity_timer and self.activity_timer.isActive():
             self.activity_timer.stop()
 
         # Emits the link lost signal

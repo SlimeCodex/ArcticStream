@@ -291,11 +291,12 @@ class UARTConnectionWindow(QWidget):
             self.mw.debug_info("COM Disconnected")
 
     # Disconnected
-    def cb_link_lost(self, device_port):
+    @qasync.asyncSlot(str)
+    async def cb_link_lost(self, device_port):
         self.mw.debug_info(f"Device on {device_port} stopped responding.")
 
         # Reset the interface
-        self.interface.disconnect()
+        await self.interface.disconnect()
         self.connection_event.clear()
 
         # Autosync enabled. Try to reconnect
@@ -351,7 +352,7 @@ class UARTConnectionWindow(QWidget):
             return
         
         if self.reconnection_attempts < self.max_reconnection_attempts:
-            self.interface.disconnect()
+            await self.interface.disconnect()
             self.reconnection_event.set()
             self.reconnection_attempts += 1
             self.mw.debug_info(
@@ -384,7 +385,7 @@ class UARTConnectionWindow(QWidget):
         self.mw.debug_info("Clearing UART connection ...")
 
         # 2. Disconnect from the device
-        self.interface.disconnect()
+        await self.interface.disconnect()
 
         # 1. Stop consoles and clear references
         self.stop_consoles()
@@ -410,7 +411,7 @@ class UARTConnectionWindow(QWidget):
         self.device_port = None
         if not self.is_closing:
             self.is_closing = True
-            self.interface.disconnect()
+            await self.interface.disconnect()
             self.stop_consoles()
             if close_window:
                 self.closingReady.emit()

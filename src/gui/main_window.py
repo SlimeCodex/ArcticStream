@@ -203,19 +203,27 @@ class MainWindow(SSCWindowProperties):
     # Add a connection tab dynamically
     def add_connection_tab(self, console_widget, title):
         tabIndex = self.tab_widget.addTab(console_widget, title)
+        self.debug_log(f"Adding tab: {title} with index {tabIndex}")
         return tabIndex
 
     # Add a console tab dynamically
     def add_console_tab(self, console_widget, title):
         tabIndex = self.tab_widget.addTab(console_widget, title)
         self.themeChanged.emit(self.theme_status)  # Update theme for new tab
+        self.debug_log(f"Adding tab: {title} with index {tabIndex}")
         return tabIndex
 
     # Add a updater tab dynamically
     def add_updater_tab(self, console_widget, title):
         tabIndex = self.tab_widget.addTab(console_widget, title)
         self.themeChanged.emit(self.theme_status)  # Update theme for new tab
+        self.debug_log(f"Adding tab: {title}")
         return tabIndex
+    
+    # Remove a tab 
+    def remove_tab(self, index):
+        self.debug_log(f"Removing tab: {index}")
+        self.tab_widget.removeTab(index)
 
     def update_tab_title(self, console, title):
         index = self.tab_widget.indexOf(console)
@@ -340,12 +348,10 @@ class MainWindow(SSCWindowProperties):
             self.line_edit_version.setVisible(True)
     
     def toggle_accumulator(self, status):
-        self.debug_info(f"Accumulator status: {status}")
         self.accumulator_status = status
         self.accumulatorChanged.emit(status)
 
     def toggle_autosync(self, status):
-        self.debug_info(f"Auto sync status: {status}")
         self.auto_sync_status = status
         self.autoSyncStatus.emit(self.auto_sync_status)
 
@@ -386,6 +392,10 @@ class MainWindow(SSCWindowProperties):
         self.themeChanged.emit(self.theme_status)
 
     def exit_interface(self):
+        # Close the connection tab
+        self.connection_tab.close()
+        self.connection_tab = None
+
         # Clear the current tab
         current_index = self.tab_widget.currentIndex()
         if current_index != -1:
