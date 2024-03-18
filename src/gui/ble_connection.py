@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QMovie
 
 import resources.config as app_config
-from interfaces.com_interface import CommunicationInterface
+from interfaces.base_interface import CommunicationInterface
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex

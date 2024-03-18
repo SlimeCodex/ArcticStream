@@ -36,7 +36,7 @@ import asyncio
 from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 
 import resources.config as app_config
-from interfaces.com_interface import CommunicationInterface
+from interfaces.base_interface import CommunicationInterface
 import resources.patterns as patterns
 
 # PyQt wrapper type

@@ -32,7 +32,7 @@ from PyQt5.QtGui import QTextCursor, QFont, QTextCharFormat
 from datetime import datetime
 
 import resources.config as app_config
-from interfaces.com_interface import CommunicationInterface
+from interfaces.base_interface import CommunicationInterface
 from resources.indexer import ConsoleIndex
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
 import helpers.theme_helper as th

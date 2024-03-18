@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QFont, QMovie
 
 import resources.config as app_config
-from interfaces.com_interface import CommunicationInterface
+from interfaces.base_interface import CommunicationInterface
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex
@@ -71,7 +71,7 @@ class UARTConnectionWindow(QWidget):
         self.interface.taskHalted.connect(self.cb_task_halted)
 
         # Console Handling Variables
-        self.device_port = None
+        self.device_address = None
         self.updater = None  # Updater Instance
         self.console = {}  # Console Index and Instance Storage
 
@@ -195,10 +195,10 @@ class UARTConnectionWindow(QWidget):
 
             # Select the COM port from the list [descriptor - port]
             device_port = selected_items[0].text().split(" - ")[1]
-            self.device_port = device_port
+            self.device_address = device_port
 
-        self.mw.debug_info(f"Connecting to {self.device_port} ...")
-        await self.interface.connect_to_device(self.device_port)
+        self.mw.debug_info(f"Connecting to {self.device_address} ...")
+        await self.interface.connect_to_device(self.device_address)
 
     # --- Device Interaction ---
 
@@ -286,7 +286,7 @@ class UARTConnectionWindow(QWidget):
     def cb_link_ready(self, connected):
         if connected:
             self.mw.debug_info(
-                f"Device {self.device_port} is ready to receive commands"
+                f"Device {self.device_address} is ready to receive commands"
             )
             self.connection_event.set()
             self.reconnection_attempts = 0
@@ -309,7 +309,7 @@ class UARTConnectionWindow(QWidget):
         self.connection_event.clear()
 
         # Autosync enabled. Try to reconnect
-        if self.device_port and self.auto_sync_enabled:
+        if self.device_address and self.auto_sync_enabled:
             self.mw.debug_info("Attempting reconnection ...")
             self.reconnection_timer.start(5000)
 
@@ -365,7 +365,7 @@ class UARTConnectionWindow(QWidget):
             self.reconnection_event.set()
             self.reconnection_attempts += 1
             self.mw.debug_info(
-                f"Attempting reconnection to {self.device_port} "
+                f"Attempting reconnection to {self.device_address} "
                 f"(attempt {self.reconnection_attempts}/{self.max_reconnection_attempts})"
             )
             await self.uart_connect()
