@@ -251,6 +251,9 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         # Client already disconnected
         if self.device_address is None:
             return
+        
+        # Send the disconnect signal
+        self.linkLost.emit(self.device_address)
 
         # Clears connection information
         self.device_address = None
@@ -265,5 +268,5 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         if self.activity_timer and self.activity_timer.isActive():
             self.activity_timer.stop()
 
-        # Emits the link lost signal
+        # Emits the task halted signal
         self.taskHalted.emit()

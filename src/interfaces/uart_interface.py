@@ -29,6 +29,7 @@ import platform
 from abc import ABCMeta
 import serial.tools.list_ports
 
+import qasync
 import aioserial
 from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 
@@ -175,6 +176,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
             self.writeReady.emit(False)
 
     # Send simple byte keepalive message to the device
+    @qasync.asyncSlot()
     async def send_keepalive(self):
         """Sends a keepalive message to the device."""
         if self.port_instance is not None:
@@ -195,6 +197,9 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         # Client already disconnected
         if self.device_address is None:
             return
+        
+        # Send the disconnect signal
+        self.linkLost.emit(self.device_address)
 
         # Clears connection information
         self.device_address = None

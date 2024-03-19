@@ -54,5 +54,6 @@ globals = {
         "default_ptext_edit",  # Default plaintext edit style
         "default_tab",  # Default tab style
         "default_scroll",  # Default scroll style
+        "default_splitter",  # Default splitter style
     },
 }

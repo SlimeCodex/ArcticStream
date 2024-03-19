@@ -327,8 +327,8 @@ class WiFiConnectionWindow(QWidget):
         else:
             # Console window is not open, create a new one
             window = UpdaterWindow(self.mw, self.interface, name, self.updater)
-            self.updater = window
-            self.mw.add_updater_tab(window, name)
+            self.updater.instance = window
+            self.updater.tab_index = self.mw.add_updater_tab(window, name)
 
     # Initialize or reinitialize a console window
     def create_console_window(self, name, uuid):
@@ -339,7 +339,7 @@ class WiFiConnectionWindow(QWidget):
             # Console window is not open, create a new one
             window = ConsoleWindow(self.mw, self.interface, name, self.console[uuid])
             self.console[uuid].instance = window
-            self.mw.add_console_tab(window, name)
+            self.console[uuid].tab_index = self.mw.add_console_tab(window, name)
 
     def auto_sync_status(self, status):
         self.auto_sync_enabled = status

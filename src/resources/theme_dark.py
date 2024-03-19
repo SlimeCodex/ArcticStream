@@ -281,11 +281,10 @@ default_scroll = """
         border: none;
         background-color: #2b2b2b;
         height: 8px;
-        margin-bottom: 8px;
     }
     QScrollBar::handle:horizontal {
         background-color: #555555;
-        min-height: 20px;
+        min-width: 20px;
     }
     QScrollBar::handle:horizontal:hover {
         background-color: #3d3d3d;
@@ -335,5 +334,16 @@ uploader_loading_bar_fail = """
     QProgressBar::chunk {
         background-color: rgba(139, 0, 0, 128);
         border-radius: 4px;
+    }
+"""
+
+# QSplitters ----------------------------
+
+default_splitter = """
+    QSplitter::handle {
+        background-color: #2b2b2b;
+    }
+    QSplitter::handle:hover {
+        background-color: #3d3d3d;
     }
 """

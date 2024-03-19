@@ -57,12 +57,13 @@ class UpdaterWindow(QWidget):
         self.win_title = title  # Original title of the tab
         self.index = updater_index  # Console information
 
-        self.mw.debug_log("UpdaterWindow: Initializing ...")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.name}")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.service}")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.txm}")
-        self.mw.debug_log(f"ConsoleWindow: {self.index.rxm}")
-        self.mw.debug_log("--------------------------------")
+        if False:
+            self.mw.debug_log("UpdaterWindow: Initializing ...")
+            self.mw.debug_log(f"ConsoleWindow: {self.index.name}")
+            self.mw.debug_log(f"ConsoleWindow: {self.index.service}")
+            self.mw.debug_log(f"ConsoleWindow: {self.index.txm}")
+            self.mw.debug_log(f"ConsoleWindow: {self.index.rxm}")
+            self.mw.debug_log("--------------------------------")
 
         # Async BLE Signals
         self.interface.dataReceived.connect(self.cb_data_received)

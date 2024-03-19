@@ -29,6 +29,7 @@ from PyQt5.QtWidgets import (
     QLineEdit,
     QHBoxLayout,
     QPushButton,
+    QGridLayout,
 )
 from PyQt5.QtGui import QFontDatabase, QFont, QIcon
 
@@ -94,6 +95,8 @@ class MainWindow(SSCWindowProperties):
     # --- GUI Functions ---
 
     def setup_layout(self):
+        self.slot_grid_layout = QGridLayout()
+
         self.tab_widget = QTabWidget(self)
         self.tab_widget.currentChanged.connect(self.cb_tab_change)
         self.tab_widget.setVisible(False)
@@ -181,9 +184,18 @@ class MainWindow(SSCWindowProperties):
         main_window_layout.addLayout(descriptors_layout)
         main_window_layout.addLayout(debug_layout)
 
+        # Set the grid layout as the layout for the central widget
         central_widget = QWidget()
-        central_widget.setLayout(main_window_layout)
+        central_widget.setLayout(self.slot_grid_layout)
+        # add the descriptor layout to the grid
+        self.slot_grid_layout.addLayout(main_window_layout, 0, 0, 3, 3)
+
+
         self.setCentralWidget(central_widget)
+
+        #central_widget = QWidget()
+        #central_widget.setLayout(main_window_layout)
+        #self.setCentralWidget(central_widget)
 
     # Window Functions
 
@@ -203,27 +215,24 @@ class MainWindow(SSCWindowProperties):
     # Add a connection tab dynamically
     def add_connection_tab(self, console_widget, title):
         tabIndex = self.tab_widget.addTab(console_widget, title)
-        self.debug_log(f"Adding tab: {title} with index {tabIndex}")
         return tabIndex
 
     # Add a console tab dynamically
     def add_console_tab(self, console_widget, title):
         tabIndex = self.tab_widget.addTab(console_widget, title)
         self.themeChanged.emit(self.theme_status)  # Update theme for new tab
-        self.debug_log(f"Adding tab: {title} with index {tabIndex}")
         return tabIndex
 
     # Add a updater tab dynamically
     def add_updater_tab(self, console_widget, title):
         tabIndex = self.tab_widget.addTab(console_widget, title)
         self.themeChanged.emit(self.theme_status)  # Update theme for new tab
-        self.debug_log(f"Adding tab: {title}")
         return tabIndex
     
     # Remove a tab 
     def remove_tab(self, index):
-        self.debug_log(f"Removing tab: {index}")
-        self.tab_widget.removeTab(index)
+        if index is not None:
+            self.tab_widget.removeTab(index)
 
     def update_tab_title(self, console, title):
         index = self.tab_widget.indexOf(console)
@@ -434,6 +443,10 @@ class MainWindow(SSCWindowProperties):
     # Reimplement the resizeEvent
     def resizeEvent(self, event):
         super(MainWindow, self).resizeEvent(event)
+        
+        # Print window size
+        # print(f"Window size: {event.size()}")
+        print(f"Window width: {event.size().width()} - Window height: {event.size().height()}")
 
     def closeEvent(self, event):
         if self.connection_tab is not None and not self.connection_tab.is_closing:

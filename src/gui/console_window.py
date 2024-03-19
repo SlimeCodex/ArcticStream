@@ -92,6 +92,19 @@ class ConsoleWindow(QWidget):
 
     # Layout and Widgets
     def setup_layout(self):
+        # Toggle show timestamp
+        self.show_timestamp = ToggleButton(
+            self,
+            icons=(
+                f"{self.icons_dir}/keyboard_double_arrow_right_FILL0_wght400_GRAD0_opsz24.svg",
+                f"{self.icons_dir}/keyboard_double_arrow_left_FILL0_wght400_GRAD0_opsz24.svg",
+            ),
+            size=app_config.globals["gui"]["default_button_size"],
+            style=th.get_style("default_button"),
+            callback=self.toggle_timestamp,
+            toggled=False,
+        )
+
         # Start and Stop buttons
         start_button = QPushButton("Start", self)
         start_button.clicked.connect(self.start_console)
@@ -130,18 +143,36 @@ class ConsoleWindow(QWidget):
             toggled=True,
         )
 
+        # Plain text area for timestamp
+        self.text_edit_timestamp = QPlainTextEdit(self)
+        self.text_edit_timestamp.setFont(QFont("Inconsolata"))
+        self.text_edit_timestamp.setReadOnly(True)
+        self.text_edit_timestamp.setMaximumBlockCount(
+            app_config.globals["console"]["line_limit"]
+        )
+        self.text_edit_timestamp.verticalScrollBar().setVisible(False)
+        self.text_edit_timestamp.setVisible(False)
+        self.text_edit_timestamp.setFixedWidth(160)
+
         # Main text area for accumulating text
         self.text_edit_printf = QPlainTextEdit(self)
         self.text_edit_printf.setFont(QFont("Inconsolata"))
-        self.text_edit_printf.installEventFilter(self)
+        # self.text_edit_printf.installEventFilter(self)
         self.text_edit_printf.setReadOnly(True)
+        self.text_edit_printf.setMaximumBlockCount(
+            app_config.globals["console"]["line_limit"]
+        )
+
+        # Connect scroll bar value changes
+        self.text_edit_printf.verticalScrollBar().valueChanged.connect(self.sync_scroll)
+        self.text_edit_timestamp.verticalScrollBar().valueChanged.connect(
+            self.sync_scroll
+        )
 
         # Create an overlay
         self.status_overlay = QLineEdit(self)
         self.status_overlay.setFont(QFont("Inconsolata"))
-        self.status_overlay.setStyleSheet(
-            th.get_style("console_status_line_edit")
-        )
+        self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
         self.status_overlay.setGeometry(self.text_edit_printf.geometry())
         self.status_overlay.setReadOnly(True)
         self.status_overlay.setAlignment(Qt.AlignCenter)
@@ -159,6 +190,7 @@ class ConsoleWindow(QWidget):
 
         # Layout for buttons
         buttons_layout = QHBoxLayout()
+        buttons_layout.addWidget(self.show_timestamp)
         buttons_layout.addWidget(start_button)
         buttons_layout.addWidget(stop_button)
         buttons_layout.addWidget(clear_button)
@@ -167,14 +199,17 @@ class ConsoleWindow(QWidget):
         buttons_layout.addWidget(self.wrap_button)
         buttons_layout.addWidget(self.lock_button)
 
+        splitter = QHBoxLayout()
+        splitter.addWidget(self.text_edit_timestamp)
+        splitter.addWidget(self.text_edit_printf)
+
         # Input text box for sending data
         self.line_edit_send = QLineEdit(self)
         self.line_edit_send.setFont(QFont("Inconsolata"))
         self.line_edit_send.setFixedHeight(
             app_config.globals["gui"]["default_line_edit_height"]
         )
-        self.line_edit_send.setStyleSheet(
-            th.get_style("console_send_line_edit"))
+        self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit"))
         self.line_edit_send.setPlaceholderText("Insert data to send ...")
 
         # Simple send button
@@ -194,7 +229,7 @@ class ConsoleWindow(QWidget):
         # Update the main layout
         console_win_layout = QVBoxLayout()
         console_win_layout.addLayout(buttons_layout)
-        console_win_layout.addWidget(self.text_edit_printf)
+        console_win_layout.addLayout(splitter)
         console_win_layout.addWidget(self.line_edit_singlef)
         console_win_layout.addLayout(send_data_layout)
         self.setLayout(console_win_layout)
@@ -204,6 +239,10 @@ class ConsoleWindow(QWidget):
 
     def pause_console(self):
         self.console_paused = True
+
+    def toggle_timestamp(self, status):
+        self.text_edit_timestamp.setVisible(status)
+        self.set_overlay_geometry()
 
     # Toggle text wrap
     def toggle_wrap(self, status):
@@ -267,22 +306,21 @@ class ConsoleWindow(QWidget):
     # Window Functions
 
     def set_overlay_geometry(self):
-        # Calculate the geometry based on the main text area
-        text_edit_geom = self.text_edit_printf.geometry()
+        # Constants for overlay size
         overlay_width = app_config.globals["gui"]["default_status_ledit_size"][0]
         overlay_height = app_config.globals["gui"]["default_status_ledit_size"][1]
 
-        # Center the overlay within text_edit_printf
-        geom_width = text_edit_geom.width()
-        geom_height = text_edit_geom.height()
+        # Get the combined width of the text areas and timestamp window
+        total_width = self.text_edit_printf.width() + self.text_edit_timestamp.width()
 
-        overlay_x = text_edit_geom.x() + (geom_width - overlay_width) // 2
-        overlay_y = text_edit_geom.y() + geom_height - overlay_height
+        # Calculate the centered x position for the overlay
+        overlay_x = (total_width - overlay_width) // 2
 
-        # Set the geometry for the status overlay
-        self.status_overlay.setGeometry(
-            overlay_x, overlay_y, overlay_width, overlay_height
-        )
+        # Calculate the y position based on the main text area
+        overlay_y = self.text_edit_printf.y() + self.text_edit_printf.height() - overlay_height
+
+        # Apply the new geometry to the status overlay
+        self.status_overlay.setGeometry(overlay_x, overlay_y, overlay_width, overlay_height)
 
     # Overlay text
     def update_status(self):
@@ -307,8 +345,19 @@ class ConsoleWindow(QWidget):
 
         self.status_overlay.setText(status_text)
 
-    def update_data(self, data, line_limit=app_config.globals["console"]["line_limit"]):
+    def sync_scroll(self, value):
+        # Set the value of the other scrollbar to the value of the sender scrollbar
+        sender = self.sender()
+        if sender == self.text_edit_printf.verticalScrollBar():
+            self.text_edit_timestamp.verticalScrollBar().setValue(value)
+        elif sender == self.text_edit_timestamp.verticalScrollBar():
+            self.text_edit_printf.verticalScrollBar().setValue(value)
+
+    def update_data(self, data):
         if self.console_paused:
+            return
+
+        if not data or data == "\n" or data == "\r\n":
             return
 
         # New data received - update metrics
@@ -317,6 +366,10 @@ class ConsoleWindow(QWidget):
         # Save the current position of the scrollbar
         scrollbar = self.text_edit_printf.verticalScrollBar()
         current_pos = scrollbar.value()
+
+        # Save the current position of the horizontal scrollbar
+        horizontal_scroll = self.text_edit_printf.horizontalScrollBar()
+        current_horizontal_pos = horizontal_scroll.value()
 
         # Reset the text format to default before inserting new data
         cursor = self.text_edit_printf.textCursor()
@@ -328,6 +381,17 @@ class ConsoleWindow(QWidget):
         self.text_edit_printf.setTextCursor(cursor)
         self.text_edit_printf.insertPlainText(data)
 
+        # Fix the timestamp cursor
+        cursor_ts = self.text_edit_timestamp.textCursor()
+        cursor_ts.movePosition(QTextCursor.End)
+        reset_format = QTextCharFormat()
+        cursor_ts.setCharFormat(reset_format)
+
+        # Update the timestamp window show milliseconds and linecount
+        self.text_edit_timestamp.setTextCursor(cursor_ts)
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        self.text_edit_timestamp.insertPlainText(f"{timestamp} | {str(self.total_data_counter)}\n")
+
         # Log the data if logging is enabled
         if self.logging_enabled and self.user_log_path:
             try:
@@ -336,18 +400,16 @@ class ConsoleWindow(QWidget):
             except Exception as e:
                 self.mw.debug_log(f"Error writing to log file: {e}")
 
-        # Limit the number of lines
-        text = self.text_edit_printf.toPlainText()
-        lines = text.split("\n")
-        if len(lines) > line_limit:
-            lines = lines[-line_limit:]
-            self.text_edit_printf.setPlainText("\n".join(lines))
-
         # Scroll to the bottom if the lock button is pressed
         if self.scroll_locked:
             scrollbar.setValue(scrollbar.maximum())
+            self.text_edit_timestamp.verticalScrollBar().setValue(scrollbar.maximum())
         else:
             scrollbar.setValue(current_pos)
+            self.text_edit_timestamp.verticalScrollBar().setValue(current_pos)
+
+        # Maintain the horizontal scroll position
+        horizontal_scroll.setValue(current_horizontal_pos)
 
         # Increment the tab counter
         if not self.check_tab_focus():
@@ -383,6 +445,7 @@ class ConsoleWindow(QWidget):
     def clear_text(self):
         self.text_edit_printf.clear()
         self.line_edit_singlef.clear()
+        self.text_edit_timestamp.clear()
 
         # Clears status bar
         self.total_lines = 0
@@ -415,23 +478,23 @@ class ConsoleWindow(QWidget):
 
     def cb_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
-        self.line_edit_send.setStyleSheet(
-            th.get_style("console_send_line_edit"))
+        self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit"))
         if not self.logging_enabled:
             self.log_button.setStyleSheet(th.get_style("default_button"))
+        self.show_timestamp.setStyleSheet(th.get_style("default_button"))
         self.wrap_button.setStyleSheet(th.get_style("default_button"))
         self.lock_button.setStyleSheet(th.get_style("default_button"))
         self.send_button.setStyleSheet(th.get_style("default_button"))
-        self.status_overlay.setStyleSheet(
-            th.get_style("console_status_line_edit")
-        )
+        self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
 
         # Update special widgets by theme
         if theme == "dark":
+            self.show_timestamp.changeIconColor("#ffffff")
             self.wrap_button.changeIconColor("#ffffff")
             self.lock_button.changeIconColor("#ffffff")
             self.send_button.changeIconColor("#ffffff")
         elif theme == "light":
+            self.show_timestamp.changeIconColor("#000000")
             self.wrap_button.changeIconColor("#000000")
             self.lock_button.changeIconColor("#000000")
             self.send_button.changeIconColor("#000000")
