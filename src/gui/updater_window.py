@@ -37,7 +37,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QTextCursor, QFont
 
 import resources.config as app_config
-from interfaces.ble_interface import BLEHandler
+from interfaces.base_interface import CommunicationInterface
 from resources.indexer import UpdaterIndex
 from helpers.pushbutton_helper import SimpleButton
 import helpers.theme_helper as th
@@ -47,7 +47,7 @@ class UpdaterWindow(QWidget):
     def __init__(
         self,
         main_window,
-        interface: BLEHandler,
+        interface: CommunicationInterface,
         title,
         updater_index: UpdaterIndex,
     ):
@@ -81,10 +81,15 @@ class UpdaterWindow(QWidget):
         # Window usability flags
         self.setAcceptDrops(True)
 
+        # Check interface type
+        self.interface_type = self.interface.get_type()
+        self.mtu_size = app_config.globals[self.interface_type]["updater_chunk_size"]
+        self.max_retries = app_config.globals[self.interface_type]["updater_ack_retries"]
+        self.ack_timeout = app_config.globals[self.interface_type]["updater_ack_timeout"]
+
         # Globals
         self.ota_running = False
         self.firmware_path = None
-        self.mtu_size = app_config.globals["updater"]["chunk_size"]
         self.start_time = 0
         self.elapsed_str = "00:00:00"
         self.ota_error_status = False
@@ -287,21 +292,20 @@ class UpdaterWindow(QWidget):
         self,
         total_size,
         file_hash,
-        max_retries=app_config.globals["updater"]["ack_retries"],
     ):
         retries = 0
-        while retries < max_retries:
+        while retries < self.max_retries:
             try:
                 await self.send_file_info(total_size, file_hash)
                 await asyncio.wait_for(
                     self.ready_event.wait(),
-                    timeout=app_config.globals["updater"]["ack_timeout"],
+                    timeout=self.ack_timeout,
                 )
                 self.mw.debug_log("Device is ready.")
                 return True
             except asyncio.TimeoutError:
                 self.mw.debug_log(
-                    f"Timeout waiting for device to be ready. Retrying {retries+1}/{max_retries}..."
+                    f"Timeout waiting for device to be ready. Retrying {retries+1}/{self.max_retries}..."
                 )
                 retries += 1
 
@@ -351,10 +355,10 @@ class UpdaterWindow(QWidget):
         )
 
     async def send_chunk_with_retries(
-        self, dataChunk, max_retries=app_config.globals["updater"]["ack_retries"]
+        self, dataChunk
     ):
         retries = 0
-        while retries < max_retries:
+        while retries < self.max_retries:
             if self.disconnect_event.is_set():
                 self.mw.debug_log("OTA update aborted due to disconnection.")
                 self.progress_bar.setStyleSheet(
@@ -388,7 +392,7 @@ class UpdaterWindow(QWidget):
 
         done, pending = await asyncio.wait(
             [ack_task, stop_task],
-            timeout=app_config.globals["updater"]["ack_timeout"],
+            timeout=self.ack_timeout,
             return_when=asyncio.FIRST_COMPLETED,
         )
 

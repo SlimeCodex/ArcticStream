@@ -22,13 +22,19 @@ globals = {
         "scan_timeout": 5,  # Timeout for Bluetooth scanning
         "connection_timeout": 5,  # Connection timeout for Bluetooth
         "con_retries": 5,  # Number of retries for Bluetooth reconnection
+        "updater_chunk_size": 500,  # Data chunk size for Bluetooth updates
+        "updater_ack_timeout": 0.5,  # Timeout for acknowledgements during Bluetooth updates
+        "updater_ack_retries": 3,  # Number of retries for acknowledgements during Bluetooth updates
     },
     "uart": {
-        "baudrate": 230400,  # Baud rate for UART communication
+        "baudrate": 921600,  # Baud rate for UART communication
         "keepalive": 400,  # Keepalive interval for UART
         "con_retries": 5,  # Number of retries for UART reconnection
         "keepalive_com": 0xA5,  # Keepalive command for UART
         "act_timeout": 500,  # Timeout to declare UART connection lost in ms
+        "updater_chunk_size": 4096,  # Data chunk size for UART updates
+        "updater_ack_timeout": 0.5,  # Timeout for acknowledgements during UART updates
+        "updater_ack_retries": 5,  # Number of retries for acknowledgements during UART updates
     },
     "wifi": {
         "network": "192.168.1.0/24",  # Network IP range for WiFi
@@ -36,15 +42,15 @@ globals = {
         "port_downlink": 56321,  # Downlink port number for WiFi
         "con_retries": 5,  # Number of retries for WiFi reconnection
         "act_timeout": 2000,  # Timeout to declare WiFi connection lost in ms
+        "updater_chunk_size": 4096,  # Data chunk size for WiFi updates
+        "updater_ack_timeout": 0.5,  # Timeout for acknowledgements during WiFi updates
+        "updater_ack_retries": 5,  # Number of retries for acknowledgements during WiFi updates
     },
     "console": {
         "line_limit": 1000  # Maximum number of lines in the console log
     },
     "updater": {
         "enable_output_debug": False,  # Enable debug output for the updater
-        "chunk_size": 500,  # Data chunk size for updates
-        "ack_timeout": 0.5,  # Timeout for acknowledgements during updates
-        "ack_retries": 3,  # Number of retries for acknowledgements
     },
     "style": {  # Collection of default styles for the application
         "default_app",  # Default application style

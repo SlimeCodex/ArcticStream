@@ -311,7 +311,7 @@ class ConsoleWindow(QWidget):
         overlay_height = app_config.globals["gui"]["default_status_ledit_size"][1]
 
         # Get the combined width of the text areas and timestamp window
-        total_width = self.text_edit_printf.width() + self.text_edit_timestamp.width()
+        total_width = self.text_edit_printf.width() + self.text_edit_timestamp.width() if self.text_edit_timestamp.isVisible() else self.text_edit_printf.width()
 
         # Calculate the centered x position for the overlay
         overlay_x = (total_width - overlay_width) // 2

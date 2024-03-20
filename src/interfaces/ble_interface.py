@@ -110,6 +110,10 @@ class BLEHandler(QObject, CommunicationInterface, metaclass=BLEHandlerMeta):
         except Exception as e:
             print(f"Write failed: {e}")
             self.writeReady.emit(False)
+    
+    # Get the type of the interface
+    def get_type(self):
+        return "bluetooth"
 
     # Setup notifications for uplink characteristic
     async def start_notifications(self, uuid):

@@ -225,6 +225,9 @@ class UARTConnectionWindow(QWidget):
         self.updater.txm = patterns.UUID_UART_OTA_TX
         self.updater.rxm = patterns.UUID_UART_OTA_RX
 
+        # Add the updater to the main window
+        self.create_updater_window(self.updater.name, self.updater.service)
+
         # Register each console service in the console index
         for service in retrieved_services:
             service_uuid = service["ats"]

@@ -87,7 +87,7 @@ class WiFiConnectionWindow(QWidget):
 
     # Layout and Widgets
     def setup_layout(self):
-        scan_button = QPushButton("Scan Bluetooth")
+        scan_button = QPushButton("Scan WiFi Network")
         scan_button.clicked.connect(self.wifi_scan)
 
         connect_button = QPushButton("Connect")
@@ -219,6 +219,9 @@ class WiFiConnectionWindow(QWidget):
         self.updater.service = patterns.UUID_WIFI_OTA_ATS
         self.updater.txm = patterns.UUID_WIFI_OTA_TX
         self.updater.rxm = patterns.UUID_WIFI_OTA_RX
+
+        # Create the updater window
+        self.create_updater_window(self.updater.name, self.updater.service)
 
         # Register each console service in the console index
         for service in retrieved_services:
@@ -418,7 +421,7 @@ class WiFiConnectionWindow(QWidget):
         self.updater = None
         self.console = {}
 
-    # Stop the BLE Handler
+    # Stop the WiFi Handler
     @qasync.asyncSlot()
     async def process_close_task(self, close_window=True):
         self.device_address = None

@@ -158,12 +158,11 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         self.dataReceived.emit(uuid, data + "\n")
 
     # Send data to the device
-    async def send_data(self, uuid, data):
+    async def send_data(self, uuid, data, encoded=False):
         """Sends data to a device."""
         if self.port_instance is not None:
             try:
-                data_output = f"{uuid}:{data}\n"
-                await self.port_instance.write_async(data_output.encode())
+                await self.port_instance.write_async(uuid.encode() + b":" + (data.encode() if not encoded else data) + b"\n")
                 self.writeReady.emit(True)
             except asyncio.TimeoutError:
                 print("Timeout error")
@@ -174,6 +173,10 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         else:
             print("Port not open to send command")
             self.writeReady.emit(False)
+    
+    # Get the type of the interface
+    def get_type(self):
+        return "uart"
 
     # Send simple byte keepalive message to the device
     @qasync.asyncSlot()

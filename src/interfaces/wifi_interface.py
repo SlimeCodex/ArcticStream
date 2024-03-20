@@ -211,7 +211,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
 
     # --- Communication ---
 
-    async def send_data(self, uuid, data, scan=False):
+    async def send_data(self, uuid, data, scan=False, encoded=False):
         """Sends data to a device."""
         try:
             # Unpack reader and writer from open_connection
@@ -219,7 +219,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
                 asyncio.open_connection(self.device_address, self.port_downlink),
                 timeout=3,
             )
-            writer.write(uuid.encode() + b":" + data.encode() + b"\n")
+            writer.write(uuid.encode() + b":" + (data.encode() if not encoded else data) + b"\n")
             await writer.drain()
             if scan:  # If scanning, wait for the response
                 response = await asyncio.wait_for(reader.read(2048), timeout=3)
@@ -237,6 +237,10 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             self.writeReady.emit(False)
             return None
         return None
+    
+    # Get the type of the interface
+    def get_type(self):
+        return "wifi"
 
     # Timeout handler for activity with the device
     def handle_timeout(self):
