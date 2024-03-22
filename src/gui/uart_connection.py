@@ -37,6 +37,7 @@ from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
 from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex
 import resources.patterns as patterns
+from resources.tooltips import tooltips
 
 
 class UARTConnectionWindow(QWidget):
@@ -47,6 +48,7 @@ class UARTConnectionWindow(QWidget):
 
         self.mw = main_window  # MainWindow Reference
         self.interface = interface  # Interface Reference
+        self.tooltip_index = tooltips["connection_windows"]
 
         # Add this tab to the main window
         self.mw.add_connection_tab(self, title)
@@ -90,12 +92,15 @@ class UARTConnectionWindow(QWidget):
     # Layout and Widgets
     def setup_layout(self):
         scan_button = QPushButton("Scan Bluetooth")
+        scan_button.setToolTip(self.tooltip_index["scan_button"])
         scan_button.clicked.connect(self.uart_scan)
 
         connect_button = QPushButton("Connect")
+        connect_button.setToolTip(self.tooltip_index["connect_button"])
         connect_button.clicked.connect(self.uart_connect)
 
         self.scan_device_list = QListWidget()
+        self.scan_device_list.setToolTip(self.tooltip_index["device_list"])
         self.scan_device_list.setFont(QFont("Inconsolata"))
         self.scan_device_list.setSelectionMode(QListWidget.SingleSelection)
         self.scan_device_list.itemDoubleClicked.connect(self.uart_connect)
@@ -111,9 +116,11 @@ class UARTConnectionWindow(QWidget):
         self.animation_label.setGeometry(0, 0, 120, 120)
 
         disconnect_button = QPushButton("Disconnect")
+        disconnect_button.setToolTip(self.tooltip_index["disconnect_button"])
         disconnect_button.clicked.connect(self.manual_disconnect)
 
         exit_button = QPushButton("Exit")
+        exit_button.setToolTip(self.tooltip_index["exit_button"])
         exit_button.clicked.connect(self.exitApplication)
 
         buttons_layout = QHBoxLayout()

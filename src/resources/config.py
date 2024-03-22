@@ -15,7 +15,6 @@ globals = {
         "default_line_edit_height": 30,  # Default height of line edit fields in the GUI
         "default_loading_bar_height": 30,  # Default height of loading bars in the GUI
         "debug_line_edit_height": 25,  # Height of line edit fields in debug mode
-        "default_status_ledit_size": (520, 25),  # Size of the status line edit
         "connectors_icon_size": (150, 150),  # Size of connector icons in the GUI
     },
     "bluetooth": {
@@ -54,6 +53,7 @@ globals = {
     },
     "style": {  # Collection of default styles for the application
         "default_app",  # Default application style
+        "default_tooltip",  # Default tooltip style
         "default_button",  # Default button style
         "default_line_edit",  # Default line edit style
         "default_text_edit",  # Default text edit style

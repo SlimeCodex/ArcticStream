@@ -41,6 +41,7 @@ from interfaces.base_interface import CommunicationInterface
 from resources.indexer import UpdaterIndex
 from helpers.pushbutton_helper import SimpleButton
 import helpers.theme_helper as th
+from resources.tooltips import tooltips
 
 
 class UpdaterWindow(QWidget):
@@ -56,6 +57,7 @@ class UpdaterWindow(QWidget):
         self.interface = interface  # BLE Reference
         self.win_title = title  # Original title of the tab
         self.index = updater_index  # Console information
+        self.tooltip_index = tooltips["updater_window"]
 
         if False:
             self.mw.debug_log("UpdaterWindow: Initializing ...")
@@ -103,12 +105,16 @@ class UpdaterWindow(QWidget):
     def setup_layout(self):
         # Start and Stop buttons
         start_button = QPushButton("Start", self)
+        start_button.setToolTip(self.tooltip_index["start_button"])
         start_button.clicked.connect(self.start_ota)
         stop_button = QPushButton("Stop", self)
+        stop_button.setToolTip(self.tooltip_index["stop_button"])
         stop_button.clicked.connect(self.stop_ota)
         clear_button = QPushButton("Clear", self)
+        clear_button.setToolTip(self.tooltip_index["clear_button"])
         clear_button.clicked.connect(self.clear_text)
         reload_button = QPushButton("Reload", self)
+        reload_button.setToolTip(self.tooltip_index["reload_button"])
         reload_button.clicked.connect(self.reload_file)
 
         # Simple folder button
@@ -119,6 +125,7 @@ class UpdaterWindow(QWidget):
             style=th.get_style("default_button"),
             callback=self.setPath,
         )
+        self.folder_button.setToolTip(self.tooltip_index["folder_button"])
 
         # Main text area for accumulating text
         self.text_edit_printf = QPlainTextEdit(self)

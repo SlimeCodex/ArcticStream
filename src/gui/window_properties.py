@@ -23,21 +23,23 @@ from PyQt5.QtGui import QPainter, QPolygon, QColor
 import resources.config as app_config
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
 import helpers.theme_helper as th
+from resources.tooltips import tooltips
 
 
 class SSCWindowProperties(QMainWindow):
     windowClose = pyqtSignal()
 
-
     def __init__(self, main_window):
         super().__init__()
         self.mw = main_window
+        self.tooltip_index = tooltips["main_window"]
         self.mw.themeChanged.connect(self.cb_update_theme)
 
         # Removes native title bar
         self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Globals
+
         self.icons_dir = self.mw.icon_path()
         self.mouse_pressed = False
         self.resize_direction = None
@@ -83,6 +85,7 @@ class SSCWindowProperties(QMainWindow):
             callback=self.toggle_theme,
             toggled=False,
         )
+        self.color_mode_button.setToolTip(self.tooltip_index["theme_button"])
 
         # Toggle accumulator button
         self.accumulator_button = ToggleButton(
@@ -96,6 +99,7 @@ class SSCWindowProperties(QMainWindow):
             callback=self.toggle_accumulator,
             toggled=False,
         )
+        self.accumulator_button.setToolTip(self.tooltip_index["accumulator_button"])
 
         # Toggle hint button
         self.top_hint_button = ToggleButton(
@@ -109,6 +113,7 @@ class SSCWindowProperties(QMainWindow):
             callback=self.toggle_hint,
             toggled=False,
         )
+        self.top_hint_button.setToolTip(self.tooltip_index["top_hint_button"])
 
         # Autosync button
         self.autosync_button = ToggleButton(
@@ -122,6 +127,7 @@ class SSCWindowProperties(QMainWindow):
             callback=self.toggle_autosync,
             toggled=True,
         )
+        self.autosync_button.setToolTip(self.tooltip_index["autosync_button"])
 
         # Status text with colored background
         self.con_status_button = SimpleButton(
@@ -131,6 +137,8 @@ class SSCWindowProperties(QMainWindow):
             style=th.get_style("custom_bar_button"),
             callback=None,
         )
+        self.con_status_button.setToolTip(self.tooltip_index["connection_status"])
+        
         # Size adjustment for the connect/disconnect label
         self.con_status_button.setFixedSize(130, 20)
 
@@ -218,7 +226,7 @@ class SSCWindowProperties(QMainWindow):
     # Compact the window to just show the title bar
     def toggle_minimize(self):
         self.showMinimized()
-    
+
     def toggle_accumulator(self, status):
         self.mw.accumulatorChanged.emit(status)
 

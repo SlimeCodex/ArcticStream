@@ -27,6 +27,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QFileDialog,
+    QSplitter,
 )
 from PyQt5.QtGui import QTextCursor, QFont, QTextCharFormat
 from datetime import datetime
@@ -36,6 +37,7 @@ from interfaces.base_interface import CommunicationInterface
 from resources.indexer import ConsoleIndex
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
 import helpers.theme_helper as th
+from resources.tooltips import tooltips
 
 
 class ConsoleWindow(QWidget):
@@ -52,6 +54,7 @@ class ConsoleWindow(QWidget):
         self.interface = interface  # BLE Reference
         self.win_title = title  # Original title of the tab
         self.index = index  # Console information
+        self.tooltip_index = tooltips["console_window"]
 
         if False:
             self.mw.debug_log("ConsoleWindow: Initializing ...")
@@ -86,38 +89,57 @@ class ConsoleWindow(QWidget):
 
         self.acumulator_status = False
 
+        # Configure and generate the layout
         self.setup_layout()
+        self.draw_layout()
 
     # GUI Functions
 
     # Layout and Widgets
     def setup_layout(self):
-        # Toggle show timestamp
+
+        # QPushButton: Start, Stop, Clear, Copy, Log
+        self.start_button = QPushButton("Start", self)
+        self.start_button.setToolTip(self.tooltip_index["start_button"])
+        self.start_button.clicked.connect(self.start_console)
+        self.stop_button = QPushButton("Stop", self)
+        self.stop_button.setToolTip(self.tooltip_index["stop_button"])
+        self.stop_button.clicked.connect(self.pause_console)
+        self.clear_button = QPushButton("Clear", self)
+        self.clear_button.setToolTip(self.tooltip_index["clear_button"])
+        self.clear_button.clicked.connect(self.clear_text)
+        self.copy_button = QPushButton("Copy", self)
+        self.copy_button.setToolTip(self.tooltip_index["copy_button"])
+        self.copy_button.clicked.connect(self.copy_text)
+        self.log_button = QPushButton("Log", self)
+        self.log_button.setToolTip(self.tooltip_index["log_button"])
+        self.log_button.clicked.connect(self.log_text)
+
+        # SimpleButton: Send button
+        self.send_button = SimpleButton(
+            self,
+            icon=f"{self.icons_dir}/play_arrow_FILL0_wght400_GRAD0_opsz24.svg",
+            size=app_config.globals["gui"]["default_button_size"],
+            style=th.get_style("default_button"),
+            callback=self.send_data,
+        )
+        self.send_button.setToolTip(self.tooltip_index["send_button"])
+
+        # ToggleButton: Toggle show timestamp
         self.show_timestamp = ToggleButton(
             self,
             icons=(
-                f"{self.icons_dir}/keyboard_double_arrow_right_FILL0_wght400_GRAD0_opsz24.svg",
                 f"{self.icons_dir}/keyboard_double_arrow_left_FILL0_wght400_GRAD0_opsz24.svg",
+                f"{self.icons_dir}/keyboard_double_arrow_right_FILL0_wght400_GRAD0_opsz24.svg",
             ),
             size=app_config.globals["gui"]["default_button_size"],
             style=th.get_style("default_button"),
             callback=self.toggle_timestamp,
-            toggled=False,
+            toggled=True,
         )
+        self.show_timestamp.setToolTip(self.tooltip_index["show_timestamp"])
 
-        # Start and Stop buttons
-        start_button = QPushButton("Start", self)
-        start_button.clicked.connect(self.start_console)
-        stop_button = QPushButton("Stop", self)
-        stop_button.clicked.connect(self.pause_console)
-        clear_button = QPushButton("Clear", self)
-        clear_button.clicked.connect(self.clear_text)
-        copy_button = QPushButton("Copy", self)
-        copy_button.clicked.connect(self.copy_text)
-        self.log_button = QPushButton("Log", self)
-        self.log_button.clicked.connect(self.log_text)
-
-        # Toggle text wrap
+        # ToggleButton: Toggle text wrap
         self.wrap_button = ToggleButton(
             self,
             icons=(
@@ -129,8 +151,9 @@ class ConsoleWindow(QWidget):
             callback=self.toggle_wrap,
             toggled=True,
         )
+        self.wrap_button.setToolTip(self.tooltip_index["wrap_button"])
 
-        # Toggle lock button
+        # ToggleButton: Toggle lock button
         self.lock_button = ToggleButton(
             self,
             icons=(
@@ -142,45 +165,60 @@ class ConsoleWindow(QWidget):
             callback=self.toggle_lock,
             toggled=True,
         )
+        self.lock_button.setToolTip(self.tooltip_index["lock_button"])
 
-        # Plain text area for timestamp
+        # ToggleButton: Toggle status bar
+        self.toggle_status_bar_button = ToggleButton(
+            self,
+            icons=(
+                f"{self.icons_dir}/keyboard_double_arrow_up_FILL0_wght400_GRAD0_opsz24.svg",
+                f"{self.icons_dir}/keyboard_double_arrow_down_FILL0_wght400_GRAD0_opsz24.svg",
+            ),
+            size=app_config.globals["gui"]["default_button_size"],
+            style=th.get_style("default_button"),
+            callback=self.toggle_status_bar,
+            toggled=False,
+        )
+        self.toggle_status_bar_button.setToolTip(self.tooltip_index["show_metadata"])
+
+        # QPlainTextEdit: Plain text area for timestamp
         self.text_edit_timestamp = QPlainTextEdit(self)
+        self.text_edit_timestamp.setStyleSheet(th.get_style("timestamp_ptext_edit"))
         self.text_edit_timestamp.setFont(QFont("Inconsolata"))
         self.text_edit_timestamp.setReadOnly(True)
         self.text_edit_timestamp.setMaximumBlockCount(
             app_config.globals["console"]["line_limit"]
         )
         self.text_edit_timestamp.verticalScrollBar().setVisible(False)
-        self.text_edit_timestamp.setVisible(False)
-        self.text_edit_timestamp.setFixedWidth(160)
-
-        # Main text area for accumulating text
-        self.text_edit_printf = QPlainTextEdit(self)
-        self.text_edit_printf.setFont(QFont("Inconsolata"))
-        # self.text_edit_printf.installEventFilter(self)
-        self.text_edit_printf.setReadOnly(True)
-        self.text_edit_printf.setMaximumBlockCount(
-            app_config.globals["console"]["line_limit"]
+        self.text_edit_timestamp.verticalScrollBar().setStyleSheet(
+            th.get_style("scroll_bar_hide")
         )
-
-        # Connect scroll bar value changes
-        self.text_edit_printf.verticalScrollBar().valueChanged.connect(self.sync_scroll)
+        self.text_edit_timestamp.horizontalScrollBar().setVisible(False)
+        self.text_edit_timestamp.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.text_edit_timestamp.setVisible(False)
         self.text_edit_timestamp.verticalScrollBar().valueChanged.connect(
             self.sync_scroll
         )
 
-        # Create an overlay
+        # QPlainTextEdit: Main text area for accumulating text (printf)
+        self.text_edit_printf = QPlainTextEdit(self)
+        self.text_edit_printf.setFont(QFont("Inconsolata"))
+        self.text_edit_printf.setReadOnly(True)
+        self.text_edit_printf.setMaximumBlockCount(
+            app_config.globals["console"]["line_limit"]
+        )
+        self.text_edit_printf.verticalScrollBar().valueChanged.connect(self.sync_scroll)
+
+        # QLineEdit: Main data meta info
         self.status_overlay = QLineEdit(self)
         self.status_overlay.setFont(QFont("Inconsolata"))
         self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
-        self.status_overlay.setGeometry(self.text_edit_printf.geometry())
         self.status_overlay.setReadOnly(True)
         self.status_overlay.setAlignment(Qt.AlignCenter)
         self.status_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.set_overlay_geometry()
         self.update_status()
 
-        # Single line text area for displaying info
+        # QLineEdit: Single line text area for displaying info (singlef)
         self.line_edit_singlef = QLineEdit(self)
         self.line_edit_singlef.setFont(QFont("Inconsolata"))
         self.line_edit_singlef.setFixedHeight(
@@ -188,22 +226,7 @@ class ConsoleWindow(QWidget):
         )
         self.line_edit_singlef.setReadOnly(True)
 
-        # Layout for buttons
-        buttons_layout = QHBoxLayout()
-        buttons_layout.addWidget(self.show_timestamp)
-        buttons_layout.addWidget(start_button)
-        buttons_layout.addWidget(stop_button)
-        buttons_layout.addWidget(clear_button)
-        buttons_layout.addWidget(copy_button)
-        buttons_layout.addWidget(self.log_button)
-        buttons_layout.addWidget(self.wrap_button)
-        buttons_layout.addWidget(self.lock_button)
-
-        splitter = QHBoxLayout()
-        splitter.addWidget(self.text_edit_timestamp)
-        splitter.addWidget(self.text_edit_printf)
-
-        # Input text box for sending data
+        # QLineEdit: Input text box for sending data
         self.line_edit_send = QLineEdit(self)
         self.line_edit_send.setFont(QFont("Inconsolata"))
         self.line_edit_send.setFixedHeight(
@@ -212,26 +235,45 @@ class ConsoleWindow(QWidget):
         self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit"))
         self.line_edit_send.setPlaceholderText("Insert data to send ...")
 
-        # Simple send button
-        self.send_button = SimpleButton(
-            self,
-            icon=f"{self.icons_dir}/play_arrow_FILL0_wght400_GRAD0_opsz24.svg",
-            size=app_config.globals["gui"]["default_button_size"],
-            style=th.get_style("default_button"),
-            callback=self.send_data,
-        )
+    def draw_layout(self):
 
-        # Layout for input text box and send button
+        # Layout for buttons
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addWidget(self.show_timestamp)
+        buttons_layout.addWidget(self.start_button)
+        buttons_layout.addWidget(self.stop_button)
+        buttons_layout.addWidget(self.clear_button)
+        buttons_layout.addWidget(self.copy_button)
+        buttons_layout.addWidget(self.log_button)
+        buttons_layout.addWidget(self.wrap_button)
+        buttons_layout.addWidget(self.toggle_status_bar_button)
+
+        # Splitter for the text boxes
+        main_text_layout = QSplitter(Qt.Horizontal)
+        main_text_layout.addWidget(self.text_edit_timestamp)
+        main_text_layout.addWidget(self.text_edit_printf)
+        main_text_layout.setCollapsible(0, False)
+        main_text_layout.setSizes([120, 480])
+
+        # Layout for info data and lock button
+        info_data_layout = QHBoxLayout()
+        info_data_layout.addWidget(self.line_edit_singlef)
+        info_data_layout.addWidget(self.lock_button)
+
+        # Layout for send data
         send_data_layout = QHBoxLayout()
         send_data_layout.addWidget(self.line_edit_send)
         send_data_layout.addWidget(self.send_button)
 
-        # Update the main layout
+        # Main layout
         console_win_layout = QVBoxLayout()
         console_win_layout.addLayout(buttons_layout)
-        console_win_layout.addLayout(splitter)
-        console_win_layout.addWidget(self.line_edit_singlef)
+        console_win_layout.addWidget(self.status_overlay)
+        console_win_layout.addWidget(main_text_layout)
+        console_win_layout.addLayout(info_data_layout)
         console_win_layout.addLayout(send_data_layout)
+
+        # Set the layout
         self.setLayout(console_win_layout)
 
     def start_console(self):
@@ -241,8 +283,10 @@ class ConsoleWindow(QWidget):
         self.console_paused = True
 
     def toggle_timestamp(self, status):
-        self.text_edit_timestamp.setVisible(status)
-        self.set_overlay_geometry()
+        self.text_edit_timestamp.hide() if status else self.text_edit_timestamp.show()
+
+    def toggle_status_bar(self, status):
+        self.status_overlay.hide() if status else self.status_overlay.show()
 
     # Toggle text wrap
     def toggle_wrap(self, status):
@@ -304,23 +348,6 @@ class ConsoleWindow(QWidget):
             self.update_info(data)
 
     # Window Functions
-
-    def set_overlay_geometry(self):
-        # Constants for overlay size
-        overlay_width = app_config.globals["gui"]["default_status_ledit_size"][0]
-        overlay_height = app_config.globals["gui"]["default_status_ledit_size"][1]
-
-        # Get the combined width of the text areas and timestamp window
-        total_width = self.text_edit_printf.width() + self.text_edit_timestamp.width() if self.text_edit_timestamp.isVisible() else self.text_edit_printf.width()
-
-        # Calculate the centered x position for the overlay
-        overlay_x = (total_width - overlay_width) // 2
-
-        # Calculate the y position based on the main text area
-        overlay_y = self.text_edit_printf.y() + self.text_edit_printf.height() - overlay_height
-
-        # Apply the new geometry to the status overlay
-        self.status_overlay.setGeometry(overlay_x, overlay_y, overlay_width, overlay_height)
 
     # Overlay text
     def update_status(self):
@@ -390,7 +417,9 @@ class ConsoleWindow(QWidget):
         # Update the timestamp window show milliseconds and linecount
         self.text_edit_timestamp.setTextCursor(cursor_ts)
         timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-        self.text_edit_timestamp.insertPlainText(f"{timestamp} | {str(self.total_data_counter)}\n")
+        self.text_edit_timestamp.insertPlainText(
+            f"{timestamp} | {str(self.total_data_counter)}\n"
+        )
 
         # Log the data if logging is enabled
         if self.logging_enabled and self.user_log_path:
@@ -484,19 +513,23 @@ class ConsoleWindow(QWidget):
         self.show_timestamp.setStyleSheet(th.get_style("default_button"))
         self.wrap_button.setStyleSheet(th.get_style("default_button"))
         self.lock_button.setStyleSheet(th.get_style("default_button"))
+        self.toggle_status_bar_button.setStyleSheet(th.get_style("default_button"))
         self.send_button.setStyleSheet(th.get_style("default_button"))
         self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
+        self.text_edit_timestamp.setStyleSheet(th.get_style("timestamp_ptext_edit"))
 
         # Update special widgets by theme
         if theme == "dark":
             self.show_timestamp.changeIconColor("#ffffff")
             self.wrap_button.changeIconColor("#ffffff")
             self.lock_button.changeIconColor("#ffffff")
+            self.toggle_status_bar_button.changeIconColor("#ffffff")
             self.send_button.changeIconColor("#ffffff")
         elif theme == "light":
             self.show_timestamp.changeIconColor("#000000")
             self.wrap_button.changeIconColor("#000000")
             self.lock_button.changeIconColor("#000000")
+            self.toggle_status_bar_button.changeIconColor("#000000")
             self.send_button.changeIconColor("#000000")
 
     def toggle_accumulator(self, status):
@@ -506,7 +539,6 @@ class ConsoleWindow(QWidget):
     # Qt Functions
 
     def resizeEvent(self, event):
-        self.set_overlay_geometry()
         super().resizeEvent(event)
 
     # Reimplement the keyPressEvent

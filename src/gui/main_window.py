@@ -443,10 +443,6 @@ class MainWindow(SSCWindowProperties):
     # Reimplement the resizeEvent
     def resizeEvent(self, event):
         super(MainWindow, self).resizeEvent(event)
-        
-        # Print window size
-        # print(f"Window size: {event.size()}")
-        print(f"Window width: {event.size().width()} - Window height: {event.size().height()}")
 
     def closeEvent(self, event):
         if self.connection_tab is not None and not self.connection_tab.is_closing:

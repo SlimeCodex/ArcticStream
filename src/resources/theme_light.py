@@ -22,6 +22,20 @@ default_app = """
     }
 """
 
+# QToolTip ----------------------------
+
+default_tooltip = """
+    QToolTip {
+        background-color: #f0f0f0;
+        color: #303030;
+        border: 1px solid #b0b0b0;
+        padding: 5px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-family: "Inconsolata";
+    }
+"""
+
 # QWidgets --------------------------------
 
 custom_bar_widget = """
@@ -142,15 +156,15 @@ console_send_line_edit = """
 
 console_status_line_edit = """
     QLineEdit {
-        background-color: rgba(180, 180, 180, 128);
+        background-color: #f0f0f0;
         color: #303030;
         font-size: 12px;
         
         border: none;
-        border-top-left-radius: 8px;
-        border-top-right-radius: 8px;
-        border-bottom-left-radius: 0px;
-        border-bottom-right-radius: 0px;
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+        border-bottom-left-radius: 12px;
+        border-bottom-right-radius: 12px;
     }
 """
 
@@ -186,6 +200,23 @@ default_text_edit = """
 """
 
 default_ptext_edit = """
+    QPlainTextEdit {
+        background-color: #f0f0f0;
+        color: #303030;
+        font-size: 12px;
+        
+        padding-left: 8px;
+        padding-right: 0px;
+        padding-top: 8px;
+        padding-bottom: 0px;
+        margin: 0px;
+        
+        border: none;
+        border-radius: 4px;
+    }
+"""
+
+timestamp_ptext_edit = """
     QPlainTextEdit {
         background-color: #f0f0f0;
         color: #303030;
@@ -256,15 +287,26 @@ default_tab = """
 
 # Scroll bars ----------------------------
 
+scroll_bar_hide = """
+    QScrollBar:vertical {
+        width: 0px;
+    }
+    QScrollBar:horizontal {
+        height: 0px;
+    }
+"""
+
 default_scroll = """
     QScrollBar:vertical {
-        border: none;
+        border: 8px solid #f0f0f0;
         background-color: #d6d6d6;
-        width: 8px;
+        width: 24px;
+        border-radius: 12px;
     }
     QScrollBar::handle:vertical {
         background-color: #c0c0c0;
         min-height: 20px;
+        border-radius: 4px;
     }
     QScrollBar::handle:vertical:hover {
         background-color: #c0c0c0;
@@ -278,13 +320,15 @@ default_scroll = """
         background: none;
     }
     QScrollBar:horizontal {
-        border: none;
+        border: 8px solid #f0f0f0;
         background-color: #d6d6d6;
         height: 8px;
+        border-radius: 12px;
     }
     QScrollBar::handle:horizontal {
         background-color: #c0c0c0;
         min-width: 20px;
+        border-radius: 4px;
     }
     QScrollBar::handle:horizontal:hover {
         background-color: #c0c0c0;
@@ -341,7 +385,7 @@ uploader_loading_bar_fail = """
 
 default_splitter = """
     QSplitter::handle {
-        background-color: #c0c0c0;
+        background-color: #d6d6d6;
         border: none;
     }
     QSplitter::handle:hover {
