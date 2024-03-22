@@ -46,6 +46,8 @@ globals = {
         "updater_chunk_size": 4096,  # Data chunk size for WiFi updates
         "updater_ack_timeout": 0.5,  # Timeout for acknowledgements during WiFi updates
         "updater_ack_retries": 5,  # Number of retries for acknowledgements during WiFi updates
+        "scape_sequence": b"</AS>",  # Escape sequence for WiFi data (encoded)
+        "keepalive_sequence": b"</KA>",  # Keepalive sequence for WiFi data (encoded)
     },
     "console": {
         "line_limit": 1000  # Maximum number of lines in the console log

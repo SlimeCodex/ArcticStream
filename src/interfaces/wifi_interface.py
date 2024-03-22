@@ -68,6 +68,8 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         self.network = app_config.globals["wifi"]["network"]
         self.port_uplink = app_config.globals["wifi"]["port_uplink"]
         self.port_downlink = app_config.globals["wifi"]["port_downlink"]
+        self.scape_sequence = app_config.globals["wifi"]["scape_sequence"]
+        self.keepalive_sequence = app_config.globals["wifi"]["keepalive_sequence"]
         self.running = False
         self.activity_timer = None
 
@@ -158,7 +160,9 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
     async def read_data_stream(self):
         """Reads data from the serial port asynchronously."""
         self.socket_instance = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        #self.socket_instance.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, 10)
         self.socket_instance.setblocking(False)
+        # TODO: Fix timeout for recv, needs less than 10ms to avoid packet overlapping
 
         try:
             self.socket_instance.connect((self.device_address, self.port_uplink))
@@ -174,7 +178,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             data_buffer = b""
             while self.running:
                 try:
-                    data = self.socket_instance.recv(2048)
+                    data = self.socket_instance.recv(512)
                     if data:
                         # Reset activity timer
                         self.activity_timer.start()
@@ -211,7 +215,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             self.linkReady.emit(True)
             return
 
-        self.dataReceived.emit(uuid, data + "\n")
+        self.dataReceived.emit(uuid, data)
 
     # --- Communication ---
 
