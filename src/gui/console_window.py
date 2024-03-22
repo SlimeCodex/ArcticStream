@@ -179,11 +179,13 @@ class ConsoleWindow(QWidget):
             callback=self.toggle_status_bar,
             toggled=False,
         )
-        self.toggle_status_bar_button.setToolTip(self.tooltip_index["show_metadata"])
+        self.toggle_status_bar_button.setToolTip(
+            self.tooltip_index["show_metadata"])
 
         # QPlainTextEdit: Plain text area for timestamp
         self.text_edit_timestamp = QPlainTextEdit(self)
-        self.text_edit_timestamp.setStyleSheet(th.get_style("timestamp_ptext_edit"))
+        self.text_edit_timestamp.setStyleSheet(
+            th.get_style("timestamp_ptext_edit"))
         self.text_edit_timestamp.setFont(QFont("Inconsolata"))
         self.text_edit_timestamp.setReadOnly(True)
         self.text_edit_timestamp.setMaximumBlockCount(
@@ -212,7 +214,8 @@ class ConsoleWindow(QWidget):
         # QLineEdit: Main data meta info
         self.status_overlay = QLineEdit(self)
         self.status_overlay.setFont(QFont("Inconsolata"))
-        self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
+        self.status_overlay.setStyleSheet(
+            th.get_style("console_status_line_edit"))
         self.status_overlay.setReadOnly(True)
         self.status_overlay.setAlignment(Qt.AlignCenter)
         self.status_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
@@ -232,7 +235,8 @@ class ConsoleWindow(QWidget):
         self.line_edit_send.setFixedHeight(
             app_config.globals["gui"]["default_line_edit_height"]
         )
-        self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit"))
+        self.line_edit_send.setStyleSheet(
+            th.get_style("console_send_line_edit"))
         self.line_edit_send.setPlaceholderText("Insert data to send ...")
 
     def draw_layout(self):
@@ -367,7 +371,8 @@ class ConsoleWindow(QWidget):
             f"Inputs: {self.total_data_counter} | "
             f"Bytes: {self.total_bytes_received} B | "
             f"Delta: {latency_text} | "
-            f"Last: {self.last_received_timestamp.strftime('%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
+            f"Last: {self.last_received_timestamp.strftime(
+                '%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
         )
 
         self.status_overlay.setText(status_text)
@@ -381,11 +386,11 @@ class ConsoleWindow(QWidget):
             self.text_edit_printf.verticalScrollBar().setValue(value)
 
     def update_data(self, data):
-        if self.console_paused:
+        if self.console_paused or not data:
             return
 
-        if not data or data == "\n" or data == "\r\n":
-            return
+        # Update the total lines
+        self.total_lines += len(data.split("\n"))-1
 
         # New data received - update metrics
         self.total_bytes_received += len(data.encode("utf-8"))
@@ -447,7 +452,6 @@ class ConsoleWindow(QWidget):
 
         # Update the total lines
         self.total_data_counter += 1
-        self.total_lines = len(self.text_edit_printf.toPlainText().split("\n"))
 
         # Update stats bar
         self.update_status()
@@ -507,16 +511,20 @@ class ConsoleWindow(QWidget):
 
     def cb_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
-        self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit"))
+        self.line_edit_send.setStyleSheet(
+            th.get_style("console_send_line_edit"))
         if not self.logging_enabled:
             self.log_button.setStyleSheet(th.get_style("default_button"))
         self.show_timestamp.setStyleSheet(th.get_style("default_button"))
         self.wrap_button.setStyleSheet(th.get_style("default_button"))
         self.lock_button.setStyleSheet(th.get_style("default_button"))
-        self.toggle_status_bar_button.setStyleSheet(th.get_style("default_button"))
+        self.toggle_status_bar_button.setStyleSheet(
+            th.get_style("default_button"))
         self.send_button.setStyleSheet(th.get_style("default_button"))
-        self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
-        self.text_edit_timestamp.setStyleSheet(th.get_style("timestamp_ptext_edit"))
+        self.status_overlay.setStyleSheet(
+            th.get_style("console_status_line_edit"))
+        self.text_edit_timestamp.setStyleSheet(
+            th.get_style("timestamp_ptext_edit"))
 
         # Update special widgets by theme
         if theme == "dark":

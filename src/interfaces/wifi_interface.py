@@ -179,15 +179,19 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
                         # Reset activity timer
                         self.activity_timer.start()
 
+                        # Remove keepalive sequence
+                        if self.keepalive_sequence in data:
+                            data = data.replace(self.keepalive_sequence, b"")
+                            data = data.strip()
+
                         # Process the data
                         data_buffer += data
-                        while b"\n" in data_buffer:
-                            line, data_buffer = data_buffer.split(b"\n", 1)
-                            line = line.strip()
-                            if line:
-                                data = line.decode()
-                                if ":" in data:
-                                    uuid, data = data.split(":", 1)
+                        while self.scape_sequence in data_buffer:
+                            packet, _, data_buffer = data_buffer.partition(self.scape_sequence)
+                            if packet:
+                                decoded_packet = packet.decode()
+                                if ":" in decoded_packet:
+                                    uuid, data = decoded_packet.split(":", 1)
                                     self.process_packet(uuid, data)
                 except socket.error as e:
                     if e.errno != errno.WSAEWOULDBLOCK:

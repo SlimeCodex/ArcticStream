@@ -29,11 +29,13 @@ globals = {
         "baudrate": 921600,  # Baud rate for UART communication
         "keepalive": 400,  # Keepalive interval for UART
         "con_retries": 5,  # Number of retries for UART reconnection
-        "keepalive_com": 0xA5,  # Keepalive command for UART
         "act_timeout": 500,  # Timeout to declare UART connection lost in ms
         "updater_chunk_size": 4096,  # Data chunk size for UART updates
         "updater_ack_timeout": 0.5,  # Timeout for acknowledgements during UART updates
         "updater_ack_retries": 5,  # Number of retries for acknowledgements during UART updates
+        "scape_sequence": b"</AS>",  # Escape sequence for UART data (encoded)
+        "keepalive_sequence": b"</KA>",  # Keepalive sequence for UART data (encoded)
+        "receive_timeout": 0.005,  # Timeout for UART data reception
     },
     "wifi": {
         "network": "192.168.1.0/24",  # Network IP range for WiFi

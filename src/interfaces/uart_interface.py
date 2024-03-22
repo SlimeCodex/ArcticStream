@@ -64,6 +64,9 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         super().__init__()
         self.device_address = None
         self.baudrate = app_config.globals["uart"]["baudrate"]
+        self.scape_sequence = app_config.globals["uart"]["scape_sequence"]
+        self.keepalive_sequence = app_config.globals["uart"]["keepalive_sequence"]
+        self.receive_timeout = app_config.globals["uart"]["receive_timeout"]
         self.port_instance = None
         self.running = False
 
@@ -93,7 +96,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
                 parity=aioserial.PARITY_NONE,
                 stopbits=aioserial.STOPBITS_ONE,
                 bytesize=aioserial.EIGHTBITS,
-                timeout=0.1,
+                timeout=self.receive_timeout,
             )
             self.device_address = device_port
             self.running = True
@@ -124,20 +127,24 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         data_buffer = b""
         while self.running:
             try:
-                data = await self.port_instance.read_async(2048)
+                data = await self.port_instance.read_async(512)
                 if data:
                     # Reset activity timer
                     self.activity_timer.start()
 
+                    # Remove keepalive sequence
+                    if self.keepalive_sequence in data:
+                        data = data.replace(self.keepalive_sequence, b"")
+                        data = data.strip()
+
                     # Process the data
                     data_buffer += data
-                    while b"\n" in data_buffer:
-                        line, data_buffer = data_buffer.split(b"\n", 1)
-                        line = line.strip()
-                        if line:
-                            data = line.decode()
-                            if ":" in data:
-                                uuid, data = data.split(":", 1)
+                    while self.scape_sequence in data_buffer:
+                        packet, _, data_buffer = data_buffer.partition(self.scape_sequence)
+                        if packet:
+                            decoded_packet = packet.decode()
+                            if ":" in decoded_packet:
+                                uuid, data = decoded_packet.split(":", 1)
                                 self.process_packet(uuid, data)
 
             except Exception as e:
@@ -155,7 +162,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
             self.linkReady.emit(True)
             return
 
-        self.dataReceived.emit(uuid, data + "\n")
+        self.dataReceived.emit(uuid, data)
 
     # Send data to the device
     async def send_data(self, uuid, data, encoded=False):
