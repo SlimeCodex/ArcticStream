@@ -39,7 +39,6 @@ class SSCWindowProperties(QMainWindow):
         self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Globals
-
         self.icons_dir = self.mw.icon_path()
         self.mouse_pressed = False
         self.resize_direction = None
@@ -137,7 +136,6 @@ class SSCWindowProperties(QMainWindow):
             style=th.get_style("custom_bar_button"),
             callback=None,
         )
-        self.con_status_button.setToolTip(self.tooltip_index["connection_status"])
         
         # Size adjustment for the connect/disconnect label
         self.con_status_button.setFixedSize(130, 20)

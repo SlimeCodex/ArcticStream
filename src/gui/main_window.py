@@ -62,12 +62,8 @@ class MainWindow(SSCWindowProperties):
 
         # Window initialization
         self.setWindowTitle(self.title)
-        self.set_custom_title(self.title)
         self.resize(*self.default_size)
         self.setMinimumSize(*self.minimum_size)
-
-        # Set the stylesheet
-        app_main.setStyleSheet(th.get_style(list(app_config.globals["style"])))
         self.setWindowIcon(QIcon(f"{self.icon_path()}/main_icon.png"))
 
         # Load the font file (.ttf or .otf)
@@ -75,7 +71,15 @@ class MainWindow(SSCWindowProperties):
         QFontDatabase.addApplicationFont(f"{self.font_path()}/Inconsolata-Regular.ttf")
         app_main.setFont(QFont("Ubuntu"))
 
-        # Set the status label
+        # Set the stylesheet
+        self.theme_status = app_config.globals["gui"]["theme"]
+        th.select_theme(self.theme_status)
+
+        # Apply the default style
+        app_main.setStyleSheet(th.get_style(list(app_config.globals["style"])))
+
+        # Set the custom title and status bar
+        self.set_custom_title(self.title)
         self.set_status_bar("Disconnected")
 
         # Globals
@@ -87,10 +91,7 @@ class MainWindow(SSCWindowProperties):
 
         # Draw the layout
         self.setup_layout()
-
-        # Set the default theme
-        self.theme_status = app_config.globals["gui"]["theme"]
-        # self.toggle_theme()
+        self.apply_theme(self.theme_status)
 
     # --- GUI Functions ---
 
@@ -320,14 +321,8 @@ class MainWindow(SSCWindowProperties):
     def cb_link_lost(self, client):
         self.set_status_bar("Disconnected")
 
-    # Callback toggle theme
-    def toggle_theme(self, status=False):
-        if self.theme_status == "dark":
-            self.theme_status = "light"
-        else:
-            self.theme_status = "dark"
-
-        th.toggle_theme()  # Update global theme
+    def apply_theme(self, theme):
+        th.select_theme(self.theme_status)
         QApplication.instance().setStyleSheet(
             th.get_style(list(app_config.globals["style"]))
         )
@@ -343,17 +338,25 @@ class MainWindow(SSCWindowProperties):
         self.line_edit_version.setStyleSheet(th.get_style("debug_bar_line_edit"))
 
         # Update special widgets by theme
-        if self.theme_status == "dark":
+        if theme == "dark":
             self.ble_button.changeIconColor("#ffffff")
             self.usb_button.changeIconColor("#ffffff")
             self.wifi_button.changeIconColor("#ffffff")
-        elif self.theme_status == "light":
+        elif theme == "light":
             self.ble_button.changeIconColor("#303030")
             self.usb_button.changeIconColor("#303030")
             self.wifi_button.changeIconColor("#303030")
 
         # Update children widgets
         self.themeChanged.emit(self.theme_status)
+
+    # Callback toggle theme
+    def toggle_theme(self, status=False):
+        if status:
+            self.theme_status = "light"
+        else:
+            self.theme_status = "dark"
+        self.apply_theme(self.theme_status)
 
     def toggle_debug(self):
         if self.debug_show:

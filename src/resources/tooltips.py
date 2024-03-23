@@ -8,7 +8,6 @@ tooltips = {
         "accumulator_button": "Toggle data accumulation in console tabs.",
         "top_hint_button": "Keep the window on top of other applications.",
         "autosync_button": "Enable/disable automatic reconnection to the device.",
-        "connection_status": "Connection status with the device.",
     },
     "connection_windows": {
         "scan_button": "Scan for available devices.",

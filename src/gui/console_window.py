@@ -17,7 +17,7 @@
 #
 
 import qasync
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
     QLineEdit,
     QPushButton,
@@ -81,6 +81,7 @@ class ConsoleWindow(QWidget):
         self.console_paused = False
         self.logging_enabled = False
         self.user_log_path = None
+        self.line_limit = app_config.globals["console"]["line_limit"]
 
         self.total_lines = 0
         self.total_bytes_received = 0
@@ -89,15 +90,26 @@ class ConsoleWindow(QWidget):
 
         self.acumulator_status = False
 
+        # Initialize variables for delta time calculation
+        self.last_update_time = datetime.now()
+        self.package_counter = 0
+        self.delta_time = "N/A"
+        self.package_frequency = "N/A"
+
+        # Setup the timer
+        self.update_timer = QTimer(self)
+        self.update_timer.timeout.connect(self.update_delta_time)
+        self.update_timer.start(1000)  # 1000 milliseconds = 1 second
+
         # Configure and generate the layout
         self.setup_layout()
         self.draw_layout()
+        self.toggle_wrap(False)
 
     # GUI Functions
 
     # Layout and Widgets
     def setup_layout(self):
-
         # QPushButton: Start, Stop, Clear, Copy, Log
         self.start_button = QPushButton("Start", self)
         self.start_button.setToolTip(self.tooltip_index["start_button"])
@@ -149,7 +161,7 @@ class ConsoleWindow(QWidget):
             size=app_config.globals["gui"]["default_button_size"],
             style=th.get_style("default_button"),
             callback=self.toggle_wrap,
-            toggled=True,
+            toggled=False,
         )
         self.wrap_button.setToolTip(self.tooltip_index["wrap_button"])
 
@@ -179,18 +191,14 @@ class ConsoleWindow(QWidget):
             callback=self.toggle_status_bar,
             toggled=False,
         )
-        self.toggle_status_bar_button.setToolTip(
-            self.tooltip_index["show_metadata"])
+        self.toggle_status_bar_button.setToolTip(self.tooltip_index["show_metadata"])
 
         # QPlainTextEdit: Plain text area for timestamp
         self.text_edit_timestamp = QPlainTextEdit(self)
-        self.text_edit_timestamp.setStyleSheet(
-            th.get_style("timestamp_ptext_edit"))
+        self.text_edit_timestamp.setStyleSheet(th.get_style("timestamp_ptext_edit"))
         self.text_edit_timestamp.setFont(QFont("Inconsolata"))
         self.text_edit_timestamp.setReadOnly(True)
-        self.text_edit_timestamp.setMaximumBlockCount(
-            app_config.globals["console"]["line_limit"]
-        )
+        self.text_edit_timestamp.setMaximumBlockCount(self.line_limit)
         self.text_edit_timestamp.verticalScrollBar().setVisible(False)
         self.text_edit_timestamp.verticalScrollBar().setStyleSheet(
             th.get_style("scroll_bar_hide")
@@ -206,16 +214,13 @@ class ConsoleWindow(QWidget):
         self.text_edit_printf = QPlainTextEdit(self)
         self.text_edit_printf.setFont(QFont("Inconsolata"))
         self.text_edit_printf.setReadOnly(True)
-        self.text_edit_printf.setMaximumBlockCount(
-            app_config.globals["console"]["line_limit"]
-        )
+        self.text_edit_printf.setMaximumBlockCount(self.line_limit)
         self.text_edit_printf.verticalScrollBar().valueChanged.connect(self.sync_scroll)
 
         # QLineEdit: Main data meta info
         self.status_overlay = QLineEdit(self)
         self.status_overlay.setFont(QFont("Inconsolata"))
-        self.status_overlay.setStyleSheet(
-            th.get_style("console_status_line_edit"))
+        self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
         self.status_overlay.setReadOnly(True)
         self.status_overlay.setAlignment(Qt.AlignCenter)
         self.status_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
@@ -235,12 +240,10 @@ class ConsoleWindow(QWidget):
         self.line_edit_send.setFixedHeight(
             app_config.globals["gui"]["default_line_edit_height"]
         )
-        self.line_edit_send.setStyleSheet(
-            th.get_style("console_send_line_edit"))
+        self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit"))
         self.line_edit_send.setPlaceholderText("Insert data to send ...")
 
     def draw_layout(self):
-
         # Layout for buttons
         buttons_layout = QHBoxLayout()
         buttons_layout.addWidget(self.show_timestamp)
@@ -294,9 +297,10 @@ class ConsoleWindow(QWidget):
 
     # Toggle text wrap
     def toggle_wrap(self, status):
-        self.text_edit_printf.setLineWrapMode(
-            QPlainTextEdit.WidgetWidth if status else QPlainTextEdit.NoWrap
-        )
+        if status:
+            self.text_edit_printf.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+        else:
+            self.text_edit_printf.setLineWrapMode(QPlainTextEdit.NoWrap)
 
     # Lock and unlock the scrollbar
     def toggle_lock(self, status):
@@ -352,25 +356,41 @@ class ConsoleWindow(QWidget):
             self.update_info(data)
 
     # Window Functions
+            
+    def update_delta_time(self):
+        current_time = datetime.now()
+        elapsed_time = (current_time - self.last_update_time).total_seconds()
+        if elapsed_time > 0:
+            if self.package_counter > 0:
+                self.delta_time = f"{1000 * elapsed_time / self.package_counter:.0f} ms"
+                self.package_frequency = f"{self.package_counter / elapsed_time:.2f} Hz"
+        else:
+            self.delta_time = "N/A"
+        
+        self.last_update_time = current_time
+        self.package_counter = 0
+
+    def format_bytes(self, size):
+        # 2**10 = 1024
+        power = 1024
+        n = 0
+        power_labels = {0: "B", 1: "KB", 2: "MB", 3: "GB", 4: "TB"}
+        while size > power:
+            size /= power
+            n += 1
+        return f"{size:.2f} {power_labels[n]}"
 
     # Overlay text
     def update_status(self):
-        current_time = datetime.now()
-
-        # Calculate latency in milliseconds
-        if self.last_received_timestamp:
-            latency = int(
-                (current_time - self.last_received_timestamp).total_seconds() * 1000
-            )
-            latency_text = f"{latency:3.0f} ms"
-        else:
-            latency_text = "N/A"
+        # Format the total bytes received
+        readable_bytes = self.format_bytes(self.total_bytes_received)
 
         status_text = (
             f"Lines: {self.total_lines} | "
             f"Inputs: {self.total_data_counter} | "
-            f"Bytes: {self.total_bytes_received} B | "
-            f"Delta: {latency_text} | "
+            f"Bytes: {readable_bytes} | "
+            f"Delta: {self.delta_time} | "
+            f"Freq: {self.package_frequency} | "
             f"Last: {self.last_received_timestamp.strftime(
                 '%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
         )
@@ -390,7 +410,8 @@ class ConsoleWindow(QWidget):
             return
 
         # Update the total lines
-        self.total_lines += len(data.split("\n"))-1
+        if self.total_lines < self.line_limit:
+            self.total_lines += len(data.split("\n")) - 1
 
         # New data received - update metrics
         self.total_bytes_received += len(data.encode("utf-8"))
@@ -453,6 +474,9 @@ class ConsoleWindow(QWidget):
         # Update the total lines
         self.total_data_counter += 1
 
+        # Update stats bar for delta time calculation (resettable)
+        self.package_counter += 1
+
         # Update stats bar
         self.update_status()
         self.last_received_timestamp = datetime.now()
@@ -511,20 +535,16 @@ class ConsoleWindow(QWidget):
 
     def cb_update_theme(self, theme):
         # Reload stylesheets (background for buttons)
-        self.line_edit_send.setStyleSheet(
-            th.get_style("console_send_line_edit"))
+        self.line_edit_send.setStyleSheet(th.get_style("console_send_line_edit"))
         if not self.logging_enabled:
             self.log_button.setStyleSheet(th.get_style("default_button"))
         self.show_timestamp.setStyleSheet(th.get_style("default_button"))
         self.wrap_button.setStyleSheet(th.get_style("default_button"))
         self.lock_button.setStyleSheet(th.get_style("default_button"))
-        self.toggle_status_bar_button.setStyleSheet(
-            th.get_style("default_button"))
+        self.toggle_status_bar_button.setStyleSheet(th.get_style("default_button"))
         self.send_button.setStyleSheet(th.get_style("default_button"))
-        self.status_overlay.setStyleSheet(
-            th.get_style("console_status_line_edit"))
-        self.text_edit_timestamp.setStyleSheet(
-            th.get_style("timestamp_ptext_edit"))
+        self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
+        self.text_edit_timestamp.setStyleSheet(th.get_style("timestamp_ptext_edit"))
 
         # Update special widgets by theme
         if theme == "dark":
