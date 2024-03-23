@@ -76,6 +76,7 @@ class UARTConnectionWindow(QWidget):
         self.device_address = None
         self.updater = None  # Updater Instance
         self.console = {}  # Console Index and Instance Storage
+        self.backend = None  # Backend Index
 
         # Reconnection variables
         self.auto_sync_enabled = True
@@ -220,17 +221,19 @@ class UARTConnectionWindow(QWidget):
         """Retrieves services information from the connected device."""
 
         # Register Backend Services
-        self.backend = BackendIndex()
-        self.backend.service = patterns.UUID_UART_BACKEND_ATS
-        self.backend.txm = patterns.UUID_UART_BACKEND_TX
-        self.backend.rxm = patterns.UUID_UART_BACKEND_RX
+        if self.backend is None:
+            self.backend = BackendIndex()
+            self.backend.service = patterns.UUID_UART_BACKEND_ATS
+            self.backend.txm = patterns.UUID_UART_BACKEND_TX
+            self.backend.rxm = patterns.UUID_UART_BACKEND_RX
 
         # Register OTA Services
-        self.updater = UpdaterIndex()
-        self.updater.name = "OTA"
-        self.updater.service = patterns.UUID_UART_OTA_ATS
-        self.updater.txm = patterns.UUID_UART_OTA_TX
-        self.updater.rxm = patterns.UUID_UART_OTA_RX
+        if self.updater is None:
+            self.updater = UpdaterIndex()
+            self.updater.name = "OTA"
+            self.updater.service = patterns.UUID_UART_OTA_ATS
+            self.updater.txm = patterns.UUID_UART_OTA_TX
+            self.updater.rxm = patterns.UUID_UART_OTA_RX
 
         # Add the updater to the main window
         self.create_updater_window(self.updater.name, self.updater.service)
