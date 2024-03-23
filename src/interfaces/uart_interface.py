@@ -67,6 +67,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         self.scape_sequence = app_config.globals["uart"]["scape_sequence"]
         self.keepalive_sequence = app_config.globals["uart"]["keepalive_sequence"]
         self.receive_timeout = app_config.globals["uart"]["receive_timeout"]
+        self.uplink_chunk_size = app_config.globals["wifi"]["uplink_chunk_size"]
         self.port_instance = None
         self.running = False
 
@@ -127,7 +128,7 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
         data_buffer = b""
         while self.running:
             try:
-                data = await self.port_instance.read_async(512)
+                data = await self.port_instance.read_async(self.uplink_chunk_size)
                 if data:
                     # Reset activity timer
                     self.activity_timer.start()
@@ -135,7 +136,6 @@ class UARTHandler(QObject, CommunicationInterface, metaclass=UARTHandlerMeta):
                     # Remove keepalive sequence
                     if self.keepalive_sequence in data:
                         data = data.replace(self.keepalive_sequence, b"")
-                        data = data.strip()
 
                     # Process the data
                     data_buffer += data
