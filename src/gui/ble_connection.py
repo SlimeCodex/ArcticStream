@@ -76,6 +76,7 @@ class BLEConnectionWindow(QWidget):
         self.device_address = None
         self.updater = None  # Updater Index
         self.console = {}  # Console Index and Instance Storage
+        self.backend = None  # Backend Index
 
         # Reconnection variables
         self.auto_sync_enabled = True
@@ -217,10 +218,11 @@ class BLEConnectionWindow(QWidget):
         """Retrieves services information from the connected device."""
 
         # Register Backend Services
-        self.backend = BackendIndex()
-        self.backend.service = patterns.UUID_BLE_BACKEND_ATS
-        self.backend.txm = patterns.UUID_BLE_BACKEND_TX
-        self.backend.rxm = patterns.UUID_BLE_BACKEND_RX
+        if self.backend is None:
+            self.backend = BackendIndex()
+            self.backend.service = patterns.UUID_BLE_BACKEND_ATS
+            self.backend.txm = patterns.UUID_BLE_BACKEND_TX
+            self.backend.rxm = patterns.UUID_BLE_BACKEND_RX
 
         # Register OTA Services if not already registered
         if self.updater is None:
