@@ -70,6 +70,8 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         self.port_downlink = app_config.globals["wifi"]["port_downlink"]
         self.scape_sequence = app_config.globals["wifi"]["scape_sequence"]
         self.keepalive_sequence = app_config.globals["wifi"]["keepalive_sequence"]
+        self.receive_timeout = app_config.globals["uart"]["receive_timeout"]
+        self.uplink_chunk_size = app_config.globals["wifi"]["uplink_chunk_size"]
         self.running = False
         self.activity_timer = None
 
@@ -160,9 +162,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
     async def read_data_stream(self):
         """Reads data from the serial port asynchronously."""
         self.socket_instance = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #self.socket_instance.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, 10)
         self.socket_instance.setblocking(False)
-        # TODO: Fix timeout for recv, needs less than 10ms to avoid packet overlapping
 
         try:
             self.socket_instance.connect((self.device_address, self.port_uplink))
@@ -178,7 +178,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
             data_buffer = b""
             while self.running:
                 try:
-                    data = self.socket_instance.recv(512)
+                    data = self.socket_instance.recv(self.uplink_chunk_size)
                     if data:
                         # Reset activity timer
                         self.activity_timer.start()
@@ -186,7 +186,6 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
                         # Remove keepalive sequence
                         if self.keepalive_sequence in data:
                             data = data.replace(self.keepalive_sequence, b"")
-                            data = data.strip()
 
                         # Process the data
                         data_buffer += data
@@ -202,7 +201,7 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
                         print(f"Socket error: {e}")
                         break
                     else:
-                        await asyncio.sleep(0.1)
+                        await asyncio.sleep(self.receive_timeout)
                         continue
         self.dataStreamClosed.emit()
 
