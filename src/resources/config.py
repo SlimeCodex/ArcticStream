@@ -36,6 +36,7 @@ globals = {
         "scape_sequence": b"</AS>",  # Escape sequence for UART data (encoded)
         "keepalive_sequence": b"</KA>",  # Keepalive sequence for UART data (encoded)
         "receive_timeout": 0.005,  # Timeout for UART data reception
+        "uplink_chunk_size": 2048,  # Chunk size for UART uplink data
     },
     "wifi": {
         "network": "192.168.1.0/24",  # Network IP range for WiFi
@@ -48,6 +49,8 @@ globals = {
         "updater_ack_retries": 5,  # Number of retries for acknowledgements during WiFi updates
         "scape_sequence": b"</AS>",  # Escape sequence for WiFi data (encoded)
         "keepalive_sequence": b"</KA>",  # Keepalive sequence for WiFi data (encoded)
+        "receive_timeout": 0.005,  # Timeout for WiFi data reception
+        "uplink_chunk_size": 2048,  # Chunk size for WiFi uplink data
     },
     "console": {
         "line_limit": 1000  # Maximum number of lines in the console log
