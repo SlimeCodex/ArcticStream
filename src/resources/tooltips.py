@@ -27,6 +27,7 @@ tooltips = {
         "send_button": "Send the entered data to the device.",
         "show_timestamp": "Show/hide timestamps and linecounter.",
         "show_metadata": "Show/hide metadata of the console output.",
+        "analyze_button": "Analyze and plot the console output.",
     },
     "updater_window": {
         "start_button": "Start the firmware update process.",

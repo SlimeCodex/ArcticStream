@@ -28,6 +28,7 @@ from PyQt5.QtWidgets import (
     QWidget,
     QFileDialog,
     QSplitter,
+    QGridLayout,
 )
 from PyQt5.QtGui import QTextCursor, QFont, QTextCharFormat
 from datetime import datetime
@@ -38,6 +39,7 @@ from resources.indexer import ConsoleIndex
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
 import helpers.theme_helper as th
 from resources.tooltips import tooltips
+from gui.graph_window import GraphWindow
 
 
 class ConsoleWindow(QWidget):
@@ -83,6 +85,7 @@ class ConsoleWindow(QWidget):
         self.user_log_path = None
         self.line_limit = app_config.globals["console"]["line_limit"]
 
+        self.received_package = ""
         self.total_lines = 0
         self.total_bytes_received = 0
         self.last_received_timestamp = 0
@@ -136,6 +139,16 @@ class ConsoleWindow(QWidget):
             callback=self.send_data,
         )
         self.send_button.setToolTip(self.tooltip_index["send_button"])
+
+        # SimpleButton: Analyze button
+        self.graph_button = SimpleButton(
+            self,
+            icon=f"{self.icons_dir}/monitoring_FILL0_wght400_GRAD0_opsz24.svg",
+            size=app_config.globals["gui"]["default_button_size"],
+            style=th.get_style("default_button"),
+            callback=self.analyze_data,
+        )
+        self.graph_button.setToolTip(self.tooltip_index["analyze_button"])
 
         # ToggleButton: Toggle show timestamp
         self.show_timestamp = ToggleButton(
@@ -217,6 +230,16 @@ class ConsoleWindow(QWidget):
         self.text_edit_printf.setMaximumBlockCount(self.line_limit)
         self.text_edit_printf.verticalScrollBar().valueChanged.connect(self.sync_scroll)
 
+        # QGridLayout: Graph area
+        self.graph_area = QGridLayout()
+        self.graph_area.setContentsMargins(0, 0, 0, 0)
+
+        self.graph_widget = QWidget()
+        self.graph_widget.setLayout(self.graph_area)
+
+        # Hide the graph area by default
+        self.graph_widget.setVisible(False)     
+
         # QLineEdit: Main data meta info
         self.status_overlay = QLineEdit(self)
         self.status_overlay.setFont(QFont("Inconsolata"))
@@ -265,6 +288,7 @@ class ConsoleWindow(QWidget):
         # Layout for info data and lock button
         info_data_layout = QHBoxLayout()
         info_data_layout.addWidget(self.line_edit_singlef)
+        info_data_layout.addWidget(self.graph_button)
         info_data_layout.addWidget(self.lock_button)
 
         # Layout for send data
@@ -277,6 +301,7 @@ class ConsoleWindow(QWidget):
         console_win_layout.addLayout(buttons_layout)
         console_win_layout.addWidget(self.status_overlay)
         console_win_layout.addWidget(main_text_layout)
+        console_win_layout.addWidget(self.graph_widget)
         console_win_layout.addLayout(info_data_layout)
         console_win_layout.addLayout(send_data_layout)
 
@@ -336,27 +361,52 @@ class ConsoleWindow(QWidget):
             await self.interface.send_data(self.index.rxm, data)
             self.line_edit_send.clear()
 
+    def toggle_console_graph_view(self):
+        self.text_edit_printf.setVisible(not self.text_edit_printf.isVisible())
+        self.graph_widget.setVisible(not self.graph_widget.isVisible())
+
+    def analyze_data(self):
+        dummy_grapher = GraphWindow(self.mw)
+        analyzed_data = dummy_grapher.parse_sensor_data(self.received_package)
+
+        # Populate the graph area acordingly to the dataframe
+        num_rows = 3
+        for index in range(analyzed_data):
+            row = index // num_rows
+            col = index % num_rows
+
+            # Create a grid of widgets for each graph
+            graph = GraphWindow(self.mw, title=f"Graph {index}")
+            self.graph_area.addWidget(graph, row, col)
+
+        # Toggle between console and graph view
+        self.toggle_console_graph_view()
+
     # Callbacks
 
     # Callback connection success
     def cb_link_ready(self, connected):
         if connected:
-            self.update_data(f"[ {self.mw.title}: Remote device connected ]\n")
+            self.update_data(
+                f"[ {self.mw.title}: Remote device connected ]\n", uplink=False
+            )
 
     # Callback device disconnected
     def cb_link_lost(self, client):
-        self.update_data(f"[ {self.mw.title}: Remote device disconnected ]\n")
+        self.update_data(
+            f"[ {self.mw.title}: Remote device disconnected ]\n", uplink=False
+        )
 
     # Callback handle input notification
     def cb_data_received(self, uuid, data):
         # Redirect the data to the printf text box
         if uuid == self.index.txm:
-            self.update_data(data)
+            self.update_data(data, uplink=True)
         elif uuid == self.index.txs:
             self.update_info(data)
 
     # Window Functions
-            
+
     def update_delta_time(self):
         current_time = datetime.now()
         elapsed_time = (current_time - self.last_update_time).total_seconds()
@@ -366,7 +416,7 @@ class ConsoleWindow(QWidget):
                 self.package_frequency = f"{self.package_counter / elapsed_time:.2f} Hz"
         else:
             self.delta_time = "N/A"
-        
+
         self.last_update_time = current_time
         self.package_counter = 0
 
@@ -405,9 +455,12 @@ class ConsoleWindow(QWidget):
         elif sender == self.text_edit_timestamp.verticalScrollBar():
             self.text_edit_printf.verticalScrollBar().setValue(value)
 
-    def update_data(self, data):
+    def update_data(self, data, uplink=False):
         if self.console_paused or not data:
             return
+
+        if uplink:
+            self.received_package = data
 
         # Update the total lines
         if self.total_lines < self.line_limit:
@@ -540,6 +593,7 @@ class ConsoleWindow(QWidget):
             self.log_button.setStyleSheet(th.get_style("default_button"))
         self.show_timestamp.setStyleSheet(th.get_style("default_button"))
         self.wrap_button.setStyleSheet(th.get_style("default_button"))
+        self.graph_button.setStyleSheet(th.get_style("default_button"))
         self.lock_button.setStyleSheet(th.get_style("default_button"))
         self.toggle_status_bar_button.setStyleSheet(th.get_style("default_button"))
         self.send_button.setStyleSheet(th.get_style("default_button"))
@@ -550,12 +604,14 @@ class ConsoleWindow(QWidget):
         if theme == "dark":
             self.show_timestamp.changeIconColor("#ffffff")
             self.wrap_button.changeIconColor("#ffffff")
+            self.graph_button.changeIconColor("#ffffff")
             self.lock_button.changeIconColor("#ffffff")
             self.toggle_status_bar_button.changeIconColor("#ffffff")
             self.send_button.changeIconColor("#ffffff")
         elif theme == "light":
             self.show_timestamp.changeIconColor("#000000")
             self.wrap_button.changeIconColor("#000000")
+            self.graph_button.changeIconColor("#000000")
             self.lock_button.changeIconColor("#000000")
             self.toggle_status_bar_button.changeIconColor("#000000")
             self.send_button.changeIconColor("#000000")

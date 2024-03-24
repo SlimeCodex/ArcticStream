@@ -28,3 +28,13 @@ class ConsoleIndex:
         self.rxm = None
         self.instance = None
         self.tab_index = None
+
+
+class GraphIndex:
+    def __init__(self):
+        self.name = None
+        self.service = None
+        self.txm = None
+        self.txs = None
+        self.instance = None
+        self.tab_index = None
