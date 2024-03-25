@@ -94,7 +94,7 @@ class UARTConnectionWindow(QWidget):
 
     # Layout and Widgets
     def setup_layout(self):
-        scan_button = QPushButton("Scan Bluetooth")
+        scan_button = QPushButton("Scan COM Devices")
         scan_button.setToolTip(self.tooltip_index["scan_button"])
         scan_button.clicked.connect(self.uart_scan)
 
@@ -467,6 +467,13 @@ class UARTConnectionWindow(QWidget):
 
     # Stop the remaining consoles
     def stop_consoles(self):
+        # Remove the graphers
+        for uuid, graph in reversed(self.graph.items()):
+            if graph.instance:
+                graph.instance.close()
+                del graph.instance
+                self.mw.remove_tab(graph.tab_index)
+                
         # Convert the console dictionary to a list of (uuid, console_index) tuples
         console_items = list(self.console.items())
 
@@ -485,6 +492,7 @@ class UARTConnectionWindow(QWidget):
 
         self.updater = None
         self.console = {}
+        self.graph = {}
 
     # Stop the BLE Handler
     @qasync.asyncSlot()

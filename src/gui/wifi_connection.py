@@ -461,6 +461,13 @@ class WiFiConnectionWindow(QWidget):
 
     # Stop the remaining consoles
     def stop_consoles(self):
+        # Remove the graphers
+        for uuid, graph in reversed(self.graph.items()):
+            if graph.instance:
+                graph.instance.close()
+                del graph.instance
+                self.mw.remove_tab(graph.tab_index)
+
         # Convert the console dictionary to a list of (uuid, console_index) tuples
         console_items = list(self.console.items())
 
@@ -479,6 +486,7 @@ class WiFiConnectionWindow(QWidget):
 
         self.updater = None
         self.console = {}
+        self.graph = {}
 
     # Stop the WiFi Handler
     @qasync.asyncSlot()

@@ -16,6 +16,8 @@
 # along with ArcticStream. If not, see <https://www.gnu.org/licenses/>.
 #
 
+from datetime import datetime
+
 import qasync
 import pyqtgraph as pg
 from PyQt5.QtCore import Qt, QTimer
@@ -27,9 +29,11 @@ from PyQt5.QtWidgets import (
     QWidget,
     QListWidget,
     QSplitter,
+    QFrame,
 )
 from PyQt5.QtGui import QFont, QColor
-from datetime import datetime
+from scipy.interpolate import UnivariateSpline
+import numpy as np
 
 import resources.config as app_config
 from interfaces.base_interface import CommunicationInterface
@@ -37,6 +41,7 @@ from resources.indexer import GraphIndex, PlotIndex
 from helpers.pushbutton_helper import ToggleButton, SimpleButton
 import helpers.theme_helper as th
 from resources.tooltips import tooltips
+from resources.static_theme import style_graph_dark, style_graph_light
 
 
 class GraphWindow(QWidget):
@@ -78,6 +83,8 @@ class GraphWindow(QWidget):
         self.plot_data_sets = {}  # Stores data for each plot line by plot name
         self.plot_lines = {}  # Stores the actual plot line objects by plot name
         self.plot_widgets = {}  # Stores PlotWidget for each plot name
+        self.plot_frames = {}  # Stores QFrame for each plot name
+        self.plot_names = []  # Stores the names of the plots
 
         self.colors = [
             (255, 0, 0),  # Red
@@ -161,7 +168,7 @@ class GraphWindow(QWidget):
         self.plot_var_list.setFont(QFont("Inconsolata"))
         self.plot_var_list.setSelectionMode(QListWidget.MultiSelection)
         self.plot_var_list.setVisible(False)
-        #self.plot_var_list.itemDoubleClicked.connect(self.uart_connect)
+        # self.plot_var_list.itemDoubleClicked.connect(self.uart_connect)
 
     def draw_layout(self):
         # Layout for buttons
@@ -296,6 +303,37 @@ class GraphWindow(QWidget):
             self.show_var_list_button.changeIconColor("#000000")
             self.toggle_status_bar_button.changeIconColor("#000000")
 
+        if theme == "dark":
+            for frame_widget in self.plot_frames.values():
+                frame_widget.setStyleSheet(th.get_style("frame_graphs"))
+
+            for i, plot_widget in enumerate(self.plot_widgets.values()):
+                font = QFont(style_graph_dark.font, style_graph_dark.font_size_title)
+                plot_widget.setTitle(
+                    self.plot_names[i], color=style_graph_dark.text_color, font=font
+                )
+                item = plot_widget.getPlotItem()
+                item.titleLabel.item.setFont(font)
+                plot_widget.setBackground(style_graph_dark.background_color)
+                axis_color = QColor(style_graph_dark.axis_color)
+                plot_widget.getAxis("left").setPen(axis_color)
+                plot_widget.getAxis("bottom").setPen(axis_color)
+        elif theme == "light":
+            for frame_widget in self.plot_frames.values():
+                frame_widget.setStyleSheet(th.get_style("frame_graphs"))
+                
+            for i, plot_widget in enumerate(self.plot_widgets.values()):
+                font = QFont(style_graph_light.font, style_graph_light.font_size_title)
+                plot_widget.setTitle(
+                    self.plot_names[i], color=style_graph_light.text_color, font=font
+                )
+                item = plot_widget.getPlotItem()
+                item.titleLabel.item.setFont(font)
+                plot_widget.setBackground(style_graph_light.background_color)
+                axis_color = QColor(style_graph_light.axis_color)
+                plot_widget.getAxis("left").setPen(axis_color)
+                plot_widget.getAxis("bottom").setPen(axis_color)
+
     def toggle_accumulator(self, status):
         self.acumulator_status = status
         self.update_tab_title()
@@ -311,19 +349,19 @@ class GraphWindow(QWidget):
     def toggle_status_bar(self, status):
         self.status_overlay.hide() if status else self.status_overlay.show()
 
-###########################################################################################################
+    ###########################################################################################################
 
     def parse_sensor_data(self, data_str):
         plot_data = {}
         try:
             # Split the string by colon first to separate different data-label pairs
-            parts = data_str.split(':')
+            parts = data_str.split(":")
             plot_name = parts[0]  # The first part is the plot name
 
             # Process remaining parts for data-label pairs
             values = []
             for part in parts[1:]:  # Skip the first part (plot name)
-                data, label = part.split(',')  # Split each pair by comma
+                data, label = part.split(",")  # Split each pair by comma
                 value = float(data.strip())  # Convert data to float
                 label = label.strip()  # Clean up label
                 values.append((value, label))
@@ -363,14 +401,15 @@ class GraphWindow(QWidget):
             self.create_new_plot(plot_name)
 
         # Add a legend if not present, this should be called before adding the new data point
-        if not hasattr(self.plot_widgets[plot_name], 'legend') or self.plot_widgets[plot_name].legend is None:
-            print(f"Adding legend to plot: {plot_name} with name: {label}")
+        if (
+            not hasattr(self.plot_widgets[plot_name], "legend")
+            or self.plot_widgets[plot_name].legend is None
+        ):
             self.plot_widgets[plot_name].addLegend(offset=(-30, 30))
             self.plot_widgets[plot_name].legend = True
 
         # Create a new pen line for the label if it doesn't exist
         if label not in self.plot_lines[plot_name]:
-            print(f"Creating new plot line for label: {label} with data: {data_point}")
             color_index = len(self.plot_lines[plot_name]) % len(self.colors)
             color = self.colors[color_index]
             pen = pg.mkPen(color=color)
@@ -387,30 +426,60 @@ class GraphWindow(QWidget):
         if len(self.plot_data_sets[plot_name][label]) > max_points:
             self.plot_data_sets[plot_name][label].pop(0)
 
-        # Update the pen line with the new data set
-        self.plot_lines[plot_name][label].setData(self.plot_data_sets[plot_name][label])
+        # Smooth enabled
+        if False:
+            # Retrieve x and y values
+            x_values = np.arange(len(self.plot_data_sets[plot_name][label]))
+            y_values = np.array(self.plot_data_sets[plot_name][label])
+
+            # Check if there are enough data points for spline interpolation
+            if len(y_values) > 3:  # More than 3 points are needed for cubic spline
+                # Perform spline interpolation
+                spline = UnivariateSpline(x_values, y_values, s=0)
+                x_smooth = np.linspace(x_values.min(), x_values.max(), 300)
+                y_smooth = spline(x_smooth)
+
+                # Update the pen line with the smoothed data
+                self.plot_lines[plot_name][label].setData(x_smooth, y_smooth)
+            else:
+                # Not enough data for spline interpolation; plot the raw data
+                self.plot_lines[plot_name][label].setData(x_values, y_values)
+        else:
+            # Update the pen line with the raw data
+            self.plot_lines[plot_name][label].setData(
+                self.plot_data_sets[plot_name][label]
+            )
 
     def create_new_plot(self, plot_name):
         # Create a new PlotWidget
-        plot_widget = pg.PlotWidget(title=plot_name)  # Set plot title
-        plot_widget.setBackground("#1e1e1e")
-        plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        plot_widget = pg.PlotWidget()
+        
+        plot_widget.getAxis("left").setTickFont(QFont(style_graph_dark.font, style_graph_dark.font_size_axis))
+        plot_widget.getAxis("bottom").setTickFont(QFont(style_graph_dark.font, style_graph_dark.font_size_axis))
 
-        # Add the PlotWidget to the layout
-        self.main_graph_layout.addWidget(plot_widget)
-
-        # Set background color
+        # Set antialiasing for smoother lines
         plot_widget.setAntialiasing(True)
-
-        # Customize axis color
-        axis_color = QColor("#dcdcdc")
-        plot_widget.getAxis("left").setPen(axis_color)
-        plot_widget.getAxis("bottom").setPen(axis_color)
+        plot_widget.showGrid(x=True, y=True, alpha=0.3)
 
         # Initialize data sets and pen lines dictionaries for this plot
         self.plot_data_sets[plot_name] = {}
         self.plot_lines[plot_name] = {}
         self.plot_widgets[plot_name] = plot_widget
 
-        # Add the PlotWidget to the layout
-        self.main_graph_layout.addWidget(plot_widget)  # Assuming main_graph_layout is accessible here
+        # Customize fonts
+        self.plot_names.append(plot_name)
+
+        # Create a frame or container for the plot
+        plot_frame = QFrame(self)
+        plot_frame.setLayout(QVBoxLayout())
+        plot_frame.layout().addWidget(plot_widget)
+        plot_frame.setStyleSheet(th.get_style("frame_graphs"))
+        self.plot_frames[plot_name] = plot_frame
+        
+        # Update the theme for the new plot
+        self.cb_update_theme(self.mw.theme_status)
+
+        # Add the frame with the PlotWidget to the layout
+        self.main_graph_layout.addWidget(
+            plot_frame
+        )

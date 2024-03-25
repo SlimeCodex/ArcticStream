@@ -22,6 +22,21 @@ default_app = """
     }
 """
 
+# QFrame ----------------------------
+
+frame_graphs = """
+    QFrame {
+        background-color: #1e1e1e;
+        color: #ffffff;
+        font-size: 12px;
+
+        border: 0px;
+        border-radius: 4px;
+
+        padding: 0px;
+    }
+"""
+
 # QToolTip ----------------------------
 
 default_tooltip = """
