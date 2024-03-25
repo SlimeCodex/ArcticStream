@@ -35,7 +35,8 @@ import resources.config as app_config
 from interfaces.base_interface import CommunicationInterface
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
-from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex
+from gui.graph_window import GraphWindow
+from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex, GraphIndex
 import resources.patterns as patterns
 from resources.tooltips import tooltips
 
@@ -76,6 +77,7 @@ class BLEConnectionWindow(QWidget):
         self.device_address = None
         self.updater = None  # Updater Index
         self.console = {}  # Console Index and Instance Storage
+        self.graph = {}  # Graph Index and Instance Storage
         self.backend = None  # Backend Index
 
         # Reconnection variables
@@ -240,6 +242,10 @@ class BLEConnectionWindow(QWidget):
             service_uuid = service["ats"]
             console_name = service["name"]
 
+            # Check if the service is a console service
+            if patterns.UUID_BLE_CONSOLE_ATS.match(service_uuid) is None:
+                continue
+
             # Save the service information if it's not already in the index
             if self.console.get(service_uuid) is None:
                 self.console[service_uuid] = ConsoleIndex()
@@ -251,6 +257,25 @@ class BLEConnectionWindow(QWidget):
 
             # Add the console to the main window
             self.create_console_window(console_name, service_uuid)
+
+        # Register the graphics service
+        for service in retrieved_services:
+            service_uuid = service["ats"]
+            graph_name = service["name"]
+
+            # Check if the service is a graphics service
+            if patterns.UUID_BLE_GRAPH_ATS.match(service_uuid) is None:
+                continue
+
+            # Save the service information if it's not already in the index
+            if self.graph.get(service_uuid) is None:
+                self.graph[service_uuid] = GraphIndex()
+                self.graph[service_uuid].name = graph_name
+                self.graph[service_uuid].service = service_uuid
+                self.graph[service_uuid].txm = service["txm"]
+
+            # Add the graph to the main window
+            self.create_graph_window(graph_name, service_uuid)
 
         # Enable data uplink
         self.enable_device_uplink()
@@ -271,18 +296,20 @@ class BLEConnectionWindow(QWidget):
 
             # Find UUIDs for each service type
             for uuid in unformatted_services:
-                if patterns.UUID_BLE_CONSOLE_ATS.match(uuid):
+                if patterns.UUID_BLE_CONSOLE_ATS.match(uuid):  # Console
                     ats_uuid = uuid
-                elif patterns.UUID_BLE_CONSOLE_TX.match(uuid):
+                elif patterns.UUID_BLE_CONSOLE_TX.match(uuid):  # Console
                     txm_uuid = uuid
-                elif patterns.UUID_BLE_CONSOLE_TXS.match(uuid):
+                elif patterns.UUID_BLE_CONSOLE_TXS.match(uuid):  # Console
                     txs_uuid = uuid
-                elif patterns.UUID_BLE_CONSOLE_RX.match(uuid):
+                elif patterns.UUID_BLE_CONSOLE_RX.match(uuid):  # Console
                     rxm_uuid = uuid
-
-                # Once all UUIDs for a service are found, break the loop
-                if ats_uuid and txm_uuid and txs_uuid and rxm_uuid:
-                    break
+                    break  # Stop searching for the console UUIDs
+                elif patterns.UUID_BLE_GRAPH_ATS.match(uuid):  # Graph
+                    ats_uuid = uuid
+                elif patterns.UUID_BLE_GRAPH_TX.match(uuid):  # Graph
+                    txm_uuid = uuid
+                    break  # Stop searching for the graph UUIDs
 
             # Remove found UUIDs from the list to avoid duplication
             unformatted_services = [
@@ -292,13 +319,22 @@ class BLEConnectionWindow(QWidget):
             ]
 
             # Create service info dictionary
-            service_info = {
-                "name": service_name,
-                "ats": ats_uuid,
-                "txm": txm_uuid,
-                "txs": txs_uuid,
-                "rxm": rxm_uuid,
-            }
+            if patterns.UUID_BLE_GRAPH_ATS.match(ats_uuid):
+                service_info = {
+                    "name": service_name,
+                    "ats": ats_uuid,
+                    "txm": txm_uuid,
+                }
+
+            # Create service info dictionary
+            if patterns.UUID_BLE_CONSOLE_ATS.match(ats_uuid):
+                service_info = {
+                    "name": service_name,
+                    "ats": ats_uuid,
+                    "txm": txm_uuid,
+                    "txs": txs_uuid,
+                    "rxm": rxm_uuid,
+                }
 
             # Add the dictionary to the list
             services_info.append(service_info)
@@ -344,9 +380,11 @@ class BLEConnectionWindow(QWidget):
                     await self.interface.start_notifications(service)
                 if service == patterns.UUID_BLE_OTA_TX:  # Not regex
                     await self.interface.start_notifications(service)
-                if patterns.UUID_BLE_CONSOLE_TX.match(service):  # Regex
+                if patterns.UUID_BLE_CONSOLE_TX.match(service):
                     await self.interface.start_notifications(service)
-                if patterns.UUID_BLE_CONSOLE_TXS.match(service):  # Regex
+                if patterns.UUID_BLE_CONSOLE_TXS.match(service):
+                    await self.interface.start_notifications(service)
+                if patterns.UUID_BLE_GRAPH_TX.match(service):
                     await self.interface.start_notifications(service)
 
             # Get the services names through the backend (notify)
@@ -401,6 +439,17 @@ class BLEConnectionWindow(QWidget):
             window = ConsoleWindow(self.mw, self.interface, name, self.console[uuid])
             self.console[uuid].instance = window
             self.console[uuid].tab_index = self.mw.add_console_tab(window, name)
+
+    # Initialize or reinitialize a graph window
+    def create_graph_window(self, name, uuid):
+        # Reuse the graph window if it's already open
+        if self.graph[uuid].instance:
+            window = self.graph[uuid].instance
+        else:
+            # Graph window is not open, create a new one
+            window = GraphWindow(self.mw, self.interface, name, self.graph[uuid])
+            self.graph[uuid].instance = window
+            self.graph[uuid].tab_index = self.mw.add_graphics_tab(window, name)
 
     def auto_sync_status(self, status):
         self.auto_sync_enabled = status

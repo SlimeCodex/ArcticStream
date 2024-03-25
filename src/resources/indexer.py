@@ -35,6 +35,10 @@ class GraphIndex:
         self.name = None
         self.service = None
         self.txm = None
-        self.txs = None
         self.instance = None
         self.tab_index = None
+
+
+class PlotIndex:
+    def __init__(self):
+        self.name = None

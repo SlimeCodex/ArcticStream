@@ -36,4 +36,18 @@ tooltips = {
         "reload_button": "Reload the selected firmware file.",
         "folder_button": "Select a firmware (.bin) file for update.",
     },
+    "graph_window": {
+        "start_button": "Start plotting the data.",
+        "stop_button": "Stop plotting the data.",
+        "clear_button": "Clear the plotted data.",
+        #"save_button": "Save the plot as an image file.",
+        #"export_button": "Export the plot data as a CSV file.",
+        #"settings_button": "Open the plot settings dialog.",
+        #"show_button": "Show/hide the plot window.",
+        #"save_settings": "Save the current plot settings.",
+        #"load_settings": "Load saved plot settings.",
+        "show_var_list_button": "Show/hide the variable list.",
+        "show_metadata": "Show/hide metadata of the plot.",
+        "device_list": "Select a device to plot data from.",
+    },
 }

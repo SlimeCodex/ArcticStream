@@ -69,6 +69,7 @@ class ConsoleWindow(QWidget):
 
         # Async window signals
         self.mw.accumulatorChanged.connect(self.toggle_accumulator)
+        self.acumulator_status = False
 
         # Async BLE Signals
         self.interface.linkReady.connect(self.cb_link_ready)
@@ -90,8 +91,6 @@ class ConsoleWindow(QWidget):
         self.total_bytes_received = 0
         self.last_received_timestamp = 0
         self.total_data_counter = 0
-
-        self.acumulator_status = False
 
         # Initialize variables for delta time calculation
         self.last_update_time = datetime.now()
@@ -149,6 +148,7 @@ class ConsoleWindow(QWidget):
             callback=self.analyze_data,
         )
         self.graph_button.setToolTip(self.tooltip_index["analyze_button"])
+        self.graph_button.setVisible(False) # Hide the analyze button by default
 
         # ToggleButton: Toggle show timestamp
         self.show_timestamp = ToggleButton(
@@ -218,10 +218,10 @@ class ConsoleWindow(QWidget):
         )
         self.text_edit_timestamp.horizontalScrollBar().setVisible(False)
         self.text_edit_timestamp.setLineWrapMode(QPlainTextEdit.NoWrap)
-        self.text_edit_timestamp.setVisible(False)
         self.text_edit_timestamp.verticalScrollBar().valueChanged.connect(
             self.sync_scroll
         )
+        self.text_edit_timestamp.setVisible(False)
 
         # QPlainTextEdit: Main text area for accumulating text (printf)
         self.text_edit_printf = QPlainTextEdit(self)
@@ -238,7 +238,7 @@ class ConsoleWindow(QWidget):
         self.graph_widget.setLayout(self.graph_area)
 
         # Hide the graph area by default
-        self.graph_widget.setVisible(False)     
+        self.graph_widget.setVisible(False)
 
         # QLineEdit: Main data meta info
         self.status_overlay = QLineEdit(self)
@@ -332,7 +332,7 @@ class ConsoleWindow(QWidget):
         self.scroll_locked = status
 
     # Reset the tab counter
-    def resetCounter(self):
+    def reset_tab_counter(self):
         self.data_tab_counter = 0
         self.update_tab_title()
 

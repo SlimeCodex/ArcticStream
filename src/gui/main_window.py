@@ -230,6 +230,12 @@ class MainWindow(SSCWindowProperties):
         self.themeChanged.emit(self.theme_status)  # Update theme for new tab
         return tabIndex
     
+    # Add a graphics tab dynamically
+    def add_graphics_tab(self, console_widget, title):
+        tabIndex = self.tab_widget.addTab(console_widget, title)
+        self.themeChanged.emit(self.theme_status)  # Update theme for new tab
+        return tabIndex
+    
     # Remove a tab 
     def remove_tab(self, index):
         if index is not None:
@@ -309,7 +315,7 @@ class MainWindow(SSCWindowProperties):
     def cb_tab_change(self, index):
         console = self.tab_widget.widget(index)
         if isinstance(console, ConsoleWindow):
-            console.resetCounter()
+            console.reset_tab_counter()
 
     # Callback connection success
     def cb_link_ready(self, connected):

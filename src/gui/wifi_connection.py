@@ -35,7 +35,8 @@ import resources.config as app_config
 from interfaces.base_interface import CommunicationInterface
 from gui.console_window import ConsoleWindow
 from gui.updater_window import UpdaterWindow
-from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex
+from gui.graph_window import GraphWindow
+from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex, GraphIndex
 import resources.patterns as patterns
 from resources.tooltips import tooltips
 
@@ -75,6 +76,7 @@ class WiFiConnectionWindow(QWidget):
         self.device_address = None
         self.updater = None  # Updater Index
         self.console = {}  # Console Index and Instance Storage
+        self.graph = {}  # Graph Index and Instance Storage
         self.backend = None  # Backend Index
 
         # Reconnection variables
@@ -239,6 +241,10 @@ class WiFiConnectionWindow(QWidget):
             service_uuid = service["ats"]
             console_name = service["name"]
 
+            # Check if the service is a console service
+            if patterns.UUID_WIFI_CONSOLE_ATS.match(service_uuid) is None:
+                continue
+
             # Save the service information if it's not already in the index
             if self.console.get(service_uuid) is None:
                 self.console[service_uuid] = ConsoleIndex()
@@ -251,6 +257,25 @@ class WiFiConnectionWindow(QWidget):
             # Add the console to the main window
             self.create_console_window(console_name, service_uuid)
 
+        # Register the graphics service
+        for service in retrieved_services:
+            service_uuid = service["ats"]
+            graph_name = service["name"]
+
+            # Check if the service is a graphics service
+            if patterns.UUID_WIFI_GRAPH_ATS.match(service_uuid) is None:
+                continue
+
+            # Save the service information if it's not already in the index
+            if self.graph.get(service_uuid) is None:
+                self.graph[service_uuid] = GraphIndex()
+                self.graph[service_uuid].name = graph_name
+                self.graph[service_uuid].service = service_uuid
+                self.graph[service_uuid].txm = service["txm"]
+
+            # Add the graph to the main window
+            self.create_graph_window(graph_name, service_uuid)
+
         # Enable data uplink
         self.enable_device_uplink()
 
@@ -262,6 +287,8 @@ class WiFiConnectionWindow(QWidget):
         parsed_services = []
         for module in modules:
             parts = module.split(",")
+
+            # Module for console services
             if len(parts) >= 5:
                 module_info = {
                     "name": parts[0],
@@ -271,6 +298,16 @@ class WiFiConnectionWindow(QWidget):
                     "rxm": parts[4],
                 }
                 parsed_services.append(module_info)
+
+            # Module for graphics services
+            if len(parts) == 3:
+                module_info = {
+                    "name": parts[0],
+                    "ats": parts[1],
+                    "txm": parts[2],
+                }
+                parsed_services.append(module_info)
+
         return parsed_services
 
     @qasync.asyncSlot()
@@ -354,6 +391,17 @@ class WiFiConnectionWindow(QWidget):
             window = ConsoleWindow(self.mw, self.interface, name, self.console[uuid])
             self.console[uuid].instance = window
             self.console[uuid].tab_index = self.mw.add_console_tab(window, name)
+
+    # Initialize or reinitialize a graph window
+    def create_graph_window(self, name, uuid):
+        # Reuse the graph window if it's already open
+        if self.graph[uuid].instance:
+            window = self.graph[uuid].instance
+        else:
+            # Graph window is not open, create a new one
+            window = GraphWindow(self.mw, self.interface, name, self.graph[uuid])
+            self.graph[uuid].instance = window
+            self.graph[uuid].tab_index = self.mw.add_graphics_tab(window, name)
 
     def auto_sync_status(self, status):
         self.auto_sync_enabled = status
