@@ -20,7 +20,7 @@ from datetime import datetime
 
 import qasync
 import pyqtgraph as pg
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QPoint
 from PyQt5.QtWidgets import (
     QLineEdit,
     QPushButton,
@@ -87,6 +87,7 @@ class GraphWindow(QWidget):
         self.plot_names = []  # Stores the names of the plots
         self.x_name = []  # Stores the names of the x axis
         self.y_name = []  # Stores the names of the y axis
+        self.textItems = {}  # Stores TextItems for each plot name
 
         self.colors = [
             (255, 0, 0),  # Red
@@ -490,6 +491,14 @@ class GraphWindow(QWidget):
         # Create a new PlotWidget
         plot_widget = pg.PlotWidget()
 
+        #plot_widget.setMouseTracking(True)  # Enable mouse tracking
+        #plot_widget.scene().sigMouseMoved.connect(lambda point: self.onPlotMouseMove(point, plot_name))
+        #self.textItems[plot_name] = pg.TextItem(anchor=(0, 0))
+        #plot_widget.addItem(self.textItems[plot_name])
+
+        # Disable autoscaling
+        plot_widget.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
+
         # Set antialiasing for smoother lines
         plot_widget.setAntialiasing(True)
         plot_widget.showGrid(x=True, y=True, alpha=0.3)
@@ -516,3 +525,50 @@ class GraphWindow(QWidget):
 
         # Add the frame with the PlotWidget to the layout
         self.main_graph_layout.addWidget(plot_frame)
+
+    # QT Events ----------------
+
+    def onPlotMouseMove(self, point, plot_name):
+        if plot_name in self.plot_widgets:
+            plot_widget = self.plot_widgets[plot_name]
+            plot_widget.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=False)
+
+            rect = plot_widget.viewRect()  # Get the view rectangle of the plot
+            viewPoint = plot_widget.plotItem.vb.mapSceneToView(point)
+
+            # Check if the viewPoint is within the plot boundaries
+            if not rect.contains(viewPoint):
+                return  # Ignore mouse movements outside the plot area
+
+            # Assume you have a dictionary to store TextItems for each plot
+            if plot_name not in self.textItems:
+                self.textItems[plot_name] = pg.TextItem(anchor=(0,0))
+                plot_widget.addItem(self.textItems[plot_name])
+
+            closest_dist = float('inf')
+            closest_index = -1
+            closest_series = None
+
+            # Iterate over each data series in the plot
+            for label, data_series in self.plot_data_sets[plot_name].items():
+                if len(data_series) > 0:
+                    # Calculate distances to all points
+                    distances = [(viewPoint - pg.Point(x, y)).length() for x, y in enumerate(data_series)]
+                    idx = np.argmin(distances)
+
+                    if distances[idx] < closest_dist:
+                        closest_dist = distances[idx]
+                        closest_index = idx
+                        closest_series = label
+
+            # Check if a close enough point is found
+            if closest_dist < 100:
+                # Update the TextItem to show the value
+                self.textItems[plot_name].setText(f"{closest_series}: {self.plot_data_sets[plot_name][closest_series][closest_index]}")
+                self.textItems[plot_name].setPos(viewPoint)
+            
+            # Draw a circle around the closest point
+            if closest_series is not None:
+                if hasattr(self, 'highlighted'):
+                    plot_widget.removeItem(self.highlighted)
+                self.highlighted = plot_widget.plot([closest_index], [self.plot_data_sets[plot_name][closest_series][closest_index]], symbol='o', symbolSize=10, symbolBrush=('r'))
