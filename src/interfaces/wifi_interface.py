@@ -76,9 +76,13 @@ class WiFiHandler(QObject, CommunicationInterface, metaclass=WiFiHandlerMeta):
         self.activity_timer = None
 
     # Network scanning method
-    async def scan_for_devices(self):
+    async def scan_for_devices(self, network=None):
         """Scans the network for devices and emits the discovered devices."""
 
+        # Update the network if a new one is provided
+        if network is not None:
+            self.network = network
+        
         # Check all potential valid IP addresses in the network
         ip_net = ipaddress.ip_network(self.network)
         all_hosts = [str(host) for host in ip_net.hosts()]

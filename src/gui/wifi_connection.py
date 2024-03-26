@@ -28,6 +28,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QStackedWidget,
+    QLineEdit,
 )
 from PyQt5.QtGui import QFont, QMovie
 
@@ -39,6 +40,7 @@ from gui.graph_window import GraphWindow
 from resources.indexer import ConsoleIndex, BackendIndex, UpdaterIndex, GraphIndex
 import resources.patterns as patterns
 from resources.tooltips import tooltips
+import helpers.theme_helper as th
 
 
 class WiFiConnectionWindow(QWidget):
@@ -86,6 +88,9 @@ class WiFiConnectionWindow(QWidget):
         self.reconnection_timer = QTimer()
         self.reconnection_timer.timeout.connect(self.attempt_reconnection)
 
+        # WiFi Variables
+        self.wifi_network = app_config.globals["wifi"]["network"]
+
         # Draw the layout
         self.setup_layout()
 
@@ -94,8 +99,34 @@ class WiFiConnectionWindow(QWidget):
     # Layout and Widgets
     def setup_layout(self):
         scan_button = QPushButton("Scan WiFi Network")
-        scan_button.setToolTip(self.tooltip_index["scan_button"])
+        scan_button.setToolTip(self.tooltip_index["wifi_scan"])
         scan_button.clicked.connect(self.wifi_scan)
+
+        # QLineEdit: Input text box to set IP network
+        self.line_edit_ip = QLineEdit(self)
+        self.line_edit_ip.setFont(QFont("Inconsolata"))
+        self.line_edit_ip.setFixedHeight(
+            app_config.globals["gui"]["default_line_edit_height"]
+        )
+        self.line_edit_ip.setStyleSheet(th.get_style("console_send_line_edit"))
+        self.line_edit_ip.setPlaceholderText(app_config.globals["wifi"]["network"])
+        self.line_edit_ip.setFixedWidth(130)
+        self.line_edit_ip.setAlignment(Qt.AlignCenter)
+        self.line_edit_ip.setToolTip(self.tooltip_index["wifi_network"])
+        self.line_edit_ip.setFocusPolicy(Qt.NoFocus)
+
+        # QLineEdit: Input text box to set IP network subnet
+        self.line_edit_ip_sub = QLineEdit(self)
+        self.line_edit_ip_sub.setFont(QFont("Inconsolata"))
+        self.line_edit_ip_sub.setFixedHeight(
+            app_config.globals["gui"]["default_line_edit_height"]
+        )
+        self.line_edit_ip_sub.setStyleSheet(th.get_style("console_send_line_edit"))
+        self.line_edit_ip_sub.setPlaceholderText(app_config.globals["wifi"]["network"].split('.')[2])
+        self.line_edit_ip_sub.setFixedWidth(50)
+        self.line_edit_ip_sub.setAlignment(Qt.AlignCenter)
+        self.line_edit_ip_sub.textChanged.connect(self.update_ip_address)
+        self.line_edit_ip_sub.setToolTip(self.tooltip_index["wifi_subnet"])
 
         connect_button = QPushButton("Connect")
         connect_button.setToolTip(self.tooltip_index["connect_button"])
@@ -132,8 +163,13 @@ class WiFiConnectionWindow(QWidget):
         self.stacked_widget = QStackedWidget(self)
         self.stacked_widget.addWidget(self.scan_device_list)
 
+        scan_layout = QHBoxLayout()
+        scan_layout.addWidget(scan_button)
+        scan_layout.addWidget(self.line_edit_ip)
+        scan_layout.addWidget(self.line_edit_ip_sub)
+
         connection_layout = QVBoxLayout()
-        connection_layout.addWidget(scan_button)
+        connection_layout.addLayout(scan_layout)
         connection_layout.addWidget(self.stacked_widget)
         connection_layout.addLayout(buttons_layout)
         connection_layout.addWidget(exit_button)
@@ -184,12 +220,30 @@ class WiFiConnectionWindow(QWidget):
             return
         self.scanning_event.set()
         self.scan_device_list.clear()
-        self.mw.debug_info("Scanning for WiFi devices ...")
+        self.mw.debug_info(f"Scanning for WiFi devices in {self.wifi_network} ...")
         self.show_loading_animation(True)
-        await self.interface.scan_for_devices()
+        await self.interface.scan_for_devices(self.wifi_network)
         self.show_loading_animation(False)
         self.scanning_event.clear()
         self.mw.debug_info("Scanning complete")
+
+    # Update the IP address
+    def update_ip_address(self):
+        sub = self.line_edit_ip_sub.text()
+        
+        if len(sub) > 3 or not sub.isdigit():
+            self.line_edit_ip_sub.clear()
+            return
+            
+        if int(sub) > 255:
+            self.line_edit_ip.setPlaceholderText("Invalid")
+            return
+        
+        defip = app_config.globals["wifi"]["network"].split(".")
+        newip = f"{defip[0]}.{defip[1]}.{sub}.{defip[3]}"
+        self.line_edit_ip.setPlaceholderText(newip)
+        self.line_edit_ip_sub.setPlaceholderText(sub)
+        self.wifi_network = newip
 
     # WiFi Connection
     @qasync.asyncSlot()

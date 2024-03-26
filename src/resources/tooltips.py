@@ -15,6 +15,9 @@ tooltips = {
         "disconnect_button": "Disconnect from the currently connected device.",
         "exit_button": "Close the connection window and return to the main interface selection.",
         "device_list": "Double-click on a device to connect.",
+        "wifi_scan": "Scan for available devices in the selected network.",
+        "wifi_network": "Insert the network CIDR to scan for devices.",
+        "wifi_subnet": "Insert the subnet mask to scan for devices.",
     },
     "console_window": {
         "start_button": "Start displaying data in the console.",
