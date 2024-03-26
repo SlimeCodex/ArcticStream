@@ -85,6 +85,8 @@ class GraphWindow(QWidget):
         self.plot_widgets = {}  # Stores PlotWidget for each plot name
         self.plot_frames = {}  # Stores QFrame for each plot name
         self.plot_names = []  # Stores the names of the plots
+        self.x_name = []  # Stores the names of the x axis
+        self.y_name = []  # Stores the names of the y axis
 
         self.colors = [
             (255, 0, 0),  # Red
@@ -308,31 +310,68 @@ class GraphWindow(QWidget):
                 frame_widget.setStyleSheet(th.get_style("frame_graphs"))
 
             for i, plot_widget in enumerate(self.plot_widgets.values()):
+                # Get the font and axis font
                 font = QFont(style_graph_dark.font, style_graph_dark.font_size_title)
+                font_axis = QFont(
+                    style_graph_dark.font, style_graph_dark.font_size_axis
+                )
+
+                # Set the background color
+                plot_widget.setBackground(style_graph_dark.background_color)
+
+                # Set the axis color and font
+                axis_bottom = plot_widget.getAxis('bottom')
+                axis_left = plot_widget.getAxis('left')
+
+                axis_color = QColor(style_graph_dark.axis_color)
+                axis_bottom.setLabel(self.x_name[i])
+                axis_bottom.setPen(axis_color)
+                axis_bottom.label.setFont(font_axis)
+
+                axis_left.setLabel(self.y_name[i])
+                axis_left.setPen(axis_color)
+                axis_left.label.setFont(font_axis)
+
+                # Set the title
                 plot_widget.setTitle(
-                    self.plot_names[i], color=style_graph_dark.text_color, font=font
+                    self.plot_names[i], color=style_graph_dark.text_color
                 )
                 item = plot_widget.getPlotItem()
                 item.titleLabel.item.setFont(font)
-                plot_widget.setBackground(style_graph_dark.background_color)
-                axis_color = QColor(style_graph_dark.axis_color)
-                plot_widget.getAxis("left").setPen(axis_color)
-                plot_widget.getAxis("bottom").setPen(axis_color)
+
         elif theme == "light":
             for frame_widget in self.plot_frames.values():
                 frame_widget.setStyleSheet(th.get_style("frame_graphs"))
-                
+
             for i, plot_widget in enumerate(self.plot_widgets.values()):
+                # Get the font and axis font
                 font = QFont(style_graph_light.font, style_graph_light.font_size_title)
+                font_axis = QFont(
+                    style_graph_dark.font, style_graph_light.font_size_axis
+                )
+
+                # Set the background color
+                plot_widget.setBackground(style_graph_light.background_color)
+
+                # Set the axis color and font
+                axis_bottom = plot_widget.getAxis('bottom')
+                axis_left = plot_widget.getAxis('left')
+
+                axis_color = QColor(style_graph_light.axis_color)
+                axis_bottom.setLabel(self.x_name[i])
+                axis_bottom.setPen(axis_color)
+                axis_bottom.label.setFont(font_axis)
+
+                axis_left.setLabel(self.y_name[i])
+                axis_left.setPen(axis_color)
+                axis_left.label.setFont(font_axis)
+
+                # Set the title
                 plot_widget.setTitle(
-                    self.plot_names[i], color=style_graph_light.text_color, font=font
+                    self.plot_names[i], color=style_graph_light.text_color
                 )
                 item = plot_widget.getPlotItem()
                 item.titleLabel.item.setFont(font)
-                plot_widget.setBackground(style_graph_light.background_color)
-                axis_color = QColor(style_graph_light.axis_color)
-                plot_widget.getAxis("left").setPen(axis_color)
-                plot_widget.getAxis("bottom").setPen(axis_color)
 
     def toggle_accumulator(self, status):
         self.acumulator_status = status
@@ -351,27 +390,6 @@ class GraphWindow(QWidget):
 
     ###########################################################################################################
 
-    def parse_sensor_data(self, data_str):
-        plot_data = {}
-        try:
-            # Split the string by colon first to separate different data-label pairs
-            parts = data_str.split(":")
-            plot_name = parts[0]  # The first part is the plot name
-
-            # Process remaining parts for data-label pairs
-            values = []
-            for part in parts[1:]:  # Skip the first part (plot name)
-                data, label = part.split(",")  # Split each pair by comma
-                value = float(data.strip())  # Convert data to float
-                label = label.strip()  # Clean up label
-                values.append((value, label))
-
-            plot_data[plot_name] = values
-        except ValueError as e:
-            print("Invalid data format in:", data_str)
-            print("Error:", e)
-        return plot_data
-
     def update_data(self, data, uplink=False):
         if self.console_paused or not data:
             return
@@ -386,19 +404,37 @@ class GraphWindow(QWidget):
         self.update_status()
         self.last_received_timestamp = datetime.now()
 
-        # Parse the sensor data
         sensor_data = self.parse_sensor_data(data)
-        for plot_name, values in sensor_data.items():
-            for i, data_point in enumerate(values):
-                self.update_plot(plot_name, data_point)
+        for plot_name, plot_data in sensor_data.items():
+            xa, ya = plot_data["axis_names"]
+            for data_point in plot_data["data_points"]:
+                self.update_plot(plot_name, xa, ya, data_point)
 
-    def update_plot(self, plot_name, data_point):
+    def parse_sensor_data(self, data_str):
+        plot_name, xa, ya, *data_structure = data_str.split(":")
+        sensor_readings = ":".join(data_structure).split(":")
+
+        data_values = []
+        data_labels = []
+        for reading in sensor_readings:
+            label, value = reading.split(",")
+            data_values.append(float(value.strip()))  # Assuming values are numerical
+            data_labels.append(label.strip())
+
+        # Store axis names along with data points
+        sensor_data = {plot_name: {"axis_names": (xa, ya), "data_points": []}}
+        for label, value in zip(data_labels, data_values):
+            sensor_data[plot_name]["data_points"].append((value, label))
+
+        return sensor_data
+
+    def update_plot(self, plot_name, axis_x, axis_y, data_point):
         max_points = 100  # Maximum number of data points per pen line
-        value, label = data_point  # Unpack the data point
+        value, label = data_point  # Unpack the value and label from the data point
 
         # Create a new plot if it doesn't exist
         if plot_name not in self.plot_widgets:
-            self.create_new_plot(plot_name)
+            self.create_new_plot(plot_name, axis_x, axis_y)
 
         # Add a legend if not present, this should be called before adding the new data point
         if (
@@ -450,12 +486,9 @@ class GraphWindow(QWidget):
                 self.plot_data_sets[plot_name][label]
             )
 
-    def create_new_plot(self, plot_name):
+    def create_new_plot(self, plot_name, axis_x, axis_y):
         # Create a new PlotWidget
         plot_widget = pg.PlotWidget()
-        
-        plot_widget.getAxis("left").setTickFont(QFont(style_graph_dark.font, style_graph_dark.font_size_axis))
-        plot_widget.getAxis("bottom").setTickFont(QFont(style_graph_dark.font, style_graph_dark.font_size_axis))
 
         # Set antialiasing for smoother lines
         plot_widget.setAntialiasing(True)
@@ -468,6 +501,8 @@ class GraphWindow(QWidget):
 
         # Customize fonts
         self.plot_names.append(plot_name)
+        self.x_name.append(axis_x)
+        self.y_name.append(axis_y)
 
         # Create a frame or container for the plot
         plot_frame = QFrame(self)
@@ -475,11 +510,9 @@ class GraphWindow(QWidget):
         plot_frame.layout().addWidget(plot_widget)
         plot_frame.setStyleSheet(th.get_style("frame_graphs"))
         self.plot_frames[plot_name] = plot_frame
-        
+
         # Update the theme for the new plot
         self.cb_update_theme(self.mw.theme_status)
 
         # Add the frame with the PlotWidget to the layout
-        self.main_graph_layout.addWidget(
-            plot_frame
-        )
+        self.main_graph_layout.addWidget(plot_frame)
