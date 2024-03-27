@@ -59,6 +59,14 @@ custom_bar_widget = """
     }
 """
 
+plain_color_widget = """
+    QWidget {
+        background-color: #1e1e1e;
+        border: none;
+        border-radius: 4px;
+    }
+"""
+
 # Push buttons ----------------------------
 
 default_button = """

@@ -79,6 +79,7 @@ class GraphWindow(QWidget):
         self.total_bytes_received = 0
         self.last_received_timestamp = 0
         self.total_data_counter = 0
+        self.eror_data_counter = 0
 
         self.plot_data_sets = {}  # Stores data for each plot line by plot name
         self.plot_lines = {}  # Stores the actual plot line objects by plot name
@@ -88,6 +89,8 @@ class GraphWindow(QWidget):
         self.x_name = []  # Stores the names of the x axis
         self.y_name = []  # Stores the names of the y axis
         self.textItems = {}  # Stores TextItems for each plot name
+        self.plot_buttons = {}  # Stores the buttons for each plot name
+        self.plot_buttons_vis = {}  # Stores the visibility buttons for each plot name
 
         self.colors = [
             (255, 0, 0),  # Red
@@ -96,6 +99,10 @@ class GraphWindow(QWidget):
             (255, 255, 0),  # Yellow
             (255, 0, 255),  # Magenta
             (0, 255, 255),  # Cyan
+            (255, 128, 0),  # Orange
+            (128, 0, 255),  # Purple
+            (255, 0, 128),  # Pink
+            (128, 255, 0),  # Lime
         ]
 
         # Initialize variables for delta time calculation
@@ -138,7 +145,7 @@ class GraphWindow(QWidget):
             size=app_config.globals["gui"]["default_button_size"],
             style=th.get_style("default_button"),
             callback=self.toggle_var_list,
-            toggled=True,
+            toggled=False,
         )
         self.show_var_list_button.setToolTip(self.tooltip_index["show_var_list_button"])
 
@@ -165,13 +172,8 @@ class GraphWindow(QWidget):
         self.status_overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.update_status()
 
-        # QListWidget: Main data console
-        self.plot_var_list = QListWidget()
-        self.plot_var_list.setToolTip(self.tooltip_index["device_list"])
-        self.plot_var_list.setFont(QFont("Inconsolata"))
-        self.plot_var_list.setSelectionMode(QListWidget.MultiSelection)
-        self.plot_var_list.setVisible(False)
-        # self.plot_var_list.itemDoubleClicked.connect(self.uart_connect)
+        # QVBoxLayout for vertically stacked buttons
+        self.button_layout = QVBoxLayout()
 
     def draw_layout(self):
         # Layout for buttons
@@ -182,17 +184,33 @@ class GraphWindow(QWidget):
         buttons_layout.addWidget(self.clear_button)
         buttons_layout.addWidget(self.toggle_status_bar_button)
 
-        # Splitter for graph and var list
-        self.main_graph_layout = QSplitter(Qt.Horizontal)
-        self.main_graph_layout.addWidget(self.plot_var_list)
-        self.main_graph_layout.setCollapsible(0, False)
-        self.main_graph_layout.setSizes([120, 480])
+        # Layout for the plot buttons
+        self.plot_var_list_layout = QVBoxLayout()
+
+        # Main graph layout
+        self.main_graph_layout = QVBoxLayout()
+        self.main_graph_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Container for the plot buttons
+        self.plot_button_container = QWidget()
+        self.plot_button_container.setStyleSheet(th.get_style("plain_color_widget"))
+        self.plot_button_container.setLayout(self.plot_var_list_layout)
+
+        # Container for the graph plots
+        plot_stack_container = QWidget()
+        plot_stack_container.setLayout(self.main_graph_layout)
+
+        # Splitter for plot buttons and the main graph
+        main_splitter = QSplitter(Qt.Horizontal)
+        main_splitter.addWidget(self.plot_button_container)  # Add the buttons container
+        main_splitter.addWidget(plot_stack_container)  # This holds the plots
+        main_splitter.setSizes([150, 300])  # Set the initial sizes
 
         # Main layout
         graph_win_layout = QVBoxLayout()
         graph_win_layout.addLayout(buttons_layout)
         graph_win_layout.addWidget(self.status_overlay)
-        graph_win_layout.addWidget(self.main_graph_layout)
+        graph_win_layout.addWidget(main_splitter)  # Add the main splitter to the layout
 
         # Set the layout
         self.setLayout(graph_win_layout)
@@ -207,8 +225,8 @@ class GraphWindow(QWidget):
             f"Bytes: {readable_bytes} | "
             f"Delta: {self.delta_time} | "
             f"Freq: {self.package_frequency} | "
-            f"Last: {self.last_received_timestamp.strftime(
-                '%H:%M:%S') if self.last_received_timestamp else 'N/A'}"
+            f"Last: {self.last_received_timestamp.strftime('%H:%M:%S') if self.last_received_timestamp else 'N/A'} | "
+            f"Errors: {self.eror_data_counter}"
         )
 
         self.status_overlay.setText(status_text)
@@ -290,6 +308,7 @@ class GraphWindow(QWidget):
         self.total_bytes_received = 0
         self.last_received_timestamp = 0
         self.total_data_counter = 0
+        self.eror_data_counter = 0
         self.update_status()
 
     def cb_update_theme(self, theme):
@@ -297,14 +316,32 @@ class GraphWindow(QWidget):
         self.show_var_list_button.setStyleSheet(th.get_style("default_button"))
         self.toggle_status_bar_button.setStyleSheet(th.get_style("default_button"))
         self.status_overlay.setStyleSheet(th.get_style("console_status_line_edit"))
+        self.plot_button_container.setStyleSheet(th.get_style("plain_color_widget"))
+
+        for i, plot_widget in enumerate(self.plot_widgets.values()):
+            self.plot_buttons[self.plot_names[i]].setStyleSheet(
+                th.get_style("default_button")
+            )
+            if self.plot_buttons_vis[self.plot_names[i]].get_state():
+                self.plot_buttons_vis[self.plot_names[i]].setStyleSheet(
+                    "color: #ffffff; background-color: rgba(0, 100, 0, 128)"
+                )
+            else:
+                self.plot_buttons_vis[self.plot_names[i]].setStyleSheet(
+                    th.get_style("default_button")
+                )
 
         # Update special widgets by theme
         if theme == "dark":
             self.show_var_list_button.changeIconColor("#ffffff")
             self.toggle_status_bar_button.changeIconColor("#ffffff")
+            for i, plot_widget in enumerate(self.plot_widgets.values()):
+                self.plot_buttons_vis[self.plot_names[i]].changeIconColor("#ffffff")
         elif theme == "light":
             self.show_var_list_button.changeIconColor("#000000")
             self.toggle_status_bar_button.changeIconColor("#000000")
+            for i, plot_widget in enumerate(self.plot_widgets.values()):
+                self.plot_buttons_vis[self.plot_names[i]].changeIconColor("#000000")
 
         if theme == "dark":
             for frame_widget in self.plot_frames.values():
@@ -321,8 +358,8 @@ class GraphWindow(QWidget):
                 plot_widget.setBackground(style_graph_dark.background_color)
 
                 # Set the axis color and font
-                axis_bottom = plot_widget.getAxis('bottom')
-                axis_left = plot_widget.getAxis('left')
+                axis_bottom = plot_widget.getAxis("bottom")
+                axis_left = plot_widget.getAxis("left")
 
                 axis_color = QColor(style_graph_dark.axis_color)
                 axis_bottom.setLabel(self.x_name[i])
@@ -355,8 +392,8 @@ class GraphWindow(QWidget):
                 plot_widget.setBackground(style_graph_light.background_color)
 
                 # Set the axis color and font
-                axis_bottom = plot_widget.getAxis('bottom')
-                axis_left = plot_widget.getAxis('left')
+                axis_bottom = plot_widget.getAxis("bottom")
+                axis_left = plot_widget.getAxis("left")
 
                 axis_color = QColor(style_graph_light.axis_color)
                 axis_bottom.setLabel(self.x_name[i])
@@ -384,12 +421,48 @@ class GraphWindow(QWidget):
         super().resizeEvent(event)
 
     def toggle_var_list(self, status):
-        self.plot_var_list.hide() if status else self.plot_var_list.show()
+        self.plot_button_container.hide() if status else self.plot_button_container.show()
 
     def toggle_status_bar(self, status):
         self.status_overlay.hide() if status else self.status_overlay.show()
 
     ###########################################################################################################
+
+    def display_plot(self, plot_name):
+
+        # Disables all visibility buttons
+        for button in self.plot_buttons_vis.values():
+            if button.get_state():
+                button.disable()
+                button.setStyleSheet(th.get_style("default_button"))
+
+        # Enable this button
+        self.plot_buttons_vis[plot_name].enable()
+        self.plot_buttons_vis[plot_name].setStyleSheet("color: #ffffff; background-color: rgba(0, 100, 0, 128)")
+
+        # Hide or show the plot selected, hide the rest
+        for name, plot_frame in self.plot_frames.items():
+            if name == plot_name:
+                plot_frame.show()
+            else:
+                plot_frame.hide()
+
+    def display_plot_vis(self, plot_name):
+
+        if self.plot_buttons_vis[plot_name].get_state():
+            self.plot_buttons_vis[plot_name].setStyleSheet(
+                "color: #ffffff; background-color: rgba(0, 100, 0, 128)"
+            )
+        else:
+            self.plot_buttons_vis[plot_name].setStyleSheet(
+                th.get_style("default_button")
+            )
+
+        # Just hide or show the plot selected
+        if self.plot_frames[plot_name].isVisible():
+            self.plot_frames[plot_name].hide()
+        else:
+            self.plot_frames[plot_name].show()
 
     def update_data(self, data, uplink=False):
         if self.console_paused or not data:
@@ -412,20 +485,27 @@ class GraphWindow(QWidget):
                 self.update_plot(plot_name, xa, ya, data_point)
 
     def parse_sensor_data(self, data_str):
-        plot_name, xa, ya, *data_structure = data_str.split(":")
-        sensor_readings = ":".join(data_structure).split(":")
+        try:
+            plot_name, xa, ya, *data_structure = data_str.split(":")
+            sensor_readings = ":".join(data_structure).split(":")
 
-        data_values = []
-        data_labels = []
-        for reading in sensor_readings:
-            label, value = reading.split(",")
-            data_values.append(float(value.strip()))  # Assuming values are numerical
-            data_labels.append(label.strip())
+            data_values = []
+            data_labels = []
+            for reading in sensor_readings:
+                label, value = reading.split(",")
+                data_values.append(
+                    float(value.strip())
+                )  # Assuming values are numerical
+                data_labels.append(label.strip())
 
-        # Store axis names along with data points
-        sensor_data = {plot_name: {"axis_names": (xa, ya), "data_points": []}}
-        for label, value in zip(data_labels, data_values):
-            sensor_data[plot_name]["data_points"].append((value, label))
+            # Store axis names along with data points
+            sensor_data = {plot_name: {"axis_names": (xa, ya), "data_points": []}}
+            for label, value in zip(data_labels, data_values):
+                sensor_data[plot_name]["data_points"].append((value, label))
+        except Exception as e:
+            print(f"Error parsing sensor data: {e}")
+            self.eror_data_counter += 1
+            sensor_data = {}
 
         return sensor_data
 
@@ -491,10 +571,10 @@ class GraphWindow(QWidget):
         # Create a new PlotWidget
         plot_widget = pg.PlotWidget()
 
-        #plot_widget.setMouseTracking(True)  # Enable mouse tracking
-        #plot_widget.scene().sigMouseMoved.connect(lambda point: self.onPlotMouseMove(point, plot_name))
-        #self.textItems[plot_name] = pg.TextItem(anchor=(0, 0))
-        #plot_widget.addItem(self.textItems[plot_name])
+        # plot_widget.setMouseTracking(True)  # Enable mouse tracking
+        # plot_widget.scene().sigMouseMoved.connect(lambda point: self.onPlotMouseMove(point, plot_name))
+        # self.textItems[plot_name] = pg.TextItem(anchor=(0, 0))
+        # plot_widget.addItem(self.textItems[plot_name])
 
         # Disable autoscaling
         plot_widget.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
@@ -513,6 +593,40 @@ class GraphWindow(QWidget):
         self.x_name.append(axis_x)
         self.y_name.append(axis_y)
 
+        toggle_button = ToggleButton(
+            self,
+            icons=(
+                f"{self.icons_dir}/visibility_off_FILL0_wght400_GRAD0_opsz24.svg",
+                f"{self.icons_dir}/visibility_FILL0_wght400_GRAD0_opsz24.svg",
+            ),
+            size=app_config.globals["gui"]["default_button_size"],
+            style=th.get_style("default_button"),
+            callback=(lambda: self.display_plot_vis(plot_name)),
+            return_state=False,  # Blind callback
+            toggled=False,
+        )
+        toggle_button.setToolTip(self.tooltip_index["show_button_vis"])
+        self.plot_buttons_vis[plot_name] = toggle_button
+
+        # Add a push button to the list area
+        show_button = QPushButton(plot_name)
+        show_button.setToolTip(self.tooltip_index["show_button"])
+        show_button.setStyleSheet(th.get_style("default_button"))
+        show_button.clicked.connect(lambda: self.display_plot(plot_name))
+        self.plot_buttons[plot_name] = show_button
+
+        # Create a layout for the buttons
+        self.sub_button_layout = QHBoxLayout()
+        self.sub_button_layout.addWidget(toggle_button)
+        self.sub_button_layout.addWidget(show_button)
+
+        # Remove any existing stretch and reapply it to ensure buttons are always at the top
+        if self.plot_var_list_layout.count() > 0:
+            self.plot_var_list_layout.takeAt(self.plot_var_list_layout.count() - 1)
+
+        self.plot_var_list_layout.addLayout(self.sub_button_layout)
+        self.plot_var_list_layout.addStretch()  # Push the buttons to the top
+
         # Create a frame or container for the plot
         plot_frame = QFrame(self)
         plot_frame.setLayout(QVBoxLayout())
@@ -525,6 +639,9 @@ class GraphWindow(QWidget):
 
         # Add the frame with the PlotWidget to the layout
         self.main_graph_layout.addWidget(plot_frame)
+        
+        # Display the first plot created
+        self.display_plot(self.plot_names[0])
 
     # QT Events ----------------
 
@@ -542,10 +659,10 @@ class GraphWindow(QWidget):
 
             # Assume you have a dictionary to store TextItems for each plot
             if plot_name not in self.textItems:
-                self.textItems[plot_name] = pg.TextItem(anchor=(0,0))
+                self.textItems[plot_name] = pg.TextItem(anchor=(0, 0))
                 plot_widget.addItem(self.textItems[plot_name])
 
-            closest_dist = float('inf')
+            closest_dist = float("inf")
             closest_index = -1
             closest_series = None
 
@@ -553,7 +670,10 @@ class GraphWindow(QWidget):
             for label, data_series in self.plot_data_sets[plot_name].items():
                 if len(data_series) > 0:
                     # Calculate distances to all points
-                    distances = [(viewPoint - pg.Point(x, y)).length() for x, y in enumerate(data_series)]
+                    distances = [
+                        (viewPoint - pg.Point(x, y)).length()
+                        for x, y in enumerate(data_series)
+                    ]
                     idx = np.argmin(distances)
 
                     if distances[idx] < closest_dist:
@@ -564,11 +684,19 @@ class GraphWindow(QWidget):
             # Check if a close enough point is found
             if closest_dist < 100:
                 # Update the TextItem to show the value
-                self.textItems[plot_name].setText(f"{closest_series}: {self.plot_data_sets[plot_name][closest_series][closest_index]}")
+                self.textItems[plot_name].setText(
+                    f"{closest_series}: {self.plot_data_sets[plot_name][closest_series][closest_index]}"
+                )
                 self.textItems[plot_name].setPos(viewPoint)
-            
+
             # Draw a circle around the closest point
             if closest_series is not None:
-                if hasattr(self, 'highlighted'):
+                if hasattr(self, "highlighted"):
                     plot_widget.removeItem(self.highlighted)
-                self.highlighted = plot_widget.plot([closest_index], [self.plot_data_sets[plot_name][closest_series][closest_index]], symbol='o', symbolSize=10, symbolBrush=('r'))
+                self.highlighted = plot_widget.plot(
+                    [closest_index],
+                    [self.plot_data_sets[plot_name][closest_series][closest_index]],
+                    symbol="o",
+                    symbolSize=10,
+                    symbolBrush=("r"),
+                )

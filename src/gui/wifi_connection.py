@@ -187,6 +187,8 @@ class WiFiConnectionWindow(QWidget):
 
     # Update the theme of the loading animation
     def cb_update_theme(self, theme):
+        self.line_edit_ip.setStyleSheet(th.get_style("console_send_line_edit"))
+        self.line_edit_ip_sub.setStyleSheet(th.get_style("console_send_line_edit"))
         if theme == "dark":
             self.animation_label.setMovie(self.movie_dark)
         if theme == "light":

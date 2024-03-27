@@ -16,6 +16,7 @@ class ToggleButton(QPushButton):
         style=None,
         callback=None,
         toggled=False,
+        return_state=True,
     ):
         super().__init__(parent)
         self.icons = icons
@@ -23,6 +24,7 @@ class ToggleButton(QPushButton):
         self.callback = callback
         self.size = size
         self.rendered_icons = [None, None]
+        self.return_state = return_state
 
         if size is not None:
             self.setFixedSize(*self.size)
@@ -46,7 +48,21 @@ class ToggleButton(QPushButton):
         self.toggled = not self.toggled
         self.setupButton()
         if self.callback:
-            self.callback(self.toggled)
+            if self.return_state:
+                self.callback(self.toggled)
+            else:
+                self.callback()
+    
+    def get_state(self):
+        return self.toggled
+    
+    def disable(self):
+        self.toggled = False
+        self.setupButton()
+    
+    def enable(self):
+        self.toggled = True
+        self.setupButton()
 
     def manual_toggle(self):
         self.toggled = not self.toggled

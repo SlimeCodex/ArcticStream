@@ -49,8 +49,10 @@ tooltips = {
         #"show_button": "Show/hide the plot window.",
         #"save_settings": "Save the current plot settings.",
         #"load_settings": "Load saved plot settings.",
-        "show_var_list_button": "Show/hide the variable list.",
+        "show_var_list_button": "Show/hide the graph selection list.",
         "show_metadata": "Show/hide metadata of the plot.",
         "device_list": "Select a device to plot data from.",
+        "show_button": "Select a single graph to show.",
+        "show_button_vis": "Show/hide the selected graph.",
     },
 }
